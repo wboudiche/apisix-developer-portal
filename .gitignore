@@ -1,0 +1,12 @@
+# build / env
+/bin/
+*.env
+.env
+# go
+/vendor/
+# tooling
+.superpowers/
+.tmp/
+node_modules/
+# keep the design mockup and docs
+!index.html
