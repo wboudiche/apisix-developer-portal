@@ -108,6 +108,11 @@ func (s *Service) ReprovisionPlan(ctx context.Context, planID int64) error {
 // Subscribe records a PENDING subscription and issues the application's gateway
 // credential, but performs NO provisioning — the key will not pass the gateway
 // until an admin approves the subscription. Returns the credential.
+//
+// Re-subscribing to a product the app is already subscribed to resets the row to
+// pending (e.g. to request a plan change). Any existing gateway grant from a prior
+// approval stays live until the admin approves the new request; the route
+// whitelist is rebuilt only on Approve/Reject/Unsubscribe, never on Subscribe.
 func (s *Service) Subscribe(ctx context.Context, appID, productID, planID int64) (Credential, error) {
 	if _, err := s.store.GetProduct(ctx, productID); err != nil {
 		return Credential{}, err
