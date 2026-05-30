@@ -38,6 +38,9 @@ type Store interface {
 	// ConsumersForProduct returns the consumer usernames of every application
 	// currently subscribed to the product (used to rebuild the route whitelist).
 	ConsumersForProduct(ctx context.Context, productID int64) ([]string, error)
+	// ConsumersForPlan returns the credential (consumer identity + key) of every
+	// application with an active subscription on the plan.
+	ConsumersForPlan(ctx context.Context, planID int64) ([]Credential, error)
 }
 
 func consumerName(appID int64) string { return fmt.Sprintf("app_%d", appID) }
@@ -73,6 +76,26 @@ func (s *Service) ReprovisionRoute(ctx context.Context, productID int64) error {
 // DeprovisionRoute removes the product's APISIX route entirely.
 func (s *Service) DeprovisionRoute(ctx context.Context, productID int64) error {
 	return s.gw.DeleteRoute(ctx, RouteID(productID))
+}
+
+// ReprovisionPlan applies the plan's current rate limits to every active
+// subscriber's APISIX consumer. Used when an admin edits a plan's limits.
+func (s *Service) ReprovisionPlan(ctx context.Context, planID int64) error {
+	plan, err := s.store.GetPlan(ctx, planID)
+	if err != nil {
+		return err
+	}
+	consumers, err := s.store.ConsumersForPlan(ctx, planID)
+	if err != nil {
+		return err
+	}
+	for _, c := range consumers {
+		if err := s.gw.EnsureConsumer(ctx, c.ConsumerUsername, c.APIKey,
+			apisix.RateLimit{Count: plan.Count, WindowSeconds: plan.WindowSeconds}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Subscribe provisions APISIX and persists the subscription, returning the app's credential.

@@ -95,6 +95,29 @@ func (r *Repo) ConsumersForProduct(ctx context.Context, productID int64) ([]stri
 	return out, rows.Err()
 }
 
+// ConsumersForPlan returns the credentials of every application with an active
+// subscription on the plan (used to re-apply new rate limits to live consumers).
+func (r *Repo) ConsumersForPlan(ctx context.Context, planID int64) ([]Credential, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT c.application_id, c.api_key, c.consumer_username
+		 FROM subscriptions s
+		 JOIN credentials c ON c.application_id = s.application_id
+		 WHERE s.plan_id=$1 AND s.status='active'`, planID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Credential
+	for rows.Next() {
+		var c Credential
+		if err := rows.Scan(&c.ApplicationID, &c.APIKey, &c.ConsumerUsername); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 var _ Store = (*Repo)(nil)
 
 // GetCredential returns the application's credential, or ErrNotFound if it has none yet.
