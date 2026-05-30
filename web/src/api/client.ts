@@ -1,4 +1,4 @@
-import type { Product, AuthResponse, ProductQuery } from './types'
+import type { Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail } from './types'
 
 async function parse<T>(res: Response): Promise<T> {
   const body = await res.json().catch(() => ({}))
@@ -34,4 +34,39 @@ export async function login(email: string, password: string): Promise<AuthRespon
 
 export async function register(email: string, password: string, name: string): Promise<AuthResponse> {
   return parse<AuthResponse>(await postJSON('/api/auth/register', { email, password, name }))
+}
+
+function authHeaders(token: string): HeadersInit {
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+}
+
+export async function getPlans(): Promise<Plan[]> {
+  return parse<Plan[]>(await fetch('/api/plans'))
+}
+
+export async function getApplications(token: string): Promise<Application[]> {
+  return parse<Application[]>(await fetch('/api/applications', { headers: authHeaders(token) }))
+}
+
+export async function createApplication(token: string, name: string, description: string): Promise<Application> {
+  return parse<Application>(await fetch('/api/applications', {
+    method: 'POST', headers: authHeaders(token), body: JSON.stringify({ name, description }),
+  }))
+}
+
+export async function getApplicationDetail(token: string, appId: number): Promise<AppDetail> {
+  return parse<AppDetail>(await fetch(`/api/applications/${appId}`, { headers: authHeaders(token) }))
+}
+
+export async function subscribe(token: string, appId: number, productId: number, planId: number): Promise<Credential> {
+  return parse<Credential>(await fetch(`/api/applications/${appId}/subscriptions`, {
+    method: 'POST', headers: authHeaders(token), body: JSON.stringify({ productId, planId }),
+  }))
+}
+
+export async function unsubscribe(token: string, appId: number, productId: number): Promise<void> {
+  const res = await fetch(`/api/applications/${appId}/subscriptions/${productId}`, {
+    method: 'DELETE', headers: authHeaders(token),
+  })
+  if (!res.ok) throw new Error(`unsubscribe failed (${res.status})`)
 }

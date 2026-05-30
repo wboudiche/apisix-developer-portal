@@ -29,3 +29,39 @@ export interface ProductQuery {
   tag?: string
   sort?: 'alpha' | 'rating'
 }
+
+export interface Plan {
+  id: number
+  name: string
+  rateLimit: number
+  windowSeconds: number
+}
+
+export interface Application {
+  id: number
+  ownerId: number
+  name: string
+  description: string
+  createdAt: string
+}
+
+export interface Credential {
+  applicationId: number
+  apiKey: string
+  consumerUsername: string
+}
+
+export interface SubscriptionView {
+  productId: number
+  productName: string
+  version: string
+  contextPath: string
+  planId: number
+  planName: string
+}
+
+export interface AppDetail {
+  apiKey: string
+  consumerUsername: string
+  subscriptions: SubscriptionView[]
+}
