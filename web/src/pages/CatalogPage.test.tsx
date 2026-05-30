@@ -37,4 +37,11 @@ describe('CatalogPage', () => {
     await userEvent.type(screen.getByLabelText('Rechercher'), 'pizza')
     await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ search: 'pizza' })))
   })
+
+  it('shows an error message when loading fails', async () => {
+    vi.spyOn(api, 'getProducts').mockRejectedValue(new Error('network down'))
+    renderPage()
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/Impossible de charger/i))
+    expect(screen.queryAllByTestId('api-card')).toHaveLength(0)
+  })
 })

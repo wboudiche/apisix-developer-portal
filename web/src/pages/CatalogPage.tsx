@@ -11,12 +11,15 @@ export function CatalogPage() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     let alive = true
     setLoading(true)
+    setError('')
     getProducts({ search: search || undefined, category: category || undefined })
       .then(p => { if (alive) setProducts(p) })
+      .catch(() => { if (alive) { setProducts([]); setError('Impossible de charger le catalogue. Vérifiez que le service est démarré.') } })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [search, category])
@@ -35,10 +38,11 @@ export function CatalogPage() {
         <main className="content">
           <div className="chead"><div className="titlewrap"><h1>Catalogue d'API</h1>
             <p className="rescount"><b>{products.length}</b> API{products.length > 1 ? 's' : ''}</p></div></div>
+          {error && <p className="autherr" role="alert">{error}</p>}
           <div className="grid">
             {products.map(p => <ApiCard key={p.id} p={p} />)}
           </div>
-          {!loading && products.length === 0 && <p className="rescount">Aucune API ne correspond.</p>}
+          {!loading && !error && products.length === 0 && <p className="rescount">Aucune API ne correspond.</p>}
         </main>
       </div>
     </>
