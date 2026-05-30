@@ -8,6 +8,7 @@ type Config struct {
 	JWTSecret      string
 	APISIXAdminURL string
 	APISIXAdminKey string
+	AdminEmail     string
 }
 
 func get(key, def string) string {
@@ -25,5 +26,6 @@ func Load() Config {
 		JWTSecret:      get("JWT_SECRET", "dev-secret-change-me"),
 		APISIXAdminURL: get("APISIX_ADMIN_URL", "http://localhost:19180"),
 		APISIXAdminKey: get("APISIX_ADMIN_KEY", "edd1c9f034335f136f87ad84b625c8f1"),
+		AdminEmail:     get("ADMIN_EMAIL", "admin@portal.local"),
 	}
 }
