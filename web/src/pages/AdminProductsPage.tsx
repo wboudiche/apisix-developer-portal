@@ -27,12 +27,11 @@ export function AdminProductsPage() {
   async function onSubmit() {
     if (!token) return
     setErr('')
-    const payload: AdminProduct = { ...form, tags: form.tags }
     try {
-      if (editingId == null) await adminCreateProduct(token, payload)
-      else await adminUpdateProduct(token, editingId, payload)
+      if (editingId == null) await adminCreateProduct(token, form)
+      else await adminUpdateProduct(token, editingId, form)
       setForm(empty); setEditingId(null); reload()
-    } catch (e) { setErr(e instanceof Error ? e.message : "Echec de l'enregistrement.") }
+    } catch (e) { setErr(e instanceof Error ? e.message : "Échec de l'enregistrement.") }
   }
 
   function onEdit(p: AdminProduct) { setEditingId(p.id ?? null); setForm({ ...p }) }
@@ -41,7 +40,7 @@ export function AdminProductsPage() {
     if (!token || p.id == null) return
     setErr('')
     try { await adminDeleteProduct(token, p.id); reload() }
-    catch (e) { setErr(e instanceof Error ? e.message : 'Echec de la suppression.') }
+    catch (e) { setErr(e instanceof Error ? e.message : 'Échec de la suppression.') }
   }
 
   return (
