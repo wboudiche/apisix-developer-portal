@@ -132,14 +132,15 @@ func (r *Repo) GetCredential(ctx context.Context, appID int64) (Credential, erro
 	return c, err
 }
 
-// SubscriptionsForApp returns the application's active subscriptions for display.
+// SubscriptionsForApp returns the application's subscriptions for display,
+// including pending/rejected ones so the developer can see their status.
 func (r *Repo) SubscriptionsForApp(ctx context.Context, appID int64) ([]SubscriptionView, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT s.api_product_id, p.name, p.version, p.context_path, s.plan_id, pl.name
+		`SELECT s.api_product_id, p.name, p.version, p.context_path, s.plan_id, pl.name, s.status
 		 FROM subscriptions s
 		 JOIN api_products p ON p.id = s.api_product_id
 		 JOIN plans pl ON pl.id = s.plan_id
-		 WHERE s.application_id=$1 AND s.status='active'
+		 WHERE s.application_id=$1
 		 ORDER BY p.name`, appID)
 	if err != nil {
 		return nil, err
@@ -148,7 +149,58 @@ func (r *Repo) SubscriptionsForApp(ctx context.Context, appID int64) ([]Subscrip
 	var out []SubscriptionView
 	for rows.Next() {
 		var v SubscriptionView
-		if err := rows.Scan(&v.ProductID, &v.ProductName, &v.Version, &v.ContextPath, &v.PlanID, &v.PlanName); err != nil {
+		if err := rows.Scan(&v.ProductID, &v.ProductName, &v.Version, &v.ContextPath, &v.PlanID, &v.PlanName, &v.Status); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+// GetSubscription returns the subscription's identity + status, or ErrNotFound.
+func (r *Repo) GetSubscription(ctx context.Context, subID int64) (SubscriptionRecord, error) {
+	var s SubscriptionRecord
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, application_id, api_product_id, plan_id, status FROM subscriptions WHERE id=$1`, subID,
+	).Scan(&s.ID, &s.AppID, &s.ProductID, &s.PlanID, &s.Status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return SubscriptionRecord{}, ErrNotFound
+	}
+	return s, err
+}
+
+// SetSubscriptionStatus transitions a subscription to the given status.
+func (r *Repo) SetSubscriptionStatus(ctx context.Context, subID int64, status string) error {
+	tag, err := r.pool.Exec(ctx, `UPDATE subscriptions SET status=$2 WHERE id=$1`, subID, status)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// AdminSubscriptions lists subscriptions for the admin queue, newest first. An
+// empty statusFilter returns all rows; otherwise only those with that status.
+func (r *Repo) AdminSubscriptions(ctx context.Context, statusFilter string) ([]AdminSubscriptionView, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT s.id, a.name, u.email, p.name, p.version, pl.name, s.status, s.created_at
+		 FROM subscriptions s
+		 JOIN applications a ON a.id = s.application_id
+		 JOIN users u ON u.id = a.owner_id
+		 JOIN api_products p ON p.id = s.api_product_id
+		 JOIN plans pl ON pl.id = s.plan_id
+		 WHERE ($1 = '' OR s.status = $1)
+		 ORDER BY s.created_at DESC`, statusFilter)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AdminSubscriptionView
+	for rows.Next() {
+		var v AdminSubscriptionView
+		if err := rows.Scan(&v.ID, &v.ApplicationName, &v.OwnerEmail, &v.ProductName, &v.Version, &v.PlanName, &v.Status, &v.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, v)

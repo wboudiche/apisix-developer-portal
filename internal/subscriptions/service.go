@@ -41,6 +41,13 @@ type Store interface {
 	// ConsumersForPlan returns the credential (consumer identity + key) of every
 	// application with an active subscription on the plan.
 	ConsumersForPlan(ctx context.Context, planID int64) ([]Credential, error)
+	// GetSubscription returns a single subscription's identity + status by id.
+	GetSubscription(ctx context.Context, subID int64) (SubscriptionRecord, error)
+	// SetSubscriptionStatus transitions a subscription to the given status.
+	SetSubscriptionStatus(ctx context.Context, subID int64, status string) error
+	// AdminSubscriptions lists subscriptions for the admin queue. An empty
+	// statusFilter returns all; otherwise only rows with that status.
+	AdminSubscriptions(ctx context.Context, statusFilter string) ([]AdminSubscriptionView, error)
 }
 
 func consumerName(appID int64) string { return fmt.Sprintf("app_%d", appID) }

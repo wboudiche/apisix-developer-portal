@@ -8,20 +8,19 @@ import (
 )
 
 type memStore struct {
-	creds         map[int64]Credential
-	subs          map[int64][]string // productID -> consumer usernames
-	products      map[int64]ProductInfo
-	plans         map[int64]PlanInfo
-	planConsumers map[int64][]Credential
+	creds    map[int64]Credential
+	products map[int64]ProductInfo
+	plans    map[int64]PlanInfo
+	records  map[int64]*SubscriptionRecord // subID -> record
+	nextID   int64
 }
 
 func newMemStore() *memStore {
 	return &memStore{
-		creds:         map[int64]Credential{},
-		subs:          map[int64][]string{},
-		products:      map[int64]ProductInfo{3: {ID: 3, ContextPath: "/pizzashack", Upstream: "echo:8080"}},
-		plans:         map[int64]PlanInfo{2: {ID: 2, Count: 100, WindowSeconds: 60}},
-		planConsumers: map[int64][]Credential{},
+		creds:    map[int64]Credential{},
+		products: map[int64]ProductInfo{3: {ID: 3, ContextPath: "/pizzashack", Upstream: "echo:8080"}},
+		plans:    map[int64]PlanInfo{2: {ID: 2, Count: 100, WindowSeconds: 60}},
+		records:  map[int64]*SubscriptionRecord{},
 	}
 }
 
@@ -37,26 +36,76 @@ func (m *memStore) GetProduct(_ context.Context, id int64) (ProductInfo, error) 
 	return m.products[id], nil
 }
 func (m *memStore) GetPlan(_ context.Context, id int64) (PlanInfo, error) { return m.plans[id], nil }
-func (m *memStore) SaveSubscription(_ context.Context, appID, productID, _ int64) error {
-	m.subs[productID] = append(m.subs[productID], consumerName(appID))
+
+func (m *memStore) findRecord(appID, productID int64) *SubscriptionRecord {
+	for _, r := range m.records {
+		if r.AppID == appID && r.ProductID == productID {
+			return r
+		}
+	}
+	return nil
+}
+
+func (m *memStore) SaveSubscription(_ context.Context, appID, productID, planID int64) error {
+	if r := m.findRecord(appID, productID); r != nil {
+		r.PlanID = planID
+		r.Status = "active"
+		return nil
+	}
+	m.nextID++
+	m.records[m.nextID] = &SubscriptionRecord{ID: m.nextID, AppID: appID, ProductID: productID, PlanID: planID, Status: "active"}
 	return nil
 }
 func (m *memStore) DeleteSubscription(_ context.Context, appID, productID int64) error {
-	cur := m.subs[productID]
-	out := cur[:0]
-	for _, u := range cur {
-		if u != consumerName(appID) {
-			out = append(out, u)
-		}
+	if r := m.findRecord(appID, productID); r != nil {
+		delete(m.records, r.ID)
 	}
-	m.subs[productID] = out
 	return nil
 }
 func (m *memStore) ConsumersForProduct(_ context.Context, productID int64) ([]string, error) {
-	return m.subs[productID], nil
+	var out []string
+	for _, r := range m.records {
+		if r.ProductID == productID && r.Status == "active" {
+			out = append(out, consumerName(r.AppID))
+		}
+	}
+	return out, nil
 }
 func (m *memStore) ConsumersForPlan(_ context.Context, planID int64) ([]Credential, error) {
-	return m.planConsumers[planID], nil
+	var out []Credential
+	for _, r := range m.records {
+		if r.PlanID == planID && r.Status == "active" {
+			if c, ok := m.creds[r.AppID]; ok {
+				out = append(out, c)
+			} else {
+				out = append(out, Credential{ApplicationID: r.AppID, ConsumerUsername: consumerName(r.AppID)})
+			}
+		}
+	}
+	return out, nil
+}
+func (m *memStore) GetSubscription(_ context.Context, subID int64) (SubscriptionRecord, error) {
+	if r, ok := m.records[subID]; ok {
+		return *r, nil
+	}
+	return SubscriptionRecord{}, ErrNotFound
+}
+func (m *memStore) SetSubscriptionStatus(_ context.Context, subID int64, status string) error {
+	r, ok := m.records[subID]
+	if !ok {
+		return ErrNotFound
+	}
+	r.Status = status
+	return nil
+}
+func (m *memStore) AdminSubscriptions(_ context.Context, statusFilter string) ([]AdminSubscriptionView, error) {
+	out := []AdminSubscriptionView{}
+	for _, r := range m.records {
+		if statusFilter == "" || r.Status == statusFilter {
+			out = append(out, AdminSubscriptionView{ID: r.ID, Status: r.Status})
+		}
+	}
+	return out, nil
 }
 
 func TestSubscribeProvisionsConsumerAndRoute(t *testing.T) {
@@ -101,7 +150,8 @@ func TestUnsubscribeRemovesFromWhitelist(t *testing.T) {
 func TestReprovisionRoute(t *testing.T) {
 	store := newMemStore()
 	store.products[7] = ProductInfo{ID: 7, ContextPath: "/seven", Upstream: "echo:8080"}
-	store.subs[7] = []string{"app_1", "app_2"}
+	store.records[101] = &SubscriptionRecord{ID: 101, AppID: 1, ProductID: 7, PlanID: 2, Status: "active"}
+	store.records[102] = &SubscriptionRecord{ID: 102, AppID: 2, ProductID: 7, PlanID: 2, Status: "active"}
 	gw := apisix.NewFake()
 	svc := NewService(store, gw, GenerateKey)
 
@@ -138,11 +188,10 @@ func TestDeprovisionRoute(t *testing.T) {
 func TestReprovisionPlanUpdatesEachConsumerLimit(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
-	// Plan 2 exists in newMemStore with Count=100, Window=60. Two apps are on it.
-	store.planConsumers[2] = []Credential{
-		{ApplicationID: 1, APIKey: "k1", ConsumerUsername: "app_1"},
-		{ApplicationID: 2, APIKey: "k2", ConsumerUsername: "app_2"},
-	}
+	store.creds[1] = Credential{ApplicationID: 1, APIKey: "k1", ConsumerUsername: "app_1"}
+	store.creds[2] = Credential{ApplicationID: 2, APIKey: "k2", ConsumerUsername: "app_2"}
+	store.records[201] = &SubscriptionRecord{ID: 201, AppID: 1, ProductID: 3, PlanID: 2, Status: "active"}
+	store.records[202] = &SubscriptionRecord{ID: 202, AppID: 2, ProductID: 3, PlanID: 2, Status: "active"}
 	gw := apisix.NewFake()
 	svc := NewService(store, gw, GenerateKey)
 
