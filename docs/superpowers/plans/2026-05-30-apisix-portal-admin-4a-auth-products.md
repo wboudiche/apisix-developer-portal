@@ -167,14 +167,17 @@ This extracts the route (re)build into reusable methods so the admin path can tr
 - [ ] **Step 1: Write the failing test**
 
 Add to `internal/subscriptions/service_test.go`. These use the **existing**
-`fakeStore` in that file (fields `products map[int64]ProductInfo` and
-`consumers map[int64][]string`, constructed via `newFakeStore()`):
+`memStore` in that file (constructed via `newMemStore()`, with fields
+`products map[int64]ProductInfo` and `subs map[int64][]string` — `subs` maps a
+product id to its subscribed consumer usernames, which is what
+`ConsumersForProduct` returns). `newMemStore()` pre-seeds product `3`; these tests
+add their own product `7`:
 
 ```go
 func TestReprovisionRoute(t *testing.T) {
-	store := newFakeStore()
+	store := newMemStore()
 	store.products[7] = ProductInfo{ID: 7, ContextPath: "/seven", Upstream: "echo:8080"}
-	store.consumers[7] = []string{"app_1", "app_2"}
+	store.subs[7] = []string{"app_1", "app_2"}
 	gw := apisix.NewFake()
 	svc := NewService(store, gw, GenerateKey)
 
@@ -194,7 +197,7 @@ func TestReprovisionRoute(t *testing.T) {
 }
 
 func TestDeprovisionRoute(t *testing.T) {
-	store := newFakeStore()
+	store := newMemStore()
 	store.products[7] = ProductInfo{ID: 7, ContextPath: "/seven", Upstream: "echo:8080"}
 	gw := apisix.NewFake()
 	_ = gw.EnsureRoute(context.Background(), RouteID(7), "/seven/*", "echo:8080", nil)
