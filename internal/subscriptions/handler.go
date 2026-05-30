@@ -15,14 +15,22 @@ import (
 // OwnerCheck reports whether appID belongs to userID.
 type OwnerCheck func(ctx context.Context, appID, userID int64) (bool, error)
 
+// Reader is the read surface for app detail (satisfied by *Repo).
+type Reader interface {
+	GetCredential(ctx context.Context, appID int64) (Credential, error)
+	SubscriptionsForApp(ctx context.Context, appID int64) ([]SubscriptionView, error)
+}
+
 type Handler struct {
 	svc    *Service
+	reader Reader
 	owns   OwnerCheck
 	router chi.Router
 }
 
-func NewHandler(svc *Service, owns OwnerCheck) *Handler {
-	h := &Handler{svc: svc, owns: owns, router: chi.NewRouter()}
+func NewHandler(svc *Service, reader Reader, owns OwnerCheck) *Handler {
+	h := &Handler{svc: svc, reader: reader, owns: owns, router: chi.NewRouter()}
+	h.router.Get("/api/applications/{appID}", h.detail)
 	h.router.Post("/api/applications/{appID}/subscriptions", h.subscribe)
 	h.router.Delete("/api/applications/{appID}/subscriptions/{productID}", h.unsubscribe)
 	return h
@@ -84,4 +92,29 @@ func (h *Handler) unsubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) detail(w http.ResponseWriter, r *http.Request) {
+	appID, ok := h.authorize(w, r)
+	if !ok {
+		return
+	}
+	out := AppDetail{Subscriptions: []SubscriptionView{}}
+	cred, err := h.reader.GetCredential(r.Context(), appID)
+	if err == nil {
+		out.APIKey = cred.APIKey
+		out.ConsumerUsername = cred.ConsumerUsername
+	} else if err != ErrNotFound {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load credential")
+		return
+	}
+	subs, err := h.reader.SubscriptionsForApp(r.Context(), appID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load subscriptions")
+		return
+	}
+	if subs != nil {
+		out.Subscriptions = subs
+	}
+	httpx.JSON(w, http.StatusOK, out)
 }

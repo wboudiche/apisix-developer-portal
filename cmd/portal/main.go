@@ -36,7 +36,8 @@ func main() {
 	plansH := plans.NewHandler(plans.NewRepo(pool))
 	appsRepo := applications.NewRepo(pool)
 	appsH := applications.NewHandler(appsRepo)
-	subSvc := subscriptions.NewService(subscriptions.NewRepo(pool), gw, subscriptions.GenerateKey)
+	subRepo := subscriptions.NewRepo(pool)
+	subSvc := subscriptions.NewService(subRepo, gw, subscriptions.GenerateKey)
 	owns := func(ctx context.Context, appID, userID int64) (bool, error) {
 		if _, err := appsRepo.Get(ctx, appID, userID); err != nil {
 			if err == applications.ErrNotFound {
@@ -46,7 +47,7 @@ func main() {
 		}
 		return true, nil
 	}
-	subH := subscriptions.NewHandler(subSvc, owns)
+	subH := subscriptions.NewHandler(subSvc, subRepo, owns)
 
 	requireAuth := auth.RequireAuth(tok)
 

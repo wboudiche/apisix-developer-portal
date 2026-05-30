@@ -96,3 +96,41 @@ func (r *Repo) ConsumersForProduct(ctx context.Context, productID int64) ([]stri
 }
 
 var _ Store = (*Repo)(nil)
+
+// GetCredential returns the application's credential, or ErrNotFound if it has none yet.
+func (r *Repo) GetCredential(ctx context.Context, appID int64) (Credential, error) {
+	var c Credential
+	err := r.pool.QueryRow(ctx,
+		`SELECT application_id, api_key, consumer_username FROM credentials WHERE application_id=$1`, appID,
+	).Scan(&c.ApplicationID, &c.APIKey, &c.ConsumerUsername)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Credential{}, ErrNotFound
+	}
+	return c, err
+}
+
+// SubscriptionsForApp returns the application's active subscriptions for display.
+func (r *Repo) SubscriptionsForApp(ctx context.Context, appID int64) ([]SubscriptionView, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT s.api_product_id, p.name, p.version, p.context_path, s.plan_id, pl.name
+		 FROM subscriptions s
+		 JOIN api_products p ON p.id = s.api_product_id
+		 JOIN plans pl ON pl.id = s.plan_id
+		 WHERE s.application_id=$1 AND s.status='active'
+		 ORDER BY p.name`, appID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []SubscriptionView
+	for rows.Next() {
+		var v SubscriptionView
+		if err := rows.Scan(&v.ProductID, &v.ProductName, &v.Version, &v.ContextPath, &v.PlanID, &v.PlanName); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+var _ Reader = (*Repo)(nil)

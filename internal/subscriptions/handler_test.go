@@ -11,12 +11,30 @@ import (
 	"apisix-portal/internal/auth"
 )
 
+type fakeReader struct {
+	cred Credential
+	has  bool
+	subs []SubscriptionView
+}
+
+func (f fakeReader) GetCredential(_ context.Context, _ int64) (Credential, error) {
+	if !f.has {
+		return Credential{}, ErrNotFound
+	}
+	return f.cred, nil
+}
+func (f fakeReader) SubscriptionsForApp(_ context.Context, _ int64) ([]SubscriptionView, error) {
+	return f.subs, nil
+}
+
 func newTestHandler() (*Handler, *apisix.Fake) {
 	store := newMemStore()
 	gw := apisix.NewFake()
 	svc := NewService(store, gw, func() string { return "key-xyz" })
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
-	return NewHandler(svc, owns), gw
+	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "key-xyz", ConsumerUsername: "app_1"},
+		subs: []SubscriptionView{{ProductID: 3, ProductName: "PizzaShackAPI", PlanID: 2, PlanName: "Silver"}}}
+	return NewHandler(svc, reader, owns), gw
 }
 
 func TestSubscribeEndpointProvisionsAndReturnsKey(t *testing.T) {
@@ -69,5 +87,31 @@ func TestUnsubscribeEndpoint(t *testing.T) {
 	h.ServeHTTP(rec, del.WithContext(auth.WithUserID(del.Context(), 5)))
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status=%d want 204", rec.Code)
+	}
+}
+
+func TestAppDetailReturnsKeyAndSubscriptions(t *testing.T) {
+	h, _ := newTestHandler()
+	req := httptest.NewRequest(http.MethodGet, "/api/applications/1", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 5))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `"apiKey":"key-xyz"`) || !strings.Contains(body, `"productName":"PizzaShackAPI"`) {
+		t.Fatalf("unexpected detail body: %s", body)
+	}
+}
+
+func TestAppDetailRejectsNonOwner(t *testing.T) {
+	h, _ := newTestHandler()
+	req := httptest.NewRequest(http.MethodGet, "/api/applications/1", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 999))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status=%d want 403", rec.Code)
 	}
 }
