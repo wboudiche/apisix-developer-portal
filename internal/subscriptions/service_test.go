@@ -49,11 +49,11 @@ func (m *memStore) findRecord(appID, productID int64) *SubscriptionRecord {
 func (m *memStore) SaveSubscription(_ context.Context, appID, productID, planID int64) error {
 	if r := m.findRecord(appID, productID); r != nil {
 		r.PlanID = planID
-		r.Status = "active"
+		r.Status = "pending"
 		return nil
 	}
 	m.nextID++
-	m.records[m.nextID] = &SubscriptionRecord{ID: m.nextID, AppID: appID, ProductID: productID, PlanID: planID, Status: "active"}
+	m.records[m.nextID] = &SubscriptionRecord{ID: m.nextID, AppID: appID, ProductID: productID, PlanID: planID, Status: "pending"}
 	return nil
 }
 func (m *memStore) DeleteSubscription(_ context.Context, appID, productID int64) error {
@@ -108,7 +108,7 @@ func (m *memStore) AdminSubscriptions(_ context.Context, statusFilter string) ([
 	return out, nil
 }
 
-func TestSubscribeProvisionsConsumerAndRoute(t *testing.T) {
+func TestSubscribeIsPendingAndDoesNotProvision(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
@@ -121,13 +121,69 @@ func TestSubscribeProvisionsConsumerAndRoute(t *testing.T) {
 	if cred.APIKey != "fixed-key" || cred.ConsumerUsername != "app_42" {
 		t.Fatalf("bad cred: %+v", cred)
 	}
-	c := gw.Consumers["app_42"]
-	if c.APIKey != "fixed-key" || c.Limit.Count != 100 {
-		t.Fatalf("consumer not provisioned: %+v", c)
+	if len(gw.Consumers) != 0 {
+		t.Fatalf("expected no consumer provisioned on subscribe, got %v", gw.Consumers)
+	}
+	if len(gw.Routes) != 0 {
+		t.Fatalf("expected no route provisioned on subscribe, got %v", gw.Routes)
+	}
+	r := store.findRecord(42, 3)
+	if r == nil || r.Status != "pending" {
+		t.Fatalf("expected a pending record, got %+v", r)
+	}
+}
+
+func TestApproveProvisionsConsumerAndRoute(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "fixed-key" })
+
+	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	rec := store.findRecord(42, 3)
+	if err := svc.Approve(ctx, rec.ID); err != nil {
+		t.Fatalf("Approve: %v", err)
+	}
+	if store.records[rec.ID].Status != "active" {
+		t.Fatalf("status = %q, want active", store.records[rec.ID].Status)
+	}
+	c, ok := gw.Consumers["app_42"]
+	if !ok || c.Limit.Count != 100 {
+		t.Fatalf("consumer not provisioned with plan limits: %+v", c)
 	}
 	r := gw.Routes["prod_3"]
-	if r.URI != "/pizzashack/*" || len(r.Allowed) != 1 || r.Allowed[0] != "app_42" {
-		t.Fatalf("route not provisioned: %+v", r)
+	if len(r.Allowed) != 1 || r.Allowed[0] != "app_42" {
+		t.Fatalf("route whitelist after approve: %+v", r.Allowed)
+	}
+}
+
+func TestRejectSetsStatusAndDoesNotProvision(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "fixed-key" })
+
+	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	rec := store.findRecord(42, 3)
+	if err := svc.Reject(ctx, rec.ID); err != nil {
+		t.Fatalf("Reject: %v", err)
+	}
+	if store.records[rec.ID].Status != "rejected" {
+		t.Fatalf("status = %q, want rejected", store.records[rec.ID].Status)
+	}
+	if _, ok := gw.Consumers["app_42"]; ok {
+		t.Fatal("rejected subscription must not provision a consumer")
+	}
+	if r, ok := gw.Routes["prod_3"]; ok {
+		for _, a := range r.Allowed {
+			if a == "app_42" {
+				t.Fatal("rejected app must not be in the route whitelist")
+			}
+		}
 	}
 }
 
@@ -138,6 +194,12 @@ func TestUnsubscribeRemovesFromWhitelist(t *testing.T) {
 	svc := NewService(store, gw, func() string { return "k" })
 	_, _ = svc.Subscribe(ctx, 42, 3, 2)
 	_, _ = svc.Subscribe(ctx, 43, 3, 2)
+	if err := svc.Approve(ctx, store.findRecord(42, 3).ID); err != nil {
+		t.Fatalf("approve 42: %v", err)
+	}
+	if err := svc.Approve(ctx, store.findRecord(43, 3).ID); err != nil {
+		t.Fatalf("approve 43: %v", err)
+	}
 	if err := svc.Unsubscribe(ctx, 42, 3); err != nil {
 		t.Fatalf("Unsubscribe: %v", err)
 	}

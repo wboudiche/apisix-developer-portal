@@ -105,27 +105,21 @@ func (s *Service) ReprovisionPlan(ctx context.Context, planID int64) error {
 	return nil
 }
 
-// Subscribe provisions APISIX and persists the subscription, returning the app's credential.
+// Subscribe records a PENDING subscription and issues the application's gateway
+// credential, but performs NO provisioning — the key will not pass the gateway
+// until an admin approves the subscription. Returns the credential.
 func (s *Service) Subscribe(ctx context.Context, appID, productID, planID int64) (Credential, error) {
 	if _, err := s.store.GetProduct(ctx, productID); err != nil {
 		return Credential{}, err
 	}
-	plan, err := s.store.GetPlan(ctx, planID)
-	if err != nil {
+	if _, err := s.store.GetPlan(ctx, planID); err != nil {
 		return Credential{}, err
 	}
 	cred, err := s.store.GetOrCreateCredential(ctx, appID, s.genKey)
 	if err != nil {
 		return Credential{}, err
 	}
-	if err := s.gw.EnsureConsumer(ctx, cred.ConsumerUsername, cred.APIKey,
-		apisix.RateLimit{Count: plan.Count, WindowSeconds: plan.WindowSeconds}); err != nil {
-		return Credential{}, err
-	}
 	if err := s.store.SaveSubscription(ctx, appID, productID, planID); err != nil {
-		return Credential{}, err
-	}
-	if err := s.ReprovisionRoute(ctx, productID); err != nil {
 		return Credential{}, err
 	}
 	return cred, nil
@@ -137,4 +131,50 @@ func (s *Service) Unsubscribe(ctx context.Context, appID, productID int64) error
 		return err
 	}
 	return s.ReprovisionRoute(ctx, productID)
+}
+
+// Approve activates a pending subscription: it provisions the application's
+// consumer with the plan's limits and rebuilds the product route whitelist to
+// include it. Idempotent — approving an already-active subscription re-asserts
+// the gateway state.
+func (s *Service) Approve(ctx context.Context, subID int64) error {
+	rec, err := s.store.GetSubscription(ctx, subID)
+	if err != nil {
+		return err
+	}
+	plan, err := s.store.GetPlan(ctx, rec.PlanID)
+	if err != nil {
+		return err
+	}
+	cred, err := s.store.GetOrCreateCredential(ctx, rec.AppID, s.genKey)
+	if err != nil {
+		return err
+	}
+	if err := s.gw.EnsureConsumer(ctx, cred.ConsumerUsername, cred.APIKey,
+		apisix.RateLimit{Count: plan.Count, WindowSeconds: plan.WindowSeconds}); err != nil {
+		return err
+	}
+	if err := s.store.SetSubscriptionStatus(ctx, subID, "active"); err != nil {
+		return err
+	}
+	return s.ReprovisionRoute(ctx, rec.ProductID)
+}
+
+// Reject marks a subscription rejected and rebuilds the product route whitelist
+// so the application is excluded (a no-op for a still-pending subscription,
+// which was never in the whitelist).
+func (s *Service) Reject(ctx context.Context, subID int64) error {
+	rec, err := s.store.GetSubscription(ctx, subID)
+	if err != nil {
+		return err
+	}
+	if err := s.store.SetSubscriptionStatus(ctx, subID, "rejected"); err != nil {
+		return err
+	}
+	return s.ReprovisionRoute(ctx, rec.ProductID)
+}
+
+// AdminSubscriptions lists subscriptions for the admin queue (see Store).
+func (s *Service) AdminSubscriptions(ctx context.Context, statusFilter string) ([]AdminSubscriptionView, error) {
+	return s.store.AdminSubscriptions(ctx, statusFilter)
 }

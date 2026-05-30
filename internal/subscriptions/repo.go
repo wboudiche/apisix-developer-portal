@@ -62,9 +62,9 @@ func (r *Repo) GetPlan(ctx context.Context, id int64) (PlanInfo, error) {
 
 func (r *Repo) SaveSubscription(ctx context.Context, appID, productID, planID int64) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO subscriptions(application_id, api_product_id, plan_id) VALUES($1,$2,$3)
+		`INSERT INTO subscriptions(application_id, api_product_id, plan_id, status) VALUES($1,$2,$3,'pending')
 		 ON CONFLICT (application_id, api_product_id)
-		 DO UPDATE SET plan_id=EXCLUDED.plan_id, status='active'`,
+		 DO UPDATE SET plan_id=EXCLUDED.plan_id, status='pending'`,
 		appID, productID, planID)
 	return err
 }

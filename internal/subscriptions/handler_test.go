@@ -37,7 +37,7 @@ func newTestHandler() (*Handler, *apisix.Fake) {
 	return NewHandler(svc, reader, owns), gw
 }
 
-func TestSubscribeEndpointProvisionsAndReturnsKey(t *testing.T) {
+func TestSubscribeEndpointReturnsKeyWithoutProvisioning(t *testing.T) {
 	h, gw := newTestHandler()
 	req := httptest.NewRequest(http.MethodPost, "/api/applications/1/subscriptions", strings.NewReader(`{"productId":3,"planId":2}`))
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -49,8 +49,8 @@ func TestSubscribeEndpointProvisionsAndReturnsKey(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), `"apiKey":"key-xyz"`) {
 		t.Fatalf("missing api key in body: %s", rec.Body)
 	}
-	if _, ok := gw.Consumers["app_1"]; !ok {
-		t.Fatal("consumer not provisioned")
+	if len(gw.Consumers) != 0 {
+		t.Fatalf("subscribe must not provision a consumer (pending), got %v", gw.Consumers)
 	}
 }
 
