@@ -1,12 +1,14 @@
-import './styles/tokens.css'
-import './styles/base.css'
+import { Routes, Route } from 'react-router-dom'
+import { CatalogPage } from './pages/CatalogPage'
+import { LoginPage } from './pages/LoginPage'
+import { RegisterPage } from './pages/RegisterPage'
 
-function App() {
+export default function App() {
   return (
-    <div>
-      <h1>APISIX Developer Portal</h1>
-    </div>
+    <Routes>
+      <Route path="/" element={<CatalogPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+    </Routes>
   )
 }
-
-export default App
