@@ -16,6 +16,7 @@ export function CatalogPage() {
   const [allProducts, setAllProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<string | null>(null)
+  const [tag, setTag] = useState<string | null>(null)
   const [sort, setSort] = useState<'rating' | 'alpha'>('rating')
   const [view, setView] = useState<'grid' | 'list'>('grid')
   const [loading, setLoading] = useState(true)
@@ -36,12 +37,12 @@ export function CatalogPage() {
     let alive = true
     setLoading(true)
     setError('')
-    getProducts({ search: search || undefined, category: category || undefined, sort })
+    getProducts({ search: search || undefined, category: category || undefined, tag: tag || undefined, sort })
       .then(p => { if (alive) setProducts(p) })
       .catch(() => { if (alive) { setProducts([]); setError('Impossible de charger le catalogue. Vérifiez que le service est démarré.') } })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [search, category, sort])
+  }, [search, category, tag, sort])
 
   const categories = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -49,11 +50,13 @@ export function CatalogPage() {
     return Object.entries(counts).map(([name, count]) => ({ name, count }))
   }, [allProducts])
 
+  const tags = useMemo(() => Array.from(new Set(allProducts.flatMap(p => p.tags))).sort(), [allProducts])
+
   return (
     <>
       <TopBar search={search} onSearch={setSearch} />
       <div className="layout">
-        <CategoryRail categories={categories} active={category} onPick={setCategory} />
+        <CategoryRail categories={categories} active={category} onPick={setCategory} tags={tags} activeTag={tag} onPickTag={setTag} />
         <main className="content">
           <div className="chead">
             <div className="titlewrap">

@@ -1,6 +1,14 @@
 export function CategoryRail({
   categories, active, onPick,
-}: { categories: { name: string; count: number }[]; active: string | null; onPick: (c: string | null) => void }) {
+  tags = [], activeTag = null, onPickTag = () => {},
+}: {
+  categories: { name: string; count: number }[]
+  active: string | null
+  onPick: (c: string | null) => void
+  tags?: string[]
+  activeTag?: string | null
+  onPickTag?: (t: string | null) => void
+}) {
   return (
     <aside className="rail">
       <div className="rail-head"><h2>Catégories d'API</h2></div>
@@ -15,6 +23,16 @@ export function CategoryRail({
           </button>
         ))}
       </nav>
+      {tags.length > 0 && (
+        <>
+          <div className="rail-sec">Tags</div>
+          <div className="tags">
+            {tags.map(t => (
+              <button key={t} className={`tag ${activeTag === t ? 'active' : ''}`} onClick={() => onPickTag(activeTag === t ? null : t)}>{t}</button>
+            ))}
+          </div>
+        </>
+      )}
     </aside>
   )
 }

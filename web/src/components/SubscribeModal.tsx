@@ -11,6 +11,7 @@ export function SubscribeModal({ product, onClose }: { product: Product; onClose
   const [newName, setNewName] = useState('')
   const [planId, setPlanId] = useState<number | null>(null)
   const [apiKey, setApiKey] = useState('')
+  const [copied, setCopied] = useState(false)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -24,6 +25,12 @@ export function SubscribeModal({ product, onClose }: { product: Product; onClose
       })
       .catch(() => setErr('Impossible de charger les applications et les plans.'))
   }, [token])
+
+  async function copyKey() {
+    try { await navigator.clipboard?.writeText(apiKey) } catch { /* ignore */ }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   async function onSubmit() {
     if (!token || planId == null) return
@@ -51,7 +58,7 @@ export function SubscribeModal({ product, onClose }: { product: Product; onClose
           <div className="keybox">
             <p className="rescount">Votre clé d'API (copiez-la, elle ne sera plus affichée intégralement) :</p>
             <code className="apikey">{apiKey}</code>
-            <button className="subbtn" onClick={() => navigator.clipboard?.writeText(apiKey)}>Copier</button>
+            <button className="subbtn" onClick={copyKey}>{copied ? 'Copié ✓' : 'Copier'}</button>
             <button className="subbtn ghost" onClick={onClose}>Fermer</button>
           </div>
         ) : (

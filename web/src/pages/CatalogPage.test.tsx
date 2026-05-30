@@ -77,4 +77,12 @@ describe('CatalogPage', () => {
     await userEvent.click(screen.getAllByRole('button', { name: /s'abonner/i })[0])
     await waitFor(() => expect(screen.getByText('LOGIN PAGE')).toBeInTheDocument())
   })
+
+  it('filters by tag when a tag is clicked', async () => {
+    const spy = vi.spyOn(api, 'getProducts').mockResolvedValue(sample)
+    renderPage()
+    await waitFor(() => expect(screen.getAllByTestId('api-card').length).toBeGreaterThan(0))
+    await userEvent.click(screen.getByRole('button', { name: 'pizza' }))
+    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ tag: 'pizza' })))
+  })
 })

@@ -42,4 +42,16 @@ describe('SubscribeModal', () => {
     await userEvent.click(screen.getByRole('button', { name: /s'abonner|subscribe|confirmer/i }))
     await waitFor(() => expect(screen.getByText('provisioning failed')).toBeInTheDocument())
   })
+
+  it('shows copy feedback when the key is copied', async () => {
+    vi.spyOn(api, 'getApplications').mockResolvedValue([{ id: 9, name: 'My App', ownerId: 5, description: '', createdAt: '' }])
+    vi.spyOn(api, 'getPlans').mockResolvedValue([{ id: 2, name: 'Silver', rateLimit: 300, windowSeconds: 60 }])
+    vi.spyOn(api, 'subscribe').mockResolvedValue({ applicationId: 9, apiKey: 'SECRET-KEY', consumerUsername: 'app_9' })
+    renderModal()
+    await waitFor(() => expect(screen.getByText('My App')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: /confirmer/i }))
+    await waitFor(() => expect(screen.getByText('SECRET-KEY')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Copier' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /copié/i })).toBeInTheDocument())
+  })
 })
