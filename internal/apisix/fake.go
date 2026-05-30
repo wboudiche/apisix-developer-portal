@@ -45,4 +45,11 @@ func (f *Fake) EnsureRoute(_ context.Context, routeID, uri, upstream string, all
 	return nil
 }
 
+func (f *Fake) DeleteRoute(_ context.Context, routeID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.Routes, routeID)
+	return nil
+}
+
 var _ Gateway = (*Fake)(nil)

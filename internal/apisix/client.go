@@ -97,4 +97,23 @@ func (c *Client) EnsureRoute(ctx context.Context, routeID, uri, upstream string,
 	return c.do(ctx, http.MethodPut, "/apisix/admin/routes/"+routeID, body)
 }
 
+func (c *Client) DeleteRoute(ctx context.Context, routeID string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+"/apisix/admin/routes/"+routeID, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-API-KEY", c.apiKey)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	// 404 means the route is already gone — treat as success (idempotent delete).
+	if resp.StatusCode >= 300 && resp.StatusCode != http.StatusNotFound {
+		msg, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("apisix delete route %s: %d %s", routeID, resp.StatusCode, string(msg))
+	}
+	return nil
+}
+
 var _ Gateway = (*Client)(nil)

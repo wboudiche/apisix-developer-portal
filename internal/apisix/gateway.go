@@ -18,4 +18,6 @@ type Gateway interface {
 	// EnsureRoute creates/updates the route routeID for uri→upstream with key-auth and a
 	// consumer-restriction whitelist of the given consumer usernames.
 	EnsureRoute(ctx context.Context, routeID, uri, upstream string, allowedConsumers []string) error
+	// DeleteRoute removes the route routeID. Deleting a missing route is a no-op.
+	DeleteRoute(ctx context.Context, routeID string) error
 }

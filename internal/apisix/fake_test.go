@@ -27,3 +27,20 @@ func TestFakeRecordsConsumersAndRoutes(t *testing.T) {
 		t.Fatal("consumer not deleted")
 	}
 }
+
+func TestFakeDeleteRoute(t *testing.T) {
+	f := NewFake()
+	if err := f.EnsureRoute(context.Background(), "prod_1", "/x/*", "echo:8080", nil); err != nil {
+		t.Fatalf("ensure: %v", err)
+	}
+	if err := f.DeleteRoute(context.Background(), "prod_1"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if _, ok := f.Routes["prod_1"]; ok {
+		t.Fatal("route prod_1 still present after DeleteRoute")
+	}
+	// Deleting a missing route is a no-op, not an error.
+	if err := f.DeleteRoute(context.Background(), "prod_missing"); err != nil {
+		t.Fatalf("delete missing: %v", err)
+	}
+}
