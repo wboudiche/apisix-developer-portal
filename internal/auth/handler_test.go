@@ -27,7 +27,7 @@ func newMemRepo() *memRepo {
 
 func (m *memRepo) Create(_ context.Context, email, hash, name string) (User, error) {
 	if _, ok := m.byEmail[email]; ok {
-		return User{}, errors.New("duplicate")
+		return User{}, ErrEmailTaken
 	}
 	m.nextID++
 	u := User{ID: m.nextID, Email: email, Name: name, Role: "developer"}
@@ -106,5 +106,26 @@ func TestRegisterShortPasswordRejected(t *testing.T) {
 		strings.NewReader(`{"email":"a@b.c","password":"short","name":"A"}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+}
+
+// brokenRepo always fails Create with a generic (non-duplicate) error.
+type brokenRepo struct{}
+
+func (b *brokenRepo) Create(_ context.Context, _, _, _ string) (User, error) {
+	return User{}, errors.New("db down")
+}
+
+func (b *brokenRepo) GetByEmail(_ context.Context, _ string) (User, string, error) {
+	return User{}, "", errors.New("db down")
+}
+
+func TestRegisterDBErrorReturns500(t *testing.T) {
+	h := NewHandler(&brokenRepo{}, NewTokenizer("test-secret"))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/auth/register",
+		strings.NewReader(`{"email":"a@b.c","password":"pw123456","name":"A"}`)))
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
 	}
 }

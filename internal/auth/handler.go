@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -49,8 +50,12 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, err := h.store.Create(r.Context(), c.Email, hash, c.Name)
-	if err != nil {
+	if errors.Is(err, ErrEmailTaken) {
 		httpx.Error(w, http.StatusConflict, "email already registered")
+		return
+	}
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "could not create account")
 		return
 	}
 	token, err := h.tk.Issue(u.ID, u.Email, u.Role)

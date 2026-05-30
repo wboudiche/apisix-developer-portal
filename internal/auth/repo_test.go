@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -54,7 +55,11 @@ func TestCreateDuplicateEmailFails(t *testing.T) {
 	if _, err := repo.Create(ctx, email, "h", "A"); err != nil {
 		t.Fatalf("first create: %v", err)
 	}
-	if _, err := repo.Create(ctx, email, "h", "B"); err == nil {
+	_, err := repo.Create(ctx, email, "h", "B")
+	if err == nil {
 		t.Fatal("duplicate email should fail")
+	}
+	if !errors.Is(err, ErrEmailTaken) {
+		t.Fatalf("expected ErrEmailTaken, got %v", err)
 	}
 }

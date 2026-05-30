@@ -2,9 +2,14 @@ package auth
 
 import (
 	"context"
+	"errors"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// ErrEmailTaken is returned by Create when the email address is already registered.
+var ErrEmailTaken = errors.New("email already registered")
 
 type Repo struct{ pool *pgxpool.Pool }
 
@@ -19,7 +24,14 @@ func (r *Repo) Create(ctx context.Context, email, passwordHash, name string) (Us
 		 RETURNING id, email, name, role`,
 		email, passwordHash, name,
 	).Scan(&u.ID, &u.Email, &u.Name, &u.Role)
-	return u, err
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return User{}, ErrEmailTaken
+		}
+		return User{}, err
+	}
+	return u, nil
 }
 
 // GetByEmail returns the user and its password hash.
