@@ -45,6 +45,22 @@ describe('CatalogPage', () => {
     expect(screen.queryAllByTestId('api-card')).toHaveLength(0)
   })
 
+  it('re-queries with the chosen sort', async () => {
+    const spy = vi.spyOn(api, 'getProducts').mockResolvedValue(sample)
+    renderPage()
+    await waitFor(() => expect(screen.getAllByTestId('api-card').length).toBeGreaterThan(0))
+    await userEvent.selectOptions(screen.getByLabelText('Trier'), 'alpha')
+    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ sort: 'alpha' })))
+  })
+
+  it('toggles to list view', async () => {
+    vi.spyOn(api, 'getProducts').mockResolvedValue(sample)
+    const { container } = renderPage()
+    await waitFor(() => expect(screen.getAllByTestId('api-card').length).toBeGreaterThan(0))
+    await userEvent.click(screen.getByLabelText('Vue liste'))
+    expect(container.querySelector('.grid.list')).not.toBeNull()
+  })
+
   it('redirects to /login when an anonymous user clicks Subscribe', async () => {
     vi.spyOn(api, 'getProducts').mockResolvedValue(sample)
     render(
