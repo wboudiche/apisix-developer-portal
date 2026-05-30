@@ -24,20 +24,17 @@ func GenerateKey() string {
 }
 
 func (r *Repo) GetOrCreateCredential(ctx context.Context, appID int64, genKey func() string) (Credential, error) {
+	// Atomic upsert: one credential per application, race-safe across concurrent
+	// subscribe calls. ON CONFLICT performs a no-op UPDATE so RETURNING yields the
+	// existing row; a freshly generated key on a losing INSERT is simply discarded.
+	want := Credential{ApplicationID: appID, APIKey: genKey(), ConsumerUsername: consumerName(appID)}
 	var c Credential
 	err := r.pool.QueryRow(ctx,
-		`SELECT application_id, api_key, consumer_username FROM credentials WHERE application_id=$1`, appID,
+		`INSERT INTO credentials(application_id, api_key, consumer_username) VALUES($1,$2,$3)
+		 ON CONFLICT (application_id) DO UPDATE SET application_id = credentials.application_id
+		 RETURNING application_id, api_key, consumer_username`,
+		want.ApplicationID, want.APIKey, want.ConsumerUsername,
 	).Scan(&c.ApplicationID, &c.APIKey, &c.ConsumerUsername)
-	if err == nil {
-		return c, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return Credential{}, err
-	}
-	c = Credential{ApplicationID: appID, APIKey: genKey(), ConsumerUsername: consumerName(appID)}
-	_, err = r.pool.Exec(ctx,
-		`INSERT INTO credentials(application_id, api_key, consumer_username) VALUES($1,$2,$3)`,
-		c.ApplicationID, c.APIKey, c.ConsumerUsername)
 	return c, err
 }
 
