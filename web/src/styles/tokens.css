@@ -1,0 +1,46 @@
+:root{
+  /* === LIGHT (ported from /index.html :root) === */
+  --bg: oklch(98.5% 0.004 255);
+  --surface: oklch(100% 0 0);
+  --ink: oklch(27% 0.105 27);
+  --ink-soft: oklch(34% 0.115 27);
+  --ink-line: oklch(45% 0.10 27);
+  --fg: oklch(25% 0.02 262);
+  --muted: oklch(53% 0.015 262);
+  --faint: oklch(67% 0.012 262);
+  --border: oklch(91% 0.006 262);
+  --border-2: oklch(86% 0.008 262);
+  --accent: oklch(55% 0.205 27);
+  --accent-d: oklch(47% 0.19 27);
+  --accent-soft: oklch(95% 0.04 27);
+  --warn: oklch(74% 0.15 78);
+  --c-admin: oklch(56% 0.035 262);
+  --c-finance: oklch(54% 0.09 158);
+  --c-marketing: oklch(64% 0.135 55);
+  --c-eng: oklch(55% 0.11 288);
+  --r: 14px;
+  --shadow: 0 1px 2px oklch(24% 0.03 262 / .05), 0 8px 24px oklch(24% 0.03 262 / .06);
+  --shadow-h: 0 2px 4px oklch(24% 0.03 262 / .07), 0 16px 40px oklch(24% 0.03 262 / .12);
+  --topbar-h: 62px;
+  --rail-w: 270px;
+  --font-display:'Bricolage Grotesque',-apple-system,system-ui,sans-serif;
+  --font-body:'IBM Plex Sans',-apple-system,system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+}
+:root[data-theme="dark"]{
+  --bg: oklch(20% 0.012 262);
+  --surface: oklch(25% 0.013 262);
+  --ink: oklch(22% 0.02 262);
+  --ink-soft: oklch(30% 0.02 262);
+  --ink-line: oklch(38% 0.02 262);
+  --fg: oklch(93% 0.012 262);
+  --muted: oklch(72% 0.015 262);
+  --faint: oklch(58% 0.013 262);
+  --border: oklch(33% 0.012 262);
+  --border-2: oklch(40% 0.014 262);
+  --accent: oklch(64% 0.2 27);
+  --accent-d: oklch(56% 0.19 27);
+  --accent-soft: oklch(33% 0.07 27);
+  --shadow: 0 1px 2px oklch(0% 0 0 / .3), 0 8px 24px oklch(0% 0 0 / .4);
+  --shadow-h: 0 2px 4px oklch(0% 0 0 / .4), 0 16px 40px oklch(0% 0 0 / .5);
+}
