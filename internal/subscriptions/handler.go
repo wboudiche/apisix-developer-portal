@@ -3,6 +3,7 @@ package subscriptions
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -71,7 +72,8 @@ func (h *Handler) subscribe(w http.ResponseWriter, r *http.Request) {
 	}
 	cred, err := h.svc.Subscribe(r.Context(), appID, body.ProductID, body.PlanID)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "subscription/provisioning failed: "+err.Error())
+		log.Printf("subscribe failed (app=%d product=%d): %v", appID, body.ProductID, err)
+		httpx.Error(w, http.StatusInternalServerError, "subscription failed")
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, cred)
@@ -88,7 +90,8 @@ func (h *Handler) unsubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.Unsubscribe(r.Context(), appID, productID); err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "unsubscribe failed: "+err.Error())
+		log.Printf("unsubscribe failed (app=%d product=%d): %v", appID, productID, err)
+		httpx.Error(w, http.StatusInternalServerError, "unsubscribe failed")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

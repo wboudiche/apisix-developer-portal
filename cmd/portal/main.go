@@ -2,8 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"apisix-portal/internal/applications"
 	"apisix-portal/internal/apisix"
@@ -60,15 +65,46 @@ func main() {
 	mux.Handle("/api/applications", requireAuth(appsH))
 	mux.Handle("/api/applications/", requireAuth(subH))
 
-	log.Printf("portal listening on %s", cfg.Addr)
-	if err := http.ListenAndServe(cfg.Addr, logRequests(mux)); err != nil {
-		log.Fatal(err)
+	srv := &http.Server{
+		Addr:              cfg.Addr,
+		Handler:           logRequests(mux),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
+	go func() {
+		log.Printf("portal listening on %s", cfg.Addr)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	<-stop
+	log.Println("shutting down…")
+	shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutCtx); err != nil {
+		log.Printf("graceful shutdown failed: %v", err)
+	}
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (s *statusRecorder) WriteHeader(code int) {
+	s.status = code
+	s.ResponseWriter.WriteHeader(code)
 }
 
 func logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s", r.Method, r.URL.Path)
-		next.ServeHTTP(w, r)
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		log.Printf("%s %s -> %d", r.Method, r.URL.Path, rec.status)
 	})
 }
