@@ -88,6 +88,17 @@ func TestAdminApproveNotFoundReturns404(t *testing.T) {
 	}
 }
 
+func TestAdminRejectNotFoundReturns404(t *testing.T) {
+	svc := &fakeAdminSvc{rejectErr: ErrNotFound}
+	h := NewAdminHandler(svc)
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/subscriptions/99/reject", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status=%d want 404", rec.Code)
+	}
+}
+
 func TestAdminApproveBadIDReturns400(t *testing.T) {
 	svc := &fakeAdminSvc{}
 	h := NewAdminHandler(svc)
