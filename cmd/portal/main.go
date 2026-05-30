@@ -24,6 +24,12 @@ import (
 func main() {
 	ctx := context.Background()
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("config: %v", err)
+	}
+	if cfg.UsesDevSecrets() {
+		log.Printf("WARNING: using built-in dev secrets (JWT/APISIX admin key) — set JWT_SECRET and APISIX_ADMIN_KEY before any non-dev deploy")
+	}
 
 	pool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
