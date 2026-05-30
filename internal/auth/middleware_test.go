@@ -51,3 +51,56 @@ func TestWithUserIDRoundTrips(t *testing.T) {
 		t.Fatalf("WithUserID/UserID round trip failed: %d", UserID(ctx))
 	}
 }
+
+func adminTestHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(Role(r.Context())))
+	})
+}
+
+func TestRequireAdminAllowsAdmin(t *testing.T) {
+	tk := NewTokenizer("s3cret")
+	tok, err := tk.Issue(1, "boss@example.com", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/products", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+
+	RequireAdmin(tk)(adminTestHandler()).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if rec.Body.String() != "admin" {
+		t.Fatalf("Role(ctx) = %q, want admin", rec.Body.String())
+	}
+}
+
+func TestRequireAdminRejectsDeveloper(t *testing.T) {
+	tk := NewTokenizer("s3cret")
+	tok, _ := tk.Issue(2, "dev@example.com", "developer")
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/products", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+
+	RequireAdmin(tk)(adminTestHandler()).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403", rec.Code)
+	}
+}
+
+func TestRequireAdminRejectsMissingToken(t *testing.T) {
+	tk := NewTokenizer("s3cret")
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/products", nil)
+
+	RequireAdmin(tk)(adminTestHandler()).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
