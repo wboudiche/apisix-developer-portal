@@ -10,8 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"apisix-portal/internal/applications"
+	"apisix-portal/internal/admin"
 	"apisix-portal/internal/apisix"
+	"apisix-portal/internal/applications"
 	"apisix-portal/internal/auth"
 	"apisix-portal/internal/catalog"
 	"apisix-portal/internal/config"
@@ -37,7 +38,11 @@ func main() {
 	gw := apisix.NewClient(cfg.APISIXAdminURL, cfg.APISIXAdminKey)
 
 	catalogH := catalog.NewHandler(catalog.NewRepo(pool))
-	authH := auth.NewHandler(auth.NewRepo(pool), tok)
+	authRepo := auth.NewRepo(pool)
+	authH := auth.NewHandler(authRepo, tok)
+	if err := authRepo.EnsureAdminRole(ctx, cfg.AdminEmail); err != nil {
+		log.Printf("seed admin role (%s): %v", cfg.AdminEmail, err)
+	}
 	plansH := plans.NewHandler(plans.NewRepo(pool))
 	appsRepo := applications.NewRepo(pool)
 	appsH := applications.NewHandler(appsRepo)
@@ -53,8 +58,11 @@ func main() {
 		return true, nil
 	}
 	subH := subscriptions.NewHandler(subSvc, subRepo, owns)
+	adminSvc := admin.NewService(admin.NewRepo(pool), subSvc)
+	adminH := admin.NewHandler(adminSvc)
 
 	requireAuth := auth.RequireAuth(tok)
+	requireAdmin := auth.RequireAdmin(tok)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
@@ -64,6 +72,8 @@ func main() {
 	mux.Handle("/api/plans", plansH)
 	mux.Handle("/api/applications", requireAuth(appsH))
 	mux.Handle("/api/applications/", requireAuth(subH))
+	mux.Handle("/api/admin/products", requireAdmin(adminH))
+	mux.Handle("/api/admin/products/", requireAdmin(adminH))
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
