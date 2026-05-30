@@ -22,11 +22,12 @@ describe('ApplicationsPage', () => {
     vi.spyOn(api, 'getApplications').mockResolvedValue([{ id: 9, name: 'My App', ownerId: 5, description: '', createdAt: '' }])
     vi.spyOn(api, 'getApplicationDetail').mockResolvedValue({
       apiKey: 'KEY-9', consumerUsername: 'app_9',
-      subscriptions: [{ productId: 3, productName: 'PizzaShackAPI', version: '1.0.0', contextPath: '/pizzashack', planId: 2, planName: 'Silver' }],
+      subscriptions: [{ productId: 3, productName: 'PizzaShackAPI', version: '1.0.0', contextPath: '/pizzashack', planId: 2, planName: 'Silver', status: 'pending' }],
     })
     renderPage()
     await waitFor(() => expect(screen.getByText('My App')).toBeInTheDocument())
     await waitFor(() => expect(screen.getByText('KEY-9')).toBeInTheDocument())
     expect(screen.getByText('PizzaShackAPI')).toBeInTheDocument()
+    expect(screen.getByText(/En attente/i)).toBeInTheDocument()
   })
 })

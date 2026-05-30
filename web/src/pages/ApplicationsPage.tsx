@@ -5,6 +5,15 @@ import { useAuth } from '../auth/AuthProvider'
 import { TopBar } from '../components/TopBar'
 import '../styles/catalog.css'
 
+function statusLabel(status: string): string {
+  switch (status) {
+    case 'active': return 'Actif'
+    case 'pending': return 'En attente'
+    case 'rejected': return 'Rejeté'
+    default: return status
+  }
+}
+
 export function ApplicationsPage() {
   const { token } = useAuth()
   const [apps, setApps] = useState<Application[]>([])
@@ -62,7 +71,7 @@ export function ApplicationsPage() {
             {detail.subscriptions.length === 0 && <p className="rescount">Aucun abonnement.</p>}
             {detail.subscriptions.map(s => (
               <div key={s.productId} className="cfoot" style={{ justifyContent: 'space-between' }}>
-                <span><span>{s.productName}</span> <span className="ctx">{s.contextPath}</span> · {s.planName}</span>
+                <span><span>{s.productName}</span> <span className="ctx">{s.contextPath}</span> · {s.planName} · <span className="pill">{statusLabel(s.status)}</span></span>
                 <button className="subbtn ghost" onClick={() => onUnsub(s.productId)}>Se désabonner</button>
               </div>
             ))}
