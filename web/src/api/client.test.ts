@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getProducts, login, register, getPlans, getApplications, createApplication, getApplicationDetail, subscribe } from './client'
+import { getProducts, login, register, getPlans, getApplications, createApplication, getApplicationDetail, subscribe, adminGetProducts, adminCreateProduct, adminDeleteProduct, adminGetSubscriptions, adminApproveSubscription } from './client'
 
 beforeEach(() => { vi.restoreAllMocks() })
 
@@ -85,5 +85,43 @@ describe('authenticated endpoints', () => {
   it('getPlans returns the array', async () => {
     mockFetch(200, [{ id: 1, name: 'Free', rateLimit: 60, windowSeconds: 60 }])
     expect(await getPlans()).toHaveLength(1)
+  })
+})
+
+describe('admin endpoints', () => {
+  it('adminGetProducts sends Bearer and hits /api/admin/products', async () => {
+    mockFetch(200, [{ id: 1, name: 'P', slug: 'p', category: 'C', version: '1.0.0', contextPath: '/p', description: '', tags: [], icon: '', upstreamUrl: '', published: true }])
+    const out = await adminGetProducts('tok')
+    expect(out).toHaveLength(1)
+    const [url, opts] = (globalThis.fetch as any).mock.calls[0]
+    expect(url).toBe('/api/admin/products')
+    expect(opts.headers.Authorization).toBe('Bearer tok')
+  })
+  it('adminCreateProduct POSTs the product with auth', async () => {
+    mockFetch(201, { id: 2, name: 'New', slug: 'new', category: 'C', version: '', contextPath: '/new', description: '', tags: [], icon: '', upstreamUrl: 'echo:8080', published: true })
+    const p = await adminCreateProduct('tok', { name: 'New', slug: 'new', category: 'C', version: '', contextPath: '/new', description: '', tags: [], icon: '', upstreamUrl: 'echo:8080', published: true })
+    expect(p.id).toBe(2)
+    const [url, opts] = (globalThis.fetch as any).mock.calls[0]
+    expect(url).toBe('/api/admin/products')
+    expect(opts.method).toBe('POST')
+    expect(opts.headers.Authorization).toBe('Bearer tok')
+  })
+  it('adminDeleteProduct throws the server error on 409', async () => {
+    mockFetch(409, { error: 'product has active subscriptions' })
+    await expect(adminDeleteProduct('tok', 5)).rejects.toThrow('product has active subscriptions')
+  })
+  it('adminGetSubscriptions passes the status filter', async () => {
+    mockFetch(200, [])
+    await adminGetSubscriptions('tok', 'pending')
+    const url = (globalThis.fetch as any).mock.calls[0][0] as string
+    expect(url).toBe('/api/admin/subscriptions?status=pending')
+  })
+  it('adminApproveSubscription POSTs to the approve URL and resolves on 204', async () => {
+    mockFetch(204, {})
+    await adminApproveSubscription('tok', 7)
+    const [url, opts] = (globalThis.fetch as any).mock.calls[0]
+    expect(url).toBe('/api/admin/subscriptions/7/approve')
+    expect(opts.method).toBe('POST')
+    expect(opts.headers.Authorization).toBe('Bearer tok')
   })
 })

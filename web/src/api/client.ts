@@ -1,4 +1,4 @@
-import type { Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail } from './types'
+import type { Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail, AdminProduct, AdminSubscription } from './types'
 
 async function parse<T>(res: Response): Promise<T> {
   const body = await res.json().catch(() => ({}))
@@ -69,4 +69,56 @@ export async function unsubscribe(token: string, appId: number, productId: numbe
     method: 'DELETE', headers: authHeaders(token),
   })
   if (!res.ok) throw new Error(`unsubscribe failed (${res.status})`)
+}
+
+async function sendAuthed(method: string, url: string, token: string, body?: unknown): Promise<void> {
+  const res = await fetch(url, {
+    method,
+    headers: authHeaders(token),
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}))
+    throw new Error((b as { error?: string }).error || `request failed (${res.status})`)
+  }
+}
+
+// --- Admin: products ---
+export async function adminGetProducts(token: string): Promise<AdminProduct[]> {
+  return parse<AdminProduct[]>(await fetch('/api/admin/products', { headers: authHeaders(token) }))
+}
+export async function adminCreateProduct(token: string, p: AdminProduct): Promise<AdminProduct> {
+  return parse<AdminProduct>(await fetch('/api/admin/products', { method: 'POST', headers: authHeaders(token), body: JSON.stringify(p) }))
+}
+export async function adminUpdateProduct(token: string, id: number, p: AdminProduct): Promise<AdminProduct> {
+  return parse<AdminProduct>(await fetch(`/api/admin/products/${id}`, { method: 'PUT', headers: authHeaders(token), body: JSON.stringify(p) }))
+}
+export async function adminDeleteProduct(token: string, id: number): Promise<void> {
+  return sendAuthed('DELETE', `/api/admin/products/${id}`, token)
+}
+
+// --- Admin: plans ---
+export async function adminGetPlans(token: string): Promise<Plan[]> {
+  return parse<Plan[]>(await fetch('/api/admin/plans', { headers: authHeaders(token) }))
+}
+export async function adminCreatePlan(token: string, p: Plan): Promise<Plan> {
+  return parse<Plan>(await fetch('/api/admin/plans', { method: 'POST', headers: authHeaders(token), body: JSON.stringify(p) }))
+}
+export async function adminUpdatePlan(token: string, id: number, p: Plan): Promise<Plan> {
+  return parse<Plan>(await fetch(`/api/admin/plans/${id}`, { method: 'PUT', headers: authHeaders(token), body: JSON.stringify(p) }))
+}
+export async function adminDeletePlan(token: string, id: number): Promise<void> {
+  return sendAuthed('DELETE', `/api/admin/plans/${id}`, token)
+}
+
+// --- Admin: subscriptions (approval) ---
+export async function adminGetSubscriptions(token: string, status?: string): Promise<AdminSubscription[]> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : ''
+  return parse<AdminSubscription[]>(await fetch(`/api/admin/subscriptions${qs}`, { headers: authHeaders(token) }))
+}
+export async function adminApproveSubscription(token: string, id: number): Promise<void> {
+  return sendAuthed('POST', `/api/admin/subscriptions/${id}/approve`, token)
+}
+export async function adminRejectSubscription(token: string, id: number): Promise<void> {
+  return sendAuthed('POST', `/api/admin/subscriptions/${id}/reject`, token)
 }

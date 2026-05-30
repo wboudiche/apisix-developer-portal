@@ -58,6 +58,32 @@ export interface SubscriptionView {
   contextPath: string
   planId: number
   planName: string
+  status: string
+}
+
+export interface AdminProduct {
+  id?: number
+  name: string
+  slug: string
+  category: string
+  version: string
+  contextPath: string
+  description: string
+  tags: string[]
+  icon: string
+  upstreamUrl: string
+  published: boolean
+}
+
+export interface AdminSubscription {
+  id: number
+  applicationName: string
+  ownerEmail: string
+  productName: string
+  version: string
+  planName: string
+  status: string
+  createdAt: string
 }
 
 export interface AppDetail {
