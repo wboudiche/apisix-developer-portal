@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"log"
 )
 
 // ErrHasSubscriptions is returned when a product cannot be deleted because it
@@ -79,8 +80,11 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	if err := s.store.Delete(ctx, id); err != nil {
 		return err
 	}
-	// Best effort: the row is already gone; a stale gateway route is harmless and
-	// will be overwritten if the id is ever reused.
-	_ = s.prov.DeprovisionRoute(ctx, id)
+	// Best effort: the product row is already gone. A leftover gateway route is
+	// harmless (its whitelist was already rebuilt to empty by the last unsubscribe,
+	// so it admits no traffic), but log a failure so an operator can clean it up.
+	if err := s.prov.DeprovisionRoute(ctx, id); err != nil {
+		log.Printf("admin: deprovision route for product %d: %v", id, err)
+	}
 	return nil
 }
