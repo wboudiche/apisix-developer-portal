@@ -8,7 +8,7 @@ export function TopBar({ search, onSearch }: { search: string; onSearch: (v: str
   return (
     <header className="topbar">
       <Link className="brand" to="/"><span className="name">Atlas</span></Link>
-      <nav className="nav-tabs"><Link className="active" to="/">APIs</Link>{user && <Link to="/applications">Applications</Link>}</nav>
+      <nav className="nav-tabs"><Link className="active" to="/">APIs</Link>{user && <Link to="/applications">Applications</Link>}{user?.role === 'admin' && <Link to="/admin/products">Admin</Link>}</nav>
       <div className="search">
         <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Rechercher une API, un tag…" aria-label="Rechercher" />
       </div>
