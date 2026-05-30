@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { CatalogPage } from './CatalogPage'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { AuthProvider } from '../auth/AuthProvider'
@@ -43,5 +43,22 @@ describe('CatalogPage', () => {
     renderPage()
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/Impossible de charger/i))
     expect(screen.queryAllByTestId('api-card')).toHaveLength(0)
+  })
+
+  it('redirects to /login when an anonymous user clicks Subscribe', async () => {
+    vi.spyOn(api, 'getProducts').mockResolvedValue(sample)
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider><AuthProvider>
+          <Routes>
+            <Route path="/" element={<CatalogPage />} />
+            <Route path="/login" element={<div>LOGIN PAGE</div>} />
+          </Routes>
+        </AuthProvider></ThemeProvider>
+      </MemoryRouter>
+    )
+    await waitFor(() => expect(screen.getAllByTestId('api-card').length).toBeGreaterThan(0))
+    await userEvent.click(screen.getAllByRole('button', { name: /s'abonner/i })[0])
+    await waitFor(() => expect(screen.getByText('LOGIN PAGE')).toBeInTheDocument())
   })
 })

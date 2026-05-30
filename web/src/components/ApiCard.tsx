@@ -5,7 +5,7 @@ const CAT_DOT: Record<string, string> = {
   Marketing: 'var(--c-marketing)', Engineering: 'var(--c-eng)',
 }
 
-export function ApiCard({ p }: { p: Product }) {
+export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Product) => void }) {
   return (
     <article className="card in" data-testid="api-card">
       <div className="thumb">
@@ -23,7 +23,7 @@ export function ApiCard({ p }: { p: Product }) {
         </div>
         <div className="cfoot">
           <div className="ctags">{p.tags.slice(0, 2).map(t => <span key={t} className="ctag">{t}</span>)}</div>
-          <button className="subbtn">S'abonner</button>
+          <button className="subbtn" onClick={() => onSubscribe(p)}>S'abonner</button>
         </div>
       </div>
     </article>

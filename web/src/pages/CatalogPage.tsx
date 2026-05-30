@@ -1,17 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getProducts } from '../api/client'
 import type { Product } from '../api/types'
 import { TopBar } from '../components/TopBar'
 import { CategoryRail } from '../components/CategoryRail'
 import { ApiCard } from '../components/ApiCard'
+import { SubscribeModal } from '../components/SubscribeModal'
+import { useAuth } from '../auth/AuthProvider'
 import '../styles/catalog.css'
 
 export function CatalogPage() {
+  const { user } = useAuth()
+  const nav = useNavigate()
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [modalProduct, setModalProduct] = useState<Product | null>(null)
+
+  function handleSubscribe(p: Product) {
+    if (!user) { nav('/login'); return }
+    setModalProduct(p)
+  }
 
   useEffect(() => {
     let alive = true
@@ -40,11 +51,12 @@ export function CatalogPage() {
             <p className="rescount"><b>{products.length}</b> API{products.length > 1 ? 's' : ''}</p></div></div>
           {error && <p className="autherr" role="alert">{error}</p>}
           <div className="grid">
-            {products.map(p => <ApiCard key={p.id} p={p} />)}
+            {products.map(p => <ApiCard key={p.id} p={p} onSubscribe={handleSubscribe} />)}
           </div>
           {!loading && !error && products.length === 0 && <p className="rescount">Aucune API ne correspond.</p>}
         </main>
       </div>
+      {modalProduct && <SubscribeModal product={modalProduct} onClose={() => setModalProduct(null)} />}
     </>
   )
 }
