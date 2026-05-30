@@ -90,3 +90,40 @@ func TestUnsubscribeRemovesFromWhitelist(t *testing.T) {
 		t.Fatalf("whitelist after unsubscribe: %+v", r.Allowed)
 	}
 }
+
+func TestReprovisionRoute(t *testing.T) {
+	store := newMemStore()
+	store.products[7] = ProductInfo{ID: 7, ContextPath: "/seven", Upstream: "echo:8080"}
+	store.subs[7] = []string{"app_1", "app_2"}
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, GenerateKey)
+
+	if err := svc.ReprovisionRoute(context.Background(), 7); err != nil {
+		t.Fatalf("reprovision: %v", err)
+	}
+	r, ok := gw.Routes[RouteID(7)]
+	if !ok {
+		t.Fatalf("route %s not created", RouteID(7))
+	}
+	if r.Upstream != "echo:8080" || r.URI != "/seven/*" {
+		t.Fatalf("unexpected route: %+v", r)
+	}
+	if len(r.Allowed) != 2 {
+		t.Fatalf("want 2 allowed consumers, got %v", r.Allowed)
+	}
+}
+
+func TestDeprovisionRoute(t *testing.T) {
+	store := newMemStore()
+	store.products[7] = ProductInfo{ID: 7, ContextPath: "/seven", Upstream: "echo:8080"}
+	gw := apisix.NewFake()
+	_ = gw.EnsureRoute(context.Background(), RouteID(7), "/seven/*", "echo:8080", nil)
+	svc := NewService(store, gw, GenerateKey)
+
+	if err := svc.DeprovisionRoute(context.Background(), 7); err != nil {
+		t.Fatalf("deprovision: %v", err)
+	}
+	if _, ok := gw.Routes[RouteID(7)]; ok {
+		t.Fatal("route still present after DeprovisionRoute")
+	}
+}

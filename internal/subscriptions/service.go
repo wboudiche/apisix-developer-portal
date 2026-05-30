@@ -41,7 +41,9 @@ type Store interface {
 }
 
 func consumerName(appID int64) string { return fmt.Sprintf("app_%d", appID) }
-func routeID(productID int64) string  { return fmt.Sprintf("prod_%d", productID) }
+
+// RouteID is the deterministic APISIX route id for a product.
+func RouteID(productID int64) string { return fmt.Sprintf("prod_%d", productID) }
 
 // Service orchestrates subscribe/unsubscribe and the matching APISIX provisioning.
 type Service struct {
@@ -54,10 +56,28 @@ func NewService(store Store, gw apisix.Gateway, genKey func() string) *Service {
 	return &Service{store: store, gw: gw, genKey: genKey}
 }
 
-// Subscribe provisions APISIX and persists the subscription, returning the app's credential.
-func (s *Service) Subscribe(ctx context.Context, appID, productID, planID int64) (Credential, error) {
+// ReprovisionRoute rebuilds the product's APISIX route from its current upstream
+// and the set of active subscribers' consumer names. Safe to call repeatedly.
+func (s *Service) ReprovisionRoute(ctx context.Context, productID int64) error {
 	prod, err := s.store.GetProduct(ctx, productID)
 	if err != nil {
+		return err
+	}
+	allowed, err := s.store.ConsumersForProduct(ctx, productID)
+	if err != nil {
+		return err
+	}
+	return s.gw.EnsureRoute(ctx, RouteID(prod.ID), prod.ContextPath+"/*", prod.Upstream, allowed)
+}
+
+// DeprovisionRoute removes the product's APISIX route entirely.
+func (s *Service) DeprovisionRoute(ctx context.Context, productID int64) error {
+	return s.gw.DeleteRoute(ctx, RouteID(productID))
+}
+
+// Subscribe provisions APISIX and persists the subscription, returning the app's credential.
+func (s *Service) Subscribe(ctx context.Context, appID, productID, planID int64) (Credential, error) {
+	if _, err := s.store.GetProduct(ctx, productID); err != nil {
 		return Credential{}, err
 	}
 	plan, err := s.store.GetPlan(ctx, planID)
@@ -75,11 +95,7 @@ func (s *Service) Subscribe(ctx context.Context, appID, productID, planID int64)
 	if err := s.store.SaveSubscription(ctx, appID, productID, planID); err != nil {
 		return Credential{}, err
 	}
-	allowed, err := s.store.ConsumersForProduct(ctx, productID)
-	if err != nil {
-		return Credential{}, err
-	}
-	if err := s.gw.EnsureRoute(ctx, routeID(prod.ID), prod.ContextPath+"/*", prod.Upstream, allowed); err != nil {
+	if err := s.ReprovisionRoute(ctx, productID); err != nil {
 		return Credential{}, err
 	}
 	return cred, nil
@@ -87,16 +103,8 @@ func (s *Service) Subscribe(ctx context.Context, appID, productID, planID int64)
 
 // Unsubscribe removes the subscription and updates the route whitelist.
 func (s *Service) Unsubscribe(ctx context.Context, appID, productID int64) error {
-	prod, err := s.store.GetProduct(ctx, productID)
-	if err != nil {
-		return err
-	}
 	if err := s.store.DeleteSubscription(ctx, appID, productID); err != nil {
 		return err
 	}
-	allowed, err := s.store.ConsumersForProduct(ctx, productID)
-	if err != nil {
-		return err
-	}
-	return s.gw.EnsureRoute(ctx, routeID(prod.ID), prod.ContextPath+"/*", prod.Upstream, allowed)
+	return s.ReprovisionRoute(ctx, productID)
 }
