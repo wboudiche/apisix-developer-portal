@@ -14,7 +14,7 @@ export function TopBar({ search, onSearch }: { search: string; onSearch: (v: str
       </div>
       <button className="icon-btn" onClick={toggle} aria-label="Basculer le thème">{theme === 'dark' ? '☀' : '☾'}</button>
       {user
-        ? <button className="icon-btn" onClick={logout}>{user.email.slice(0, 2).toUpperCase()}</button>
+        ? <button className="icon-btn" onClick={logout} aria-label="Se déconnecter" title={`Se déconnecter (${user.email})`}>{user.email.slice(0, 2).toUpperCase()}</button>
         : <Link className="icon-btn" to="/login">Connexion</Link>}
     </header>
   )
