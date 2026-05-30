@@ -43,3 +43,10 @@ func (r *Repo) GetByEmail(ctx context.Context, email string) (User, string, erro
 	).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &hash)
 	return u, hash, err
 }
+
+// EnsureAdminRole promotes the user with the given email to role 'admin'.
+// Idempotent and a no-op if no such user exists yet (e.g. before first register).
+func (r *Repo) EnsureAdminRole(ctx context.Context, email string) error {
+	_, err := r.pool.Exec(ctx, `UPDATE users SET role='admin' WHERE email=$1`, email)
+	return err
+}
