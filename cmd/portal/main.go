@@ -60,6 +60,8 @@ func main() {
 	subH := subscriptions.NewHandler(subSvc, subRepo, owns)
 	adminSvc := admin.NewService(admin.NewRepo(pool), subSvc)
 	adminH := admin.NewHandler(adminSvc)
+	planAdminSvc := admin.NewPlanService(admin.NewPlanRepo(pool), subSvc)
+	planAdminH := admin.NewPlanHandler(planAdminSvc)
 
 	requireAuth := auth.RequireAuth(tok)
 	requireAdmin := auth.RequireAdmin(tok)
@@ -74,6 +76,8 @@ func main() {
 	mux.Handle("/api/applications/", requireAuth(subH))
 	mux.Handle("/api/admin/products", requireAdmin(adminH))
 	mux.Handle("/api/admin/products/", requireAdmin(adminH))
+	mux.Handle("/api/admin/plans", requireAdmin(planAdminH))
+	mux.Handle("/api/admin/plans/", requireAdmin(planAdminH))
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
