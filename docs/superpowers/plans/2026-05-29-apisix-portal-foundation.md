@@ -154,7 +154,7 @@ deployment:
 DATABASE_URL=postgres://portal:portal@localhost:5432/portal?sslmode=disable
 PORTAL_ADDR=:8080
 JWT_SECRET=dev-secret-change-me
-APISIX_ADMIN_URL=http://localhost:9180
+APISIX_ADMIN_URL=http://localhost:19180
 APISIX_ADMIN_KEY=edd1c9f034335f136f87ad84b625c8f1
 ```
 
@@ -177,11 +177,12 @@ services:
       retries: 10
 
   etcd:
-    image: bitnami/etcd:3.5
+    image: bitnamilegacy/etcd:3.5   # bitnami/etcd:3.5 tags 404 on Docker Hub; legacy namespace works
     environment:
       ALLOW_NONE_AUTHENTICATION: "yes"
       ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
-    ports: ["2379:2379"]
+    # No host port: APISIX reaches etcd over the internal compose network as
+    # http://etcd:2379. Host 2379 is already used by another project's etcd.
 
   apisix:
     image: apache/apisix:3.9.1-debian
@@ -189,8 +190,8 @@ services:
     volumes:
       - ./deploy/apisix/config.yaml:/usr/local/apisix/conf/config.yaml:ro
     ports:
-      - "9080:9080"   # gateway data plane
-      - "9180:9180"   # admin API
+      - "9080:9080"     # gateway data plane (host 9080 is free)
+      - "19180:9180"    # admin API on host 19180 (host 9180 is taken by another project)
 ```
 
 - [ ] **Step 4: Bring it up and verify**
@@ -200,7 +201,7 @@ Run:
 docker compose up -d
 sleep 8
 docker compose ps
-curl -s http://127.0.0.1:9180/apisix/admin/routes -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' | head -c 120
+curl -s http://127.0.0.1:19180/apisix/admin/routes -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' | head -c 120
 ```
 Expected: all services `running`/`healthy`; the admin curl returns a JSON body (a `{"list":...}` / `{"node":...}` shape), not a connection error.
 
@@ -1360,6 +1361,8 @@ git commit -m "feat: auth register/login HTTP handlers (TDD)"
 
 - [ ] **Step 1: Write `cmd/portal/main.go`**
 
+> Routing approach: both handlers register ABSOLUTE paths (`/api/products`, `/api/auth/register`) on their own internal chi routers. Do NOT try to `chi.Mount` both at `/` (chi panics on a duplicate mount pattern, and nesting chi routers via `Handle` reuses the outer RouteContext and mis-routes). Compose them with the stdlib `http.ServeMux`, which passes the unmodified request through so each handler's own chi router resolves the full path cleanly.
+
 ```go
 package main
 
@@ -1367,9 +1370,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 
 	"apisix-portal/internal/auth"
 	"apisix-portal/internal/catalog"
@@ -1393,25 +1393,25 @@ func main() {
 	catalogH := catalog.NewHandler(catalog.NewRepo(pool))
 	authH := auth.NewHandler(auth.NewRepo(pool), auth.NewTokenizer(cfg.JWTSecret))
 
-	r := chi.NewRouter()
-	r.Use(middleware.Logger, middleware.Recoverer)
-	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
-	r.Mount("/", catalogH)
-	r.Mount("/auth", authH) // mounts /auth + the handler's own /api/auth/* -> see note
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
+	mux.Handle("/api/products", catalogH)   // exact: list
+	mux.Handle("/api/products/", catalogH)  // subtree: /{slug}
+	mux.Handle("/api/auth/", authH)         // subtree: /register, /login
 
 	log.Printf("portal listening on %s", cfg.Addr)
-	if err := http.ListenAndServe(cfg.Addr, r); err != nil {
+	if err := http.ListenAndServe(cfg.Addr, logRequests(mux)); err != nil {
 		log.Fatal(err)
 	}
 }
-```
 
-> Routing note: both handlers register absolute paths (`/api/products`, `/api/auth/register`) on their own internal chi routers. Mount them at root so paths resolve as written:
-> ```go
-> r.Mount("/", catalogH)
-> r.Mount("/", authH)
-> ```
-> Replace the two `r.Mount` lines above with these two root mounts. chi allows multiple mounts at `/` as long as the concrete routes do not collide (they don't: `/api/products*` vs `/api/auth/*`).
+func logRequests(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s", r.Method, r.URL.Path)
+		next.ServeHTTP(w, r)
+	})
+}
+```
 
 - [ ] **Step 2: Run the full test suite**
 
