@@ -3,6 +3,7 @@ package subscriptions
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -71,6 +72,14 @@ func (h *Handler) subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cred, err := h.svc.Subscribe(r.Context(), appID, body.ProductID, body.PlanID)
+	if errors.Is(err, ErrNotFound) {
+		httpx.Error(w, http.StatusNotFound, "product or plan not found")
+		return
+	}
+	if errors.Is(err, ErrAlreadySubscribed) {
+		httpx.Error(w, http.StatusConflict, "already subscribed to this product")
+		return
+	}
 	if err != nil {
 		log.Printf("subscribe failed (app=%d product=%d): %v", appID, body.ProductID, err)
 		httpx.Error(w, http.StatusInternalServerError, "subscription failed")

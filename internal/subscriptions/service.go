@@ -2,16 +2,33 @@ package subscriptions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"apisix-portal/internal/apisix"
 )
+
+// Subscription lifecycle states.
+const (
+	StatusPending  = "pending"
+	StatusActive   = "active"
+	StatusRejected = "rejected"
+)
+
+// ErrAlreadySubscribed is returned by Subscribe when the application already has
+// an active subscription to the product (re-subscribing would bypass the approval gate).
+var ErrAlreadySubscribed = errors.New("already subscribed")
+
+// ErrInvalidTransition is returned when a status change is not allowed from the
+// subscription's current state (e.g. approving a rejected subscription).
+var ErrInvalidTransition = errors.New("invalid status transition")
 
 // ProductInfo is what the service needs to provision a product's gateway route.
 type ProductInfo struct {
 	ID          int64
 	ContextPath string
 	Upstream    string // host:port
+	Published   bool
 }
 
 // PlanInfo is the rate limit for a subscription.
@@ -45,6 +62,9 @@ type Store interface {
 	GetSubscription(ctx context.Context, subID int64) (SubscriptionRecord, error)
 	// SetSubscriptionStatus transitions a subscription to the given status.
 	SetSubscriptionStatus(ctx context.Context, subID int64, status string) error
+	// SubscriptionStatus returns the status of the (app, product) subscription,
+	// or "" if there is none.
+	SubscriptionStatus(ctx context.Context, appID, productID int64) (string, error)
 	// AdminSubscriptions lists subscriptions for the admin queue. An empty
 	// statusFilter returns all; otherwise only rows with that status.
 	AdminSubscriptions(ctx context.Context, statusFilter string) ([]AdminSubscriptionView, error)
@@ -109,16 +129,32 @@ func (s *Service) ReprovisionPlan(ctx context.Context, planID int64) error {
 // credential, but performs NO provisioning — the key will not pass the gateway
 // until an admin approves the subscription. Returns the credential.
 //
-// Re-subscribing to a product the app is already subscribed to resets the row to
-// pending (e.g. to request a plan change). Any existing gateway grant from a prior
-// approval stays live until the admin approves the new request; the route
-// whitelist is rebuilt only on Approve/Reject/Unsubscribe, never on Subscribe.
+// An unpublished product or unknown plan is rejected with ErrNotFound (unpublished
+// products are treated as non-existent to callers, so their existence is not leaked).
+//
+// Re-subscribing a product the app is ALREADY ACTIVE on is refused with
+// ErrAlreadySubscribed — this prevents both the approval-gate bypass and an
+// involuntary mid-flight revocation of a live subscription.
+//
+// Re-subscribing a pending or rejected subscription is allowed and resets it to
+// pending (e.g. to request a plan change).
 func (s *Service) Subscribe(ctx context.Context, appID, productID, planID int64) (Credential, error) {
-	if _, err := s.store.GetProduct(ctx, productID); err != nil {
+	prod, err := s.store.GetProduct(ctx, productID)
+	if err != nil {
 		return Credential{}, err
+	}
+	if !prod.Published {
+		return Credential{}, ErrNotFound // unpublished products are not subscribable; don't leak existence
 	}
 	if _, err := s.store.GetPlan(ctx, planID); err != nil {
 		return Credential{}, err
+	}
+	existing, err := s.store.SubscriptionStatus(ctx, appID, productID)
+	if err != nil {
+		return Credential{}, err
+	}
+	if existing == StatusActive {
+		return Credential{}, ErrAlreadySubscribed
 	}
 	cred, err := s.store.GetOrCreateCredential(ctx, appID, s.genKey)
 	if err != nil {
@@ -141,11 +177,14 @@ func (s *Service) Unsubscribe(ctx context.Context, appID, productID int64) error
 // Approve activates a pending subscription: it provisions the application's
 // consumer with the plan's limits and rebuilds the product route whitelist to
 // include it. Idempotent — approving an already-active subscription re-asserts
-// the gateway state.
+// the gateway state. Returns ErrInvalidTransition if the subscription is rejected.
 func (s *Service) Approve(ctx context.Context, subID int64) error {
 	rec, err := s.store.GetSubscription(ctx, subID)
 	if err != nil {
 		return err
+	}
+	if rec.Status == StatusRejected {
+		return ErrInvalidTransition // a rejected subscription cannot be approved
 	}
 	plan, err := s.store.GetPlan(ctx, rec.PlanID)
 	if err != nil {
@@ -159,7 +198,7 @@ func (s *Service) Approve(ctx context.Context, subID int64) error {
 		apisix.RateLimit{Count: plan.Count, WindowSeconds: plan.WindowSeconds}); err != nil {
 		return err
 	}
-	if err := s.store.SetSubscriptionStatus(ctx, subID, "active"); err != nil {
+	if err := s.store.SetSubscriptionStatus(ctx, subID, StatusActive); err != nil {
 		return err
 	}
 	return s.ReprovisionRoute(ctx, rec.ProductID)
@@ -167,13 +206,16 @@ func (s *Service) Approve(ctx context.Context, subID int64) error {
 
 // Reject marks a subscription rejected and rebuilds the product route whitelist
 // so the application is excluded (a no-op for a still-pending subscription,
-// which was never in the whitelist).
+// which was never in the whitelist). Returns ErrInvalidTransition if already rejected.
 func (s *Service) Reject(ctx context.Context, subID int64) error {
 	rec, err := s.store.GetSubscription(ctx, subID)
 	if err != nil {
 		return err
 	}
-	if err := s.store.SetSubscriptionStatus(ctx, subID, "rejected"); err != nil {
+	if rec.Status == StatusRejected {
+		return ErrInvalidTransition // already rejected
+	}
+	if err := s.store.SetSubscriptionStatus(ctx, subID, StatusRejected); err != nil {
 		return err
 	}
 	return s.ReprovisionRoute(ctx, rec.ProductID)

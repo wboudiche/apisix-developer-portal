@@ -18,7 +18,7 @@ type memStore struct {
 func newMemStore() *memStore {
 	return &memStore{
 		creds:    map[int64]Credential{},
-		products: map[int64]ProductInfo{3: {ID: 3, ContextPath: "/pizzashack", Upstream: "echo:8080"}},
+		products: map[int64]ProductInfo{3: {ID: 3, ContextPath: "/pizzashack", Upstream: "echo:8080", Published: true}},
 		plans:    map[int64]PlanInfo{2: {ID: 2, Count: 100, WindowSeconds: 60}},
 		records:  map[int64]*SubscriptionRecord{},
 	}
@@ -98,6 +98,13 @@ func (m *memStore) SetSubscriptionStatus(_ context.Context, subID int64, status 
 	r.Status = status
 	return nil
 }
+func (m *memStore) SubscriptionStatus(_ context.Context, appID, productID int64) (string, error) {
+	if r := m.findRecord(appID, productID); r != nil {
+		return r.Status, nil
+	}
+	return "", nil
+}
+
 func (m *memStore) AdminSubscriptions(_ context.Context, statusFilter string) ([]AdminSubscriptionView, error) {
 	out := []AdminSubscriptionView{}
 	for _, r := range m.records {
@@ -211,7 +218,7 @@ func TestUnsubscribeRemovesFromWhitelist(t *testing.T) {
 
 func TestReprovisionRoute(t *testing.T) {
 	store := newMemStore()
-	store.products[7] = ProductInfo{ID: 7, ContextPath: "/seven", Upstream: "echo:8080"}
+	store.products[7] = ProductInfo{ID: 7, ContextPath: "/seven", Upstream: "echo:8080", Published: true}
 	store.records[101] = &SubscriptionRecord{ID: 101, AppID: 1, ProductID: 7, PlanID: 2, Status: "active"}
 	store.records[102] = &SubscriptionRecord{ID: 102, AppID: 2, ProductID: 7, PlanID: 2, Status: "active"}
 	gw := apisix.NewFake()
@@ -234,7 +241,7 @@ func TestReprovisionRoute(t *testing.T) {
 
 func TestDeprovisionRoute(t *testing.T) {
 	store := newMemStore()
-	store.products[7] = ProductInfo{ID: 7, ContextPath: "/seven", Upstream: "echo:8080"}
+	store.products[7] = ProductInfo{ID: 7, ContextPath: "/seven", Upstream: "echo:8080", Published: true}
 	gw := apisix.NewFake()
 	_ = gw.EnsureRoute(context.Background(), RouteID(7), "/seven/*", "echo:8080", nil)
 	svc := NewService(store, gw, GenerateKey)
@@ -271,5 +278,104 @@ func TestReprovisionPlanUpdatesEachConsumerLimit(t *testing.T) {
 	}
 	if gw.Consumers["app_1"].APIKey != "k1" {
 		t.Fatalf("app_1 key not preserved: %q", gw.Consumers["app_1"].APIKey)
+	}
+}
+
+func TestSubscribeRejectsUnpublishedProduct(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	store.products[8] = ProductInfo{ID: 8, ContextPath: "/x", Upstream: "echo:8080", Published: false}
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "k" })
+
+	_, err := svc.Subscribe(ctx, 42, 8, 2)
+	if err != ErrNotFound {
+		t.Fatalf("Subscribe to unpublished product: want ErrNotFound, got %v", err)
+	}
+	if r := store.findRecord(42, 8); r != nil {
+		t.Fatal("no record should be created for unpublished product")
+	}
+}
+
+func TestSubscribeRejectsAlreadyActive(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "k" })
+
+	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
+		t.Fatalf("first Subscribe: %v", err)
+	}
+	rec := store.findRecord(42, 3)
+	if err := svc.Approve(ctx, rec.ID); err != nil {
+		t.Fatalf("Approve: %v", err)
+	}
+	_, err := svc.Subscribe(ctx, 42, 3, 2)
+	if err != ErrAlreadySubscribed {
+		t.Fatalf("second Subscribe (already active): want ErrAlreadySubscribed, got %v", err)
+	}
+}
+
+func TestSubscribeAllowsResubscribeWhenRejected(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "k" })
+
+	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
+		t.Fatalf("first Subscribe: %v", err)
+	}
+	rec := store.findRecord(42, 3)
+	if err := svc.Reject(ctx, rec.ID); err != nil {
+		t.Fatalf("Reject: %v", err)
+	}
+	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
+		t.Fatalf("re-subscribe after rejection: %v", err)
+	}
+	r := store.findRecord(42, 3)
+	if r == nil || r.Status != StatusPending {
+		t.Fatalf("expected pending record after re-subscribe, got %+v", r)
+	}
+}
+
+func TestApproveRejectedReturnsInvalidTransition(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "k" })
+
+	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	rec := store.findRecord(42, 3)
+	if err := svc.Reject(ctx, rec.ID); err != nil {
+		t.Fatalf("Reject: %v", err)
+	}
+	if err := svc.Approve(ctx, rec.ID); err != ErrInvalidTransition {
+		t.Fatalf("Approve of rejected: want ErrInvalidTransition, got %v", err)
+	}
+	if store.records[rec.ID].Status != StatusRejected {
+		t.Fatalf("status should stay rejected, got %q", store.records[rec.ID].Status)
+	}
+	if _, ok := gw.Consumers["app_42"]; ok {
+		t.Fatal("rejected subscription must not have provisioned a consumer")
+	}
+}
+
+func TestRejectAlreadyRejectedReturnsInvalidTransition(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "k" })
+
+	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	rec := store.findRecord(42, 3)
+	if err := svc.Reject(ctx, rec.ID); err != nil {
+		t.Fatalf("first Reject: %v", err)
+	}
+	if err := svc.Reject(ctx, rec.ID); err != ErrInvalidTransition {
+		t.Fatalf("second Reject: want ErrInvalidTransition, got %v", err)
 	}
 }

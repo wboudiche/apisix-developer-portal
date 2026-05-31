@@ -67,6 +67,10 @@ func (h *AdminHandler) transition(w http.ResponseWriter, r *http.Request, act fu
 			httpx.Error(w, http.StatusNotFound, "subscription not found")
 			return
 		}
+		if errors.Is(err, ErrInvalidTransition) {
+			httpx.Error(w, http.StatusConflict, "subscription cannot change from its current state")
+			return
+		}
 		log.Printf("admin %s subscription %d: %v", name, id, err)
 		httpx.Error(w, http.StatusInternalServerError, name+" failed")
 		return

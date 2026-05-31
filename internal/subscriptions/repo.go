@@ -41,8 +41,8 @@ func (r *Repo) GetOrCreateCredential(ctx context.Context, appID int64, genKey fu
 func (r *Repo) GetProduct(ctx context.Context, id int64) (ProductInfo, error) {
 	var p ProductInfo
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, context_path, upstream_url FROM api_products WHERE id=$1`, id,
-	).Scan(&p.ID, &p.ContextPath, &p.Upstream)
+		`SELECT id, context_path, upstream_url, published FROM api_products WHERE id=$1`, id,
+	).Scan(&p.ID, &p.ContextPath, &p.Upstream, &p.Published)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ProductInfo{}, ErrNotFound
 	}
@@ -167,6 +167,18 @@ func (r *Repo) GetSubscription(ctx context.Context, subID int64) (SubscriptionRe
 		return SubscriptionRecord{}, ErrNotFound
 	}
 	return s, err
+}
+
+// SubscriptionStatus returns the status of the (app, product) subscription, or "" if none.
+func (r *Repo) SubscriptionStatus(ctx context.Context, appID, productID int64) (string, error) {
+	var status string
+	err := r.pool.QueryRow(ctx,
+		`SELECT status FROM subscriptions WHERE application_id=$1 AND api_product_id=$2`, appID, productID,
+	).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return status, err
 }
 
 // SetSubscriptionStatus transitions a subscription to the given status.
