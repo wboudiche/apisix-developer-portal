@@ -126,7 +126,7 @@ describe('TopBar', () => {
     expect(screen.getByLabelText('Aide / Documentation')).toBeInTheDocument()
   })
 
-  // ── NEW: user block (real-auth) ────────────────────────────────────────────
+  // ── UPDATED: user block (real-auth, now a dropdown) ───────────────────────
 
   it('shows .user block with display name and "Espace développeur" when logged in', () => {
     localStorage.setItem('user', JSON.stringify({ id: 1, email: 'admin@portal.local', name: 'Admin', role: 'admin' }))
@@ -156,16 +156,98 @@ describe('TopBar', () => {
     expect(av?.textContent).toBe('BO')
   })
 
-  it('.user button has aria-label "Se déconnecter" when logged in', () => {
+  // ── NEW DROPDOWN TESTS ─────────────────────────────────────────────────────
+
+  it('menu is initially closed: no role="menu" and no "Se déconnecter" visible', () => {
     localStorage.setItem('user', JSON.stringify({ id: 1, email: 'admin@portal.local', name: 'Admin', role: 'admin' }))
     localStorage.setItem('token', 'abc123')
     renderTopBar()
-    expect(screen.getByLabelText('Se déconnecter')).toBeInTheDocument()
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(screen.queryByText('Se déconnecter')).toBeNull()
   })
 
-  it('shows login link (not user block) when logged out', () => {
+  it('clicking the user trigger opens the menu and shows email, role label, and Se déconnecter', () => {
+    localStorage.setItem('user', JSON.stringify({ id: 1, email: 'admin@portal.local', name: 'Admin', role: 'admin' }))
+    localStorage.setItem('token', 'abc123')
     renderTopBar()
-    expect(screen.queryByLabelText('Se déconnecter')).toBeNull()
+    const trigger = screen.getByRole('button', { name: /Menu de Admin/ })
+    fireEvent.click(trigger)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.getByText('admin@portal.local')).toBeInTheDocument()
+    expect(screen.getByText('Admin', { selector: '.usermenu .role' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /Se déconnecter/ })).toBeInTheDocument()
+  })
+
+  it('clicking trigger again closes the menu', () => {
+    localStorage.setItem('user', JSON.stringify({ id: 1, email: 'admin@portal.local', name: 'Admin', role: 'admin' }))
+    localStorage.setItem('token', 'abc123')
+    renderTopBar()
+    const trigger = screen.getByRole('button', { name: /Menu de Admin/ })
+    fireEvent.click(trigger)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    fireEvent.click(trigger)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('shows "Développeur" role label for non-admin user', () => {
+    localStorage.setItem('user', JSON.stringify({ id: 2, email: 'dev@portal.local', name: 'Dev User', role: 'developer' }))
+    localStorage.setItem('token', 'abc123')
+    renderTopBar()
+    const trigger = screen.getByRole('button', { name: /Menu de Dev User/ })
+    fireEvent.click(trigger)
+    expect(screen.getByText('Développeur', { selector: '.usermenu .role' })).toBeInTheDocument()
+  })
+
+  it('clicking Se déconnecter calls logout (user disappears, login link appears)', () => {
+    localStorage.setItem('user', JSON.stringify({ id: 1, email: 'admin@portal.local', name: 'Admin', role: 'admin' }))
+    localStorage.setItem('token', 'abc123')
+    renderTopBar()
+    const trigger = screen.getByRole('button', { name: /Menu de Admin/ })
+    fireEvent.click(trigger)
+    const logoutItem = screen.getByRole('menuitem', { name: /Se déconnecter/ })
+    fireEvent.click(logoutItem)
+    // After logout, user block is gone; login link appears
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(screen.getByText('Connexion')).toBeInTheDocument()
+  })
+
+  it('pressing Escape after opening closes the menu', () => {
+    localStorage.setItem('user', JSON.stringify({ id: 1, email: 'admin@portal.local', name: 'Admin', role: 'admin' }))
+    localStorage.setItem('token', 'abc123')
+    renderTopBar()
+    const trigger = screen.getByRole('button', { name: /Menu de Admin/ })
+    fireEvent.click(trigger)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('clicking outside the menu wraps closes the menu', () => {
+    localStorage.setItem('user', JSON.stringify({ id: 1, email: 'admin@portal.local', name: 'Admin', role: 'admin' }))
+    localStorage.setItem('token', 'abc123')
+    const { container } = renderTopBar()
+    const trigger = screen.getByRole('button', { name: /Menu de Admin/ })
+    fireEvent.click(trigger)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    // Simulate outside click
+    fireEvent.mouseDown(container.querySelector('.topbar header') ?? document.body)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('trigger has aria-haspopup="menu" and aria-expanded reflects open state', () => {
+    localStorage.setItem('user', JSON.stringify({ id: 1, email: 'admin@portal.local', name: 'Admin', role: 'admin' }))
+    localStorage.setItem('token', 'abc123')
+    renderTopBar()
+    const trigger = screen.getByRole('button', { name: /Menu de Admin/ })
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('shows login link (not user trigger) when logged out', () => {
+    renderTopBar()
+    expect(screen.queryByRole('button', { name: /Menu de/ })).toBeNull()
     expect(screen.getByText('Connexion')).toBeInTheDocument()
   })
 })

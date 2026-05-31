@@ -52,14 +52,44 @@
 }
 .topbar .icon-btn:hover{color:var(--fg);border-color:var(--accent);background:var(--accent-soft)}
 .topbar .icon-btn svg{width:18px;height:18px}
-.user{display:flex;align-items:center;gap:9px;flex:none;padding-left:6px}
+/* ── User trigger ──────────────────────────────────────────────────────────── */
+.usermenu-wrap{position:relative}
+.user{
+  display:flex;align-items:center;gap:9px;flex:none;padding:4px 8px;
+  cursor:pointer;border:1px solid transparent;border-radius:10px;background:transparent;
+  transition:.15s;
+}
+.user:hover{background:var(--accent-soft)}
 .user .av{
-  width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;
-  background:linear-gradient(150deg,var(--c-eng),var(--accent));color:#fff;font-weight:600;font-size:13px;
+  width:33px;height:33px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:linear-gradient(145deg,var(--accent),var(--accent-d));color:#fff;font-weight:700;font-size:13px;
   font-family:var(--font-display);
+  box-shadow:0 2px 8px oklch(55% 0.205 27 /.35), inset 0 1px 0 oklch(100% 0 0 /.22);
 }
 .user .who{font-size:13px;font-weight:500;line-height:1.2}
 .user .who small{display:block;color:var(--muted);font-size:11px;font-weight:400}
+.user .chev{width:14px;height:14px;color:var(--faint);transition:transform .18s;flex:none}
+.user[aria-expanded="true"] .chev{transform:rotate(180deg)}
+
+/* ── Profile dropdown panel ─────────────────────────────────────────────────── */
+.usermenu{
+  position:absolute;right:0;top:calc(100% + 8px);min-width:230px;
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:var(--shadow-h);padding:6px;z-index:70;display:flex;flex-direction:column;gap:2px;
+}
+.usermenu .head{padding:9px 10px;display:flex;flex-direction:column;gap:5px}
+.usermenu .email{font-size:13px;color:var(--fg);font-weight:600;word-break:break-all}
+.usermenu .role{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+.usermenu .role .dot{width:7px;height:7px;border-radius:50%;flex:none}
+.usermenu .sep{height:1px;background:var(--border);margin:4px 0}
+.usermenu .item{
+  display:flex;align-items:center;gap:9px;width:100%;text-align:left;
+  padding:9px 10px;border-radius:8px;border:0;background:transparent;
+  color:var(--fg);font-size:13px;font-weight:500;cursor:pointer;
+}
+.usermenu .item:hover{background:var(--accent-soft);color:var(--accent)}
+.usermenu .item svg{width:15px;height:15px}
+
 .hamb{display:grid}
 
 /* ===================== LAYOUT ===================== */

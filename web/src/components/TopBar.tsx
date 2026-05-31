@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { useTheme } from '../theme/ThemeProvider'
 import { useAuth } from '../auth/AuthProvider'
 import { Link } from 'react-router-dom'
@@ -65,6 +65,24 @@ function IconSun() {
   )
 }
 
+// ── Profile dropdown icons ─────────────────────────────────────────────────────
+
+function IconChevron() {
+  return (
+    <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+function IconLogout() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 // ── User block helpers ─────────────────────────────────────────────────────────
 
 function displayName(u: User): string {
@@ -94,6 +112,8 @@ export function TopBar({
   const { theme, toggle } = useTheme()
   const { user, logout } = useAuth()
   const searchRef = useRef<HTMLInputElement>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -105,6 +125,29 @@ export function TopBar({
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [])
+
+  // Close menu on outside click or Escape
+  useEffect(() => {
+    if (!menuOpen) return
+
+    function handleMouseDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [menuOpen])
 
   return (
     <header className="topbar">
@@ -156,10 +199,43 @@ export function TopBar({
       </button>
 
       {user ? (
-        <button className="user" onClick={logout} aria-label="Se déconnecter" title={`Se déconnecter (${user.email})`}>
-          <span className="av">{initials(user)}</span>
-          <span className="who">{displayName(user)}<small>Espace développeur</small></span>
-        </button>
+        <div className="usermenu-wrap" ref={wrapRef}>
+          <button
+            className="user"
+            onClick={() => setMenuOpen(o => !o)}
+            aria-label={`Menu de ${displayName(user)}`}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            <span className="av">{initials(user)}</span>
+            <span className="who">{displayName(user)}<small>Espace développeur</small></span>
+            <IconChevron />
+          </button>
+
+          {menuOpen && (
+            <div className="usermenu" role="menu">
+              <div className="head">
+                <span className="email">{user.email}</span>
+                <span className="role">
+                  <span
+                    className="dot"
+                    style={{ background: user.role === 'admin' ? 'var(--accent)' : 'var(--c-finance)' }}
+                  />
+                  {user.role === 'admin' ? 'Admin' : 'Développeur'}
+                </span>
+              </div>
+              <div className="sep" />
+              <button
+                className="item"
+                role="menuitem"
+                onClick={logout}
+              >
+                <IconLogout />
+                Se déconnecter
+              </button>
+            </div>
+          )}
+        </div>
       ) : (
         <Link className="icon-btn" to="/login" aria-label="Connexion">Connexion</Link>
       )}
