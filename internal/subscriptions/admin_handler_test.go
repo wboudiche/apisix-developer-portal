@@ -120,3 +120,14 @@ func TestAdminApproveInvalidTransitionReturns409(t *testing.T) {
 		t.Fatalf("status=%d want 409", rec.Code)
 	}
 }
+
+func TestAdminRejectInvalidTransitionReturns409(t *testing.T) {
+	svc := &fakeAdminSvc{rejectErr: ErrInvalidTransition}
+	h := NewAdminHandler(svc)
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/subscriptions/5/reject", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status=%d want 409", rec.Code)
+	}
+}
