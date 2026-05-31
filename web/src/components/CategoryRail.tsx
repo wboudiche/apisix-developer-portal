@@ -3,6 +3,7 @@ import { categoryDotColor } from './apiIcons'
 export function CategoryRail({
   categories, active, onPick,
   tags = [], activeTag = null, onPickTag = () => {},
+  open = true, onClose = () => {},
 }: {
   categories: { name: string; count: number }[]
   active: string | null
@@ -10,13 +11,15 @@ export function CategoryRail({
   tags?: string[]
   activeTag?: string | null
   onPickTag?: (t: string | null) => void
+  open?: boolean
+  onClose?: () => void
 }) {
   const total = categories.reduce((n, c) => n + c.count, 0)
   return (
-    <aside className="rail">
+    <aside className={`rail ${open ? 'open' : 'closed'}`}>
       <div className="rail-head">
         <h2>Catégories d'API</h2>
-        <button className="collapse" aria-label="Fermer">
+        <button className="collapse" aria-label="Fermer" onClick={onClose}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
             <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>

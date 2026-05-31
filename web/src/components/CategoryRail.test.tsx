@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, fireEvent } from '@testing-library/react'
 import { CategoryRail } from './CategoryRail'
 
 const categories = [
@@ -71,5 +71,64 @@ describe('CategoryRail', () => {
     )
     const btn = container.querySelector('button[aria-label="Fermer"]')
     expect(btn?.querySelector('svg')).not.toBeNull()
+  })
+
+  // ── NEW: open/closed class ─────────────────────────────────────────────────
+
+  it('adds "open" class to .rail when open=true', () => {
+    const { container } = render(
+      <CategoryRail
+        categories={categories}
+        active={null}
+        onPick={vi.fn()}
+        open={true}
+      />,
+    )
+    const rail = container.querySelector('.rail')
+    expect(rail?.classList.contains('open')).toBe(true)
+    expect(rail?.classList.contains('closed')).toBe(false)
+  })
+
+  it('adds "closed" class to .rail when open=false', () => {
+    const { container } = render(
+      <CategoryRail
+        categories={categories}
+        active={null}
+        onPick={vi.fn()}
+        open={false}
+      />,
+    )
+    const rail = container.querySelector('.rail')
+    expect(rail?.classList.contains('closed')).toBe(true)
+    expect(rail?.classList.contains('open')).toBe(false)
+  })
+
+  it('defaults to open class (open prop omitted)', () => {
+    const { container } = render(
+      <CategoryRail
+        categories={categories}
+        active={null}
+        onPick={vi.fn()}
+      />,
+    )
+    const rail = container.querySelector('.rail')
+    expect(rail?.classList.contains('open')).toBe(true)
+  })
+
+  // ── NEW: collapse button calls onClose ─────────────────────────────────────
+
+  it('collapse button calls onClose when clicked', () => {
+    const onClose = vi.fn()
+    const { container } = render(
+      <CategoryRail
+        categories={categories}
+        active={null}
+        onPick={vi.fn()}
+        onClose={onClose}
+      />,
+    )
+    const btn = container.querySelector('button[aria-label="Fermer"]') as HTMLButtonElement
+    fireEvent.click(btn)
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

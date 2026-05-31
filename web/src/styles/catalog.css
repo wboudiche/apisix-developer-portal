@@ -60,7 +60,7 @@
 }
 .user .who{font-size:13px;font-weight:500;line-height:1.2}
 .user .who small{display:block;color:var(--muted);font-size:11px;font-weight:400}
-.hamb{display:none}
+.hamb{display:grid}
 
 /* ===================== LAYOUT ===================== */
 .layout{display:grid;grid-template-columns:var(--rail-w) 1fr;min-height:calc(100vh - var(--topbar-h))}
@@ -71,6 +71,7 @@
   padding:26px 18px 40px;
   position:sticky;top:var(--topbar-h);height:calc(100vh - var(--topbar-h));overflow-y:auto;
 }
+.rail.closed{display:none}
 .rail-head{display:flex;align-items:center;justify-content:space-between;margin:0 6px 16px}
 .rail-head h2{font-family:var(--font-display);font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:oklch(72% 0.02 262)}
 .rail-head .collapse{width:26px;height:26px;border-radius:7px;border:1px solid var(--ink-line);background:transparent;color:oklch(70% 0.02 262);display:grid;place-items:center}

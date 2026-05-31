@@ -22,6 +22,7 @@ export function CatalogPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [modalProduct, setModalProduct] = useState<Product | null>(null)
+  const [railOpen, setRailOpen] = useState(true)
 
   function handleSubscribe(p: Product) {
     if (!user) { nav('/login'); return }
@@ -54,9 +55,9 @@ export function CatalogPage() {
 
   return (
     <>
-      <TopBar search={search} onSearch={setSearch} />
+      <TopBar search={search} onSearch={setSearch} onMenu={() => setRailOpen(o => !o)} />
       <div className="layout">
-        <CategoryRail categories={categories} active={category} onPick={setCategory} tags={tags} activeTag={tag} onPickTag={setTag} />
+        <CategoryRail categories={categories} active={category} onPick={setCategory} tags={tags} activeTag={tag} onPickTag={setTag} open={railOpen} onClose={() => setRailOpen(false)} />
         <main className="content">
           <div className="chead">
             <div className="titlewrap">

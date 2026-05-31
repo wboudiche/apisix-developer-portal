@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react'
 import { useTheme } from '../theme/ThemeProvider'
 import { useAuth } from '../auth/AuthProvider'
 import { Link } from 'react-router-dom'
+import type { User } from '../api/types'
 
 // ── Nav-tab icons ──────────────────────────────────────────────────────────────
 
@@ -64,9 +65,32 @@ function IconSun() {
   )
 }
 
+// ── User block helpers ─────────────────────────────────────────────────────────
+
+function displayName(u: User): string {
+  return u.name?.trim() || u.email
+}
+
+function initials(u: User): string {
+  const name = u.name?.trim()
+  if (name) {
+    const words = name.split(/\s+/).filter(Boolean)
+    return words.slice(0, 2).map(w => w[0]).join('').toUpperCase()
+  }
+  return u.email.slice(0, 2).toUpperCase()
+}
+
 // ── TopBar ─────────────────────────────────────────────────────────────────────
 
-export function TopBar({ search, onSearch }: { search: string; onSearch: (v: string) => void }) {
+export function TopBar({
+  search,
+  onSearch,
+  onMenu,
+}: {
+  search: string
+  onSearch: (v: string) => void
+  onMenu?: () => void
+}) {
   const { theme, toggle } = useTheme()
   const { user, logout } = useAuth()
   const searchRef = useRef<HTMLInputElement>(null)
@@ -84,6 +108,14 @@ export function TopBar({ search, onSearch }: { search: string; onSearch: (v: str
 
   return (
     <header className="topbar">
+      {onMenu && (
+        <button className="icon-btn hamb" onClick={onMenu} aria-label="Ouvrir les catégories">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+            <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round"/>
+          </svg>
+        </button>
+      )}
+
       <Link className="brand" to="/">
         <span className="mark">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M5 7l-3 5 3 5M19 7l3 5-3 5M14 4l-4 16" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -116,9 +148,21 @@ export function TopBar({ search, onSearch }: { search: string; onSearch: (v: str
         {theme !== 'dark' ? <IconMoon /> : <IconSun />}
       </button>
 
-      {user
-        ? <button className="icon-btn" onClick={logout} aria-label="Se déconnecter" title={`Se déconnecter (${user.email})`}>{user.email.slice(0, 2).toUpperCase()}</button>
-        : <Link className="icon-btn" to="/login">Connexion</Link>}
+      <button className="icon-btn" aria-label="Aide / Documentation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M9.5 9a2.5 2.5 0 113.5 2.3c-.8.4-1 .9-1 1.7M12 17h.01" strokeLinecap="round"/>
+        </svg>
+      </button>
+
+      {user ? (
+        <button className="user" onClick={logout} aria-label="Se déconnecter" title={`Se déconnecter (${user.email})`}>
+          <span className="av">{initials(user)}</span>
+          <span className="who">{displayName(user)}<small>Espace développeur</small></span>
+        </button>
+      ) : (
+        <Link className="icon-btn" to="/login" aria-label="Connexion">Connexion</Link>
+      )}
     </header>
   )
 }
