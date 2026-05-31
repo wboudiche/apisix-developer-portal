@@ -1,17 +1,13 @@
 import type { Product } from '../api/types'
-
-const CAT_DOT: Record<string, string> = {
-  Administration: 'var(--c-admin)', Finance: 'var(--c-finance)',
-  Marketing: 'var(--c-marketing)', Engineering: 'var(--c-eng)',
-}
+import { ApiIcon, categoryTint } from './apiIcons'
 
 export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Product) => void }) {
   return (
-    <article className="card in" data-testid="api-card">
+    <article className="card in" data-testid="api-card" style={categoryTint(p.category)}>
       <div className="thumb">
         <span className="catbadge">{p.category}</span>
-        <span className="ico" style={{ background: `linear-gradient(150deg, ${CAT_DOT[p.category] ?? 'var(--accent)'}, var(--accent-d))` }}>
-          {p.icon.slice(0, 2).toUpperCase()}
+        <span className="ico">
+          <ApiIcon name={p.icon} />
         </span>
       </div>
       <div className="cbody">
