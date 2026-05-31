@@ -66,7 +66,7 @@
   font-family:var(--font-display);
   box-shadow:0 2px 8px oklch(55% 0.205 27 /.35), inset 0 1px 0 oklch(100% 0 0 /.22);
 }
-.user .who{font-size:13px;font-weight:500;line-height:1.2}
+.user .who{font-size:13px;font-weight:600;line-height:1.2;color:var(--fg)}
 .user .who small{display:block;color:var(--muted);font-size:11px;font-weight:400}
 .user .chev{width:14px;height:14px;color:var(--faint);transition:transform .18s;flex:none}
 .user[aria-expanded="true"] .chev{transform:rotate(180deg)}
