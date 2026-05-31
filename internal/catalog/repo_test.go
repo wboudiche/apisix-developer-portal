@@ -32,8 +32,11 @@ func TestListReturnsSeededProducts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(all) != 9 {
-		t.Fatalf("expected 9 seeded products, got %d", len(all))
+	// At least the 9 seed products must be present and listable. Exact-count was
+	// brittle: Plan 4a added admin product CRUD, so a live DB can legitimately
+	// hold more than the seeds.
+	if len(all) < 9 {
+		t.Fatalf("expected at least 9 seeded products, got %d", len(all))
 	}
 }
 
