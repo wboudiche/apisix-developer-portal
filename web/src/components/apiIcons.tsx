@@ -69,3 +69,15 @@ export function categoryTint(category: string): React.CSSProperties {
   }
   return vars as React.CSSProperties
 }
+
+const CAT_DOT_COLORS: Record<string, string> = {
+  Administration: 'var(--c-admin)',
+  Finance:        'var(--c-finance)',
+  Marketing:      'var(--c-marketing)',
+  Engineering:    'var(--c-eng)',
+}
+
+export function categoryDotColor(category: string | null | undefined): string {
+  if (!category) return 'var(--accent)'
+  return CAT_DOT_COLORS[category] ?? 'var(--accent)'
+}

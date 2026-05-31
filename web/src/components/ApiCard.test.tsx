@@ -31,4 +31,20 @@ describe('ApiCard', () => {
     const style = card?.getAttribute('style') ?? ''
     expect(style).toContain('--tint')
   })
+
+  it('renders .crow1 .stars with exactly 5 star SVGs', () => {
+    const { container } = render(<ApiCard p={product} onSubscribe={vi.fn()} />)
+    const stars = container.querySelector('.crow1 .stars')
+    expect(stars).not.toBeNull()
+    const svgs = stars?.querySelectorAll('svg')
+    expect(svgs?.length).toBe(5)
+  })
+
+  it('subscribe button contains a + icon svg and the text "S\'abonner"', () => {
+    const { container } = render(<ApiCard p={product} onSubscribe={vi.fn()} />)
+    const btn = container.querySelector('button.subbtn')
+    expect(btn).not.toBeNull()
+    expect(btn?.querySelector('svg')).not.toBeNull()
+    expect(btn?.textContent).toContain("S'abonner")
+  })
 })

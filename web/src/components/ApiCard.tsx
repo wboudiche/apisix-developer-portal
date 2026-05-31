@@ -1,6 +1,23 @@
 import type { Product } from '../api/types'
 import { ApiIcon, categoryTint } from './apiIcons'
 
+function Stars({ rating }: { rating: number }) {
+  return (
+    <span className="stars" title={`${rating}/5`}>
+      {[1, 2, 3, 4, 5].map(i => {
+        const isFull = rating >= i
+        const isHalf = !isFull && rating >= i - 0.5
+        const cls = isFull || isHalf ? 'star-f' : 'star-e'
+        return (
+          <svg key={i} viewBox="0 0 24 24" className={cls} fill={isFull ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.4}>
+            <path d="M12 3.6l2.5 5 5.5.8-4 3.9.95 5.5L12 16.2 7.05 18.7 8 13.2l-4-3.9 5.5-.8z"/>
+          </svg>
+        )
+      })}
+    </span>
+  )
+}
+
 export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Product) => void }) {
   return (
     <article className="card in" data-testid="api-card" style={categoryTint(p.category)}>
@@ -11,7 +28,10 @@ export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Produ
         </span>
       </div>
       <div className="cbody">
-        <div className="crow1"><span className="cname">{p.name}</span></div>
+        <div className="crow1">
+          <span className="cname">{p.name}</span>
+          <Stars rating={p.rating} />
+        </div>
         <p className="cdesc">{p.description}</p>
         <div className="cmeta">
           <span className="pill">v<b>{p.version}</b></span>
@@ -19,7 +39,12 @@ export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Produ
         </div>
         <div className="cfoot">
           <div className="ctags">{p.tags.slice(0, 2).map(t => <span key={t} className="ctag">{t}</span>)}</div>
-          <button className="subbtn" onClick={() => onSubscribe(p)}>S'abonner</button>
+          <button className="subbtn" onClick={() => onSubscribe(p)}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M12 5v14M5 12h14" strokeLinecap="round"/>
+            </svg>
+            S'abonner
+          </button>
         </div>
       </div>
     </article>
