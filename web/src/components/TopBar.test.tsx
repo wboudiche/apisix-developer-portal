@@ -119,11 +119,11 @@ describe('TopBar', () => {
     expect(screen.queryByLabelText('Ouvrir les catégories')).toBeNull()
   })
 
-  // ── NEW: help button ───────────────────────────────────────────────────────
+  // ── FIX 4: help button removed ────────────────────────────────────────────
 
-  it('renders a help button with aria-label "Aide / Documentation"', () => {
+  it('does NOT render a help button (dead control removed)', () => {
     renderTopBar()
-    expect(screen.getByLabelText('Aide / Documentation')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Aide / Documentation')).toBeNull()
   })
 
   // ── UPDATED: user block (real-auth, now a dropdown) ───────────────────────
@@ -248,6 +248,24 @@ describe('TopBar', () => {
   it('shows login link (not user trigger) when logged out', () => {
     renderTopBar()
     expect(screen.queryByRole('button', { name: /Menu de/ })).toBeNull()
+    expect(screen.getByText('Connexion')).toBeInTheDocument()
+  })
+
+  // ── FIX 3: logout with menu open closes the menu ───────────────────────────
+
+  it('logging out while menu is open closes the menu (no role="menu" after logout)', () => {
+    localStorage.setItem('user', JSON.stringify({ id: 1, email: 'admin@portal.local', name: 'Admin', role: 'admin' }))
+    localStorage.setItem('token', 'abc123')
+    renderTopBar()
+    // Open the menu
+    const trigger = screen.getByRole('button', { name: /Menu de Admin/ })
+    fireEvent.click(trigger)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    // Click logout
+    const logoutItem = screen.getByRole('menuitem', { name: /Se déconnecter/ })
+    fireEvent.click(logoutItem)
+    // Menu must be closed and user logged out
+    expect(screen.queryByRole('menu')).toBeNull()
     expect(screen.getByText('Connexion')).toBeInTheDocument()
   })
 })

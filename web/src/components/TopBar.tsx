@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { useTheme } from '../theme/ThemeProvider'
 import { useAuth } from '../auth/AuthProvider'
 import { Link } from 'react-router-dom'
@@ -114,10 +114,27 @@ export function TopBar({
   const searchRef = useRef<HTMLInputElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const menuOpenRef = useRef(menuOpen)
+
+  useEffect(() => { menuOpenRef.current = menuOpen }, [menuOpen])
+
+  // Close menu when user becomes null (logout from outside or session expiry)
+  useEffect(() => { if (!user) setMenuOpen(false) }, [user])
+
+  const handleLogout = useCallback(() => {
+    setMenuOpen(false)
+    logout()
+  }, [logout])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+      if (menuOpenRef.current) return
+      if (
+        e.key === '/' &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA' &&
+        !(document.activeElement as HTMLElement)?.isContentEditable
+      ) {
         e.preventDefault()
         searchRef.current?.focus()
       }
@@ -191,13 +208,6 @@ export function TopBar({
         {theme !== 'dark' ? <IconMoon /> : <IconSun />}
       </button>
 
-      <button className="icon-btn" aria-label="Aide / Documentation">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-          <circle cx="12" cy="12" r="9"/>
-          <path d="M9.5 9a2.5 2.5 0 113.5 2.3c-.8.4-1 .9-1 1.7M12 17h.01" strokeLinecap="round"/>
-        </svg>
-      </button>
-
       {user ? (
         <div className="usermenu-wrap" ref={wrapRef}>
           <button
@@ -228,7 +238,7 @@ export function TopBar({
               <button
                 className="item"
                 role="menuitem"
-                onClick={logout}
+                onClick={handleLogout}
               >
                 <IconLogout />
                 Se déconnecter

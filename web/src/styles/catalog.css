@@ -227,7 +227,7 @@
 .empty button{margin-top:18px;border:1px solid var(--accent);color:var(--accent);background:transparent;padding:9px 18px;border-radius:10px;font-weight:600}
 .empty button:hover{background:var(--accent);color:#fff}
 
-.overlay{display:none}
+.rail-scrim{display:none}
 
 /* ===================== RESPONSIVE ===================== */
 @media (max-width:1080px){.content{padding:26px 24px 50px}}
@@ -238,8 +238,9 @@
     position:fixed;top:0;left:0;height:100vh;width:280px;z-index:90;padding-top:24px;
     transform:translateX(-100%);transition:transform .28s cubic-bezier(.2,.7,.3,1);box-shadow:var(--shadow-h);
   }
-  body.nav-open .rail{transform:none}
-  body.nav-open .overlay{display:block;position:fixed;inset:0;background:oklch(20% 0.03 262 /.5);z-index:80;backdrop-filter:blur(2px)}
+  .rail.open{display:block;transform:none}
+  .rail.closed{display:block;transform:translateX(-100%)}
+  .rail-scrim{display:block;position:fixed;inset:0;background:oklch(20% 0.03 262 /.5);z-index:80;backdrop-filter:blur(2px)}
   .hamb{display:grid}
   .search{max-width:none}
   .brand .sub{display:none}

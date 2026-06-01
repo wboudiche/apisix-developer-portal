@@ -4,12 +4,21 @@ import { ApiIcon, categoryTint } from './apiIcons'
 function Stars({ rating }: { rating: number }) {
   return (
     <span className="stars" title={`${rating}/5`}>
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <defs>
+          <linearGradient id="star-half">
+            <stop offset="50%" stopColor="currentColor" />
+            <stop offset="50%" stopColor="transparent" />
+          </linearGradient>
+        </defs>
+      </svg>
       {[1, 2, 3, 4, 5].map(i => {
         const isFull = rating >= i
         const isHalf = !isFull && rating >= i - 0.5
+        const fill = isFull ? 'currentColor' : isHalf ? 'url(#star-half)' : 'none'
         const cls = isFull || isHalf ? 'star-f' : 'star-e'
         return (
-          <svg key={i} viewBox="0 0 24 24" className={cls} fill={isFull ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.4}>
+          <svg key={i} viewBox="0 0 24 24" className={cls} fill={fill} stroke="currentColor" strokeWidth={1.4}>
             <path d="M12 3.6l2.5 5 5.5.8-4 3.9.95 5.5L12 16.2 7.05 18.7 8 13.2l-4-3.9 5.5-.8z"/>
           </svg>
         )

@@ -32,12 +32,15 @@ describe('ApiCard', () => {
     expect(style).toContain('--tint')
   })
 
-  it('renders .crow1 .stars with exactly 5 star SVGs', () => {
+  it('renders .crow1 .stars with exactly 5 star SVGs (excluding hidden defs svg)', () => {
     const { container } = render(<ApiCard p={product} onSubscribe={vi.fn()} />)
     const stars = container.querySelector('.crow1 .stars')
     expect(stars).not.toBeNull()
-    const svgs = stars?.querySelectorAll('svg')
-    expect(svgs?.length).toBe(5)
+    // The .stars span contains 1 hidden defs svg + 5 visible star svgs
+    const starSvgs = Array.from(stars?.querySelectorAll('svg') ?? []).filter(
+      s => s.hasAttribute('viewBox') && s.getAttribute('viewBox') === '0 0 24 24'
+    )
+    expect(starSvgs.length).toBe(5)
   })
 
   it('subscribe button contains a + icon svg and the text "S\'abonner"', () => {
@@ -46,5 +49,20 @@ describe('ApiCard', () => {
     expect(btn).not.toBeNull()
     expect(btn?.querySelector('svg')).not.toBeNull()
     expect(btn?.textContent).toContain("S'abonner")
+  })
+
+  it('half-star (rating 4.5): exactly 4 full stars and 1 half-star (url gradient fill)', () => {
+    const { container } = render(<ApiCard p={product} onSubscribe={vi.fn()} />)
+    // product.rating = 4.5 — filter to the 5 visible star svgs (viewBox="0 0 24 24")
+    const starSvgs = Array.from(container.querySelectorAll('.crow1 .stars > svg')).filter(
+      s => s.getAttribute('viewBox') === '0 0 24 24'
+    )
+    expect(starSvgs.length).toBe(5)
+    const fullStars = starSvgs.filter(s => s.getAttribute('fill') === 'currentColor')
+    const halfStars = starSvgs.filter(s => s.getAttribute('fill') === 'url(#star-half)')
+    const emptyStars = starSvgs.filter(s => s.getAttribute('fill') === 'none')
+    expect(fullStars.length).toBe(4)
+    expect(halfStars.length).toBe(1)
+    expect(emptyStars.length).toBe(0)
   })
 })
