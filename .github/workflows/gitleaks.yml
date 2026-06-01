@@ -1,0 +1,25 @@
+name: gitleaks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks scans full history; fetch it all so no commits are missed.
+          fetch-depth: 0
+
+      # gitleaks-action@v2 writes results via the GITHUB_OUTPUT env file (no
+      # deprecated `set-output`), which silences the deprecation warning the
+      # older action versions emitted.
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE is only required for GitHub *organization* repos.
+          # For a personal/public repo this is unset and the action runs free.
+          # GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
