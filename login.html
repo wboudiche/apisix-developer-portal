@@ -103,6 +103,17 @@
     line-height:1.08;letter-spacing:-.025em;color:#fff;
   }
   .a-body p{margin-top:18px;font-size:15.5px;line-height:1.65;color:oklch(89% 0.02 30);max-width:40ch}
+  .a-feats{margin-top:30px;display:flex;flex-direction:column;gap:15px;max-width:420px}
+  .a-feats li{display:flex;align-items:flex-start;gap:13px;list-style:none}
+  .a-feats .fi{
+    width:34px;height:34px;border-radius:10px;flex:none;display:grid;place-items:center;
+    background:linear-gradient(150deg, oklch(100% 0 0 / .16), oklch(100% 0 0 / .04));
+    border:1px solid oklch(100% 0 0 / .16);color:oklch(94% 0.04 32);
+  }
+  .a-feats .fi svg{width:18px;height:18px}
+  .a-feats .ft b{display:block;font-family:var(--font-display);font-weight:600;font-size:15px;color:#fff;letter-spacing:-.01em}
+  .a-feats .ft span{display:block;margin-top:2px;font-size:13px;line-height:1.45;color:oklch(85% 0.02 30)}
+  .a-feats code{font-family:var(--font-mono);font-size:12px;color:oklch(90% 0.05 32)}
 
   .a-stats{display:flex;gap:30px;margin-top:auto;padding-top:34px}
   .a-stats .s b{font-family:var(--font-display);font-size:26px;font-weight:700;color:#fff;letter-spacing:-.01em;display:block}
@@ -110,21 +121,21 @@
 
   /* ============ RIGHT — formulaire ============ */
   .main{display:grid;place-items:center;padding:48px 40px}
-  .card{width:100%;max-width:404px}
+  .card{width:100%;max-width:424px}
 
-  .m-head{margin-bottom:28px}
-  .m-head h2{font-family:var(--font-display);font-size:27px;font-weight:700;letter-spacing:-.02em}
-  .m-head p{margin-top:7px;font-size:14.5px;color:var(--muted)}
+  .m-head{margin-bottom:34px}
+  .m-head h2{font-family:var(--font-display);font-size:31px;font-weight:700;letter-spacing:-.02em}
+  .m-head p{margin-top:9px;font-size:15px;color:var(--muted)}
   .m-head p a{color:var(--accent);font-weight:600;text-decoration:none}
   .m-head p a:hover{text-decoration:underline}
 
 
-  .field{margin-bottom:16px}
-  .field label{display:block;font-size:13px;font-weight:500;color:var(--fg);margin-bottom:7px}
+  .field{margin-bottom:20px}
+  .field label{display:block;font-size:13.5px;font-weight:500;color:var(--fg);margin-bottom:8px}
   .field .wrap{position:relative}
   .field input{
-    width:100%;height:46px;border:1px solid var(--border-2);border-radius:11px;
-    background:var(--bg);padding:0 14px;font-size:14.5px;color:var(--fg);transition:.16s;
+    width:100%;height:52px;border:1px solid var(--border-2);border-radius:12px;
+    background:var(--bg);padding:0 15px;font-size:15px;color:var(--fg);transition:.16s;
   }
   .field input::placeholder{color:var(--faint)}
   .field input:hover{border-color:var(--border)}
@@ -141,14 +152,14 @@
   .field .err{display:none;font-size:12.5px;color:var(--danger);margin-top:6px}
   .field.invalid .err{display:block}
 
-  .row-between{display:flex;align-items:center;justify-content:space-between;margin:-2px 0 20px}
+  .row-between{display:flex;align-items:center;justify-content:space-between;margin:2px 0 26px}
   .remember{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted);cursor:pointer;user-select:none}
   .remember input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
   .forgot{font-size:13.5px;color:var(--accent);font-weight:600;text-decoration:none}
   .forgot:hover{text-decoration:underline}
 
   .submit{
-    width:100%;height:48px;border:0;border-radius:11px;color:#fff;font-size:15px;font-weight:600;
+    width:100%;height:54px;border:0;border-radius:12px;color:#fff;font-size:15.5px;font-weight:600;
     background:linear-gradient(150deg,var(--accent),var(--accent-d));
     box-shadow:0 6px 18px oklch(55% 0.205 27 / .32);transition:.16s;
     display:flex;align-items:center;justify-content:center;gap:10px;
@@ -162,7 +173,7 @@
   @keyframes spin{to{transform:rotate(360deg)}}
 
   .enterprise{
-    margin-top:22px;padding-top:20px;border-top:1px solid var(--border);
+    margin-top:28px;padding-top:24px;border-top:1px solid var(--border);
     display:flex;align-items:center;justify-content:center;gap:8px;font-size:13.5px;color:var(--muted);
   }
   .enterprise a{color:var(--fg);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
@@ -211,6 +222,21 @@
         <span class="a-eyebrow"><span class="dot"></span> Tous les services · 100&nbsp;% disponibles</span>
         <h1>Vos API, un seul portail.</h1>
         <p>Parcourez le catalogue, testez les points de terminaison et gérez vos abonnements — tout au même endroit.</p>
+
+        <ul class="a-feats">
+          <li>
+            <span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+            <span class="ft"><b>Catalogue unifié</b><span>9 API documentées, recherche et filtres par catégorie.</span></span>
+          </li>
+          <li>
+            <span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 0-1 1l8.6-8.6"/><circle cx="7.5" cy="15.5" r="1.5"/></svg></span>
+            <span class="ft"><b>Clés en libre-service</b><span>Identifiants Prod & Sandbox en <code>key-auth</code>, révocables.</span></span>
+          </li>
+          <li>
+            <span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg></span>
+            <span class="ft"><b>Quotas & abonnements</b><span>Paliers Free, Silver, Gold avec suivi de consommation.</span></span>
+          </li>
+        </ul>
       </div>
 
       <div class="a-stats">
