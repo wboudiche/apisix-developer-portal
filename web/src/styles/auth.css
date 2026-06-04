@@ -1,0 +1,149 @@
+/* Auth pages — split-screen layout ported from /login.html (the user's
+   blueprint). Every rule is scoped under .auth-shell so nothing leaks into
+   catalog/base styles. The form card is .acard, NOT .card: catalog.css gives
+   .card opacity:0 (entrance animation) and CSS is global. */
+
+.auth-shell{
+  min-height:100vh;
+  display:grid;
+  grid-template-columns:1.05fr 1fr;
+}
+
+/* ============ LEFT — vitrine rouge APISIX ============ */
+.auth-shell .aside{
+  position:relative;
+  overflow:hidden;
+  background:
+    radial-gradient(120% 90% at 12% 8%, var(--ink-soft), transparent 60%),
+    linear-gradient(155deg, var(--ink) 0%, oklch(22% 0.10 27) 58%, oklch(18% 0.085 25) 100%);
+  color:oklch(96% 0.01 27);
+  padding:52px 56px;
+  display:flex;
+  flex-direction:column;
+}
+.auth-shell .aside::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(oklch(100% 0 0 / .045) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(100% 0 0 / .045) 1px, transparent 1px);
+  background-size:46px 46px;
+  mask-image:radial-gradient(120% 100% at 30% 0%, #000 35%, transparent 80%);
+}
+.auth-shell .aside::after{
+  content:"";position:absolute;width:520px;height:520px;border-radius:50%;
+  right:-160px;bottom:-200px;pointer-events:none;
+  background:radial-gradient(circle, oklch(70% 0.21 30 / .35), transparent 70%);
+  filter:blur(8px);
+}
+.auth-shell .aside > *{position:relative;z-index:1}
+
+.auth-shell .a-brand{display:flex;align-items:center;gap:13px}
+.auth-shell .a-mark{
+  width:44px;height:44px;border-radius:12px;flex:none;display:grid;place-items:center;
+  background:#fff;color:var(--accent);
+  box-shadow:0 5px 16px oklch(10% 0.06 25 / .4);
+}
+.auth-shell .a-mark svg{width:25px;height:25px}
+.auth-shell .a-brand .name{font-family:var(--font-display);font-weight:700;font-size:19px;letter-spacing:-.01em;line-height:1}
+.auth-shell .a-brand .sub{font-size:11px;color:oklch(86% 0.04 30);letter-spacing:.05em;text-transform:uppercase;margin-top:3px;display:block}
+
+.auth-shell .a-body{margin-top:auto;margin-bottom:auto;max-width:430px}
+.auth-shell .a-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);
+  font-size:12px;letter-spacing:.04em;color:oklch(88% 0.05 32);
+  border:1px solid oklch(100% 0 0 / .18);border-radius:30px;padding:6px 13px;margin-bottom:26px;
+}
+.auth-shell .a-eyebrow .dot{width:7px;height:7px;border-radius:50%;background:oklch(78% 0.17 150);box-shadow:0 0 0 4px oklch(78% 0.17 150 / .25)}
+.auth-shell .a-body h1{
+  font-family:var(--font-display);font-weight:700;font-size:clamp(30px,3.4vw,42px);
+  line-height:1.08;letter-spacing:-.025em;color:#fff;
+}
+.auth-shell .a-body p{margin-top:18px;font-size:15.5px;line-height:1.65;color:oklch(89% 0.02 30);max-width:40ch}
+
+.auth-shell .a-stats{display:flex;gap:30px;margin-top:auto;padding-top:34px}
+.auth-shell .a-stats .s b{font-family:var(--font-display);font-size:26px;font-weight:700;color:#fff;letter-spacing:-.01em;display:block}
+.auth-shell .a-stats .s span{font-size:12px;color:oklch(83% 0.02 30);letter-spacing:.02em}
+
+/* ============ RIGHT — formulaire ============ */
+.auth-shell .auth-main{display:grid;place-items:center;padding:48px 40px}
+.auth-shell .acard{width:100%;max-width:404px}
+
+.auth-shell .m-head{margin-bottom:28px}
+.auth-shell .m-head h2{font-family:var(--font-display);font-size:27px;font-weight:700;letter-spacing:-.02em}
+.auth-shell .m-head p{margin-top:7px;font-size:14.5px;color:var(--muted)}
+.auth-shell .m-head p a{color:var(--accent);font-weight:600;text-decoration:none}
+.auth-shell .m-head p a:hover{text-decoration:underline}
+
+.auth-shell .field{margin-bottom:16px}
+.auth-shell .field label{display:block;font-size:13px;font-weight:500;color:var(--fg);margin-bottom:7px}
+.auth-shell .field .wrap{position:relative}
+.auth-shell .field input{
+  width:100%;height:46px;border:1px solid var(--border-2);border-radius:11px;
+  background:var(--bg);padding:0 14px;font-size:14.5px;color:var(--fg);transition:.16s;
+}
+.auth-shell .field input::placeholder{color:var(--faint)}
+.auth-shell .field input:hover{border-color:var(--border)}
+.auth-shell .field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);background:var(--surface)}
+.auth-shell .field.invalid input{border-color:var(--danger)}
+.auth-shell .field.invalid input:focus{box-shadow:0 0 0 4px oklch(58% 0.20 25 / .12)}
+.auth-shell .field .pw-toggle{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  width:34px;height:34px;border:0;background:transparent;border-radius:8px;
+  display:grid;place-items:center;color:var(--faint);transition:.15s;
+}
+.auth-shell .field .pw-toggle:hover{color:var(--fg);background:var(--accent-soft)}
+.auth-shell .field .pw-toggle svg{width:19px;height:19px}
+.auth-shell .field .err{display:none;font-size:12.5px;color:var(--danger);margin-top:6px}
+.auth-shell .field.invalid .err{display:block}
+
+.auth-shell .row-between{display:flex;align-items:center;justify-content:space-between;margin:-2px 0 20px}
+.auth-shell .remember{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted);cursor:pointer;user-select:none}
+.auth-shell .remember input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.auth-shell .forgot{font-size:13.5px;color:var(--accent);font-weight:600;text-decoration:none}
+.auth-shell .forgot:hover{text-decoration:underline}
+
+.auth-shell .submit{
+  width:100%;height:48px;border:0;border-radius:11px;color:#fff;font-size:15px;font-weight:600;
+  background:linear-gradient(150deg,var(--accent),var(--accent-d));
+  box-shadow:0 6px 18px oklch(55% 0.205 27 / .32);transition:.16s;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.auth-shell .submit:hover{transform:translateY(-1px);box-shadow:0 10px 26px oklch(55% 0.205 27 / .4)}
+.auth-shell .submit:active{transform:translateY(0)}
+.auth-shell .submit[disabled]{opacity:.75;cursor:default;transform:none}
+.auth-shell .submit .spin{width:17px;height:17px;border:2.5px solid oklch(100% 0 0 / .4);border-top-color:#fff;border-radius:50%;animation:auth-spin .7s linear infinite;display:none}
+.auth-shell .submit.loading .spin{display:block}
+.auth-shell .submit.loading .label{opacity:.85}
+@keyframes auth-spin{to{transform:rotate(360deg)}}
+
+.auth-shell .form-err{font-size:13px;color:var(--danger);margin:-12px 0 16px}
+
+.auth-shell .enterprise{
+  margin-top:22px;padding-top:20px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;gap:8px;font-size:13.5px;color:var(--muted);
+}
+.auth-shell .enterprise a{color:var(--fg);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.auth-shell .enterprise a svg{width:15px;height:15px;color:var(--accent)}
+.auth-shell .enterprise a:hover{color:var(--accent)}
+
+.auth-shell .legal{margin-top:30px;text-align:center;font-size:12px;color:var(--faint);line-height:1.6}
+.auth-shell .legal a{color:var(--muted);text-decoration:underline;text-underline-offset:2px}
+
+/* mobile brand (hidden on desktop) */
+.auth-shell .m-brand{display:none;align-items:center;gap:11px;margin-bottom:30px}
+.auth-shell .m-brand .a-mark{background:#fff;border:1px solid var(--border);color:var(--accent);box-shadow:0 4px 12px oklch(55% 0.205 27 / .18)}
+.auth-shell .m-brand .name{font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:-.01em;line-height:1;color:var(--fg)}
+.auth-shell .m-brand .sub{font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:3px;display:block}
+
+/* ============ responsive ============ */
+@media (max-width:860px){
+  .auth-shell{grid-template-columns:1fr}
+  .auth-shell .aside{display:none}
+  .auth-shell .m-brand{display:flex}
+  .auth-shell .auth-main{padding:40px 24px;align-items:start;min-height:100%}
+  .auth-shell .acard{margin-top:6px}
+}
+@media (max-width:420px){
+  .auth-shell .auth-main{padding:32px 20px}
+  .auth-shell .m-head h2{font-size:24px}
+}
