@@ -5,12 +5,12 @@ import { AuthShell } from '../components/AuthShell'
 
 export function EyeIcon({ off }: { off: boolean }) {
   return off ? (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} aria-hidden="true">
       <path d="M3 3l18 18" strokeLinecap="round" />
       <path d="M10.6 10.6a3 3 0 0 0 4.2 4.2M9.4 5.3A9.6 9.6 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.2 6.2A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 3.4-.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ) : (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} aria-hidden="true">
       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx="12" cy="12" r="3" />
     </svg>
@@ -22,7 +22,7 @@ export function EnterpriseRow() {
     <div className="enterprise">
       <span>Membre d'une équipe ?</span>
       <a href="#">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
           <path d="M12 2 4 6v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-4Z" strokeLinejoin="round" />
         </svg>
         Se connecter via votre entreprise
