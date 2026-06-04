@@ -64,7 +64,7 @@ export function ApplicationsPage() {
           ))}
         </div>
         {detail && (
-          <div className="card" style={{ padding: 22 }}>
+          <div className="card in" style={{ padding: 22 }}>
             <div className="cmeta"><span className="pill">Clé d&apos;API</span></div>
             <code className="apikey">{detail.apiKey || '— aucune (abonnez une API)'}</code>
             <h3 style={{ marginTop: 18 }}>Abonnements</h3>
