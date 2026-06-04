@@ -13,6 +13,8 @@
   --accent: oklch(55% 0.205 27);
   --accent-d: oklch(47% 0.19 27);
   --accent-soft: oklch(95% 0.04 27);
+  --success: oklch(58% 0.13 155);
+  --danger: oklch(58% 0.20 25);
   --warn: oklch(74% 0.15 78);
   --c-admin: oklch(56% 0.035 262);
   --c-finance: oklch(54% 0.09 158);
@@ -45,6 +47,8 @@
   --accent: oklch(66% 0.2 27);
   --accent-d: oklch(58% 0.19 27);
   --accent-soft: oklch(34% 0.075 27);
+  --success: oklch(66% 0.13 155);
+  --danger: oklch(66% 0.19 25);
   --shadow: 0 1px 2px oklch(0% 0 0 / .35), 0 8px 24px oklch(0% 0 0 / .45);
   --shadow-h: 0 2px 4px oklch(0% 0 0 / .45), 0 16px 40px oklch(0% 0 0 / .55);
 }
