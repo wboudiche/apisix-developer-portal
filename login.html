@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APISIX — Portail Développeur · Connexion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:        oklch(98.5% 0.004 255);
+    --surface:   oklch(100% 0 0);
+    --ink:       oklch(27% 0.105 27);
+    --ink-soft:  oklch(34% 0.115 27);
+    --ink-line:  oklch(45% 0.10 27);
+    --fg:        oklch(25% 0.02 262);
+    --muted:     oklch(53% 0.015 262);
+    --faint:     oklch(64% 0.012 262);
+    --border:    oklch(91% 0.006 262);
+    --border-2:  oklch(86% 0.008 262);
+    --accent:    oklch(55% 0.205 27);
+    --accent-d:  oklch(47% 0.19 27);
+    --accent-soft: oklch(95% 0.04 27);
+    --success:   oklch(58% 0.13 155);
+    --danger:    oklch(58% 0.20 25);
+    --r: 14px;
+    --shadow: 0 1px 2px oklch(24% 0.03 262 / .05), 0 8px 24px oklch(24% 0.03 262 / .06);
+    --shadow-h: 0 2px 4px oklch(24% 0.03 262 / .07), 0 18px 44px oklch(24% 0.03 262 / .14);
+    --font-display:'Bricolage Grotesque',-apple-system,system-ui,sans-serif;
+    --font-body:'IBM Plex Sans',-apple-system,system-ui,sans-serif;
+    --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--font-body);
+    background:var(--bg);
+    color:var(--fg);
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+  ::selection{background:var(--accent-soft)}
+  a{color:inherit}
+  button{font-family:inherit;cursor:pointer}
+  input{font-family:inherit}
+
+  .shell{
+    min-height:100%;
+    display:grid;
+    grid-template-columns:1.05fr 1fr;
+  }
+
+  /* ============ LEFT — vitrine rouge APISIX ============ */
+  .aside{
+    position:relative;
+    overflow:hidden;
+    background:
+      radial-gradient(120% 90% at 12% 8%, var(--ink-soft), transparent 60%),
+      linear-gradient(155deg, var(--ink) 0%, oklch(22% 0.10 27) 58%, oklch(18% 0.085 25) 100%);
+    color:oklch(96% 0.01 27);
+    padding:52px 56px;
+    display:flex;
+    flex-direction:column;
+  }
+  /* grille subtile */
+  .aside::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:
+      linear-gradient(oklch(100% 0 0 / .045) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(100% 0 0 / .045) 1px, transparent 1px);
+    background-size:46px 46px;
+    mask-image:radial-gradient(120% 100% at 30% 0%, #000 35%, transparent 80%);
+  }
+  /* halo lumineux */
+  .aside::after{
+    content:"";position:absolute;width:520px;height:520px;border-radius:50%;
+    right:-160px;bottom:-200px;pointer-events:none;
+    background:radial-gradient(circle, oklch(70% 0.21 30 / .35), transparent 70%);
+    filter:blur(8px);
+  }
+  .aside > *{position:relative;z-index:1}
+
+  .a-brand{display:flex;align-items:center;gap:13px}
+  .a-mark{
+    width:44px;height:44px;border-radius:12px;flex:none;display:grid;place-items:center;
+    background:#fff;color:var(--accent);
+    box-shadow:0 5px 16px oklch(10% 0.06 25 / .4);
+  }
+  .a-mark svg{width:25px;height:25px}
+  .a-brand .name{font-family:var(--font-display);font-weight:700;font-size:19px;letter-spacing:-.01em;line-height:1}
+  .a-brand .sub{font-size:11px;color:oklch(86% 0.04 30);letter-spacing:.05em;text-transform:uppercase;margin-top:3px}
+
+  .a-body{margin-top:auto;margin-bottom:auto;max-width:430px}
+  .a-eyebrow{
+    display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);
+    font-size:12px;letter-spacing:.04em;color:oklch(88% 0.05 32);
+    border:1px solid oklch(100% 0 0 / .18);border-radius:30px;padding:6px 13px;margin-bottom:26px;
+  }
+  .a-eyebrow .dot{width:7px;height:7px;border-radius:50%;background:oklch(78% 0.17 150);box-shadow:0 0 0 4px oklch(78% 0.17 150 / .25)}
+  .a-body h1{
+    font-family:var(--font-display);font-weight:700;font-size:clamp(30px,3.4vw,42px);
+    line-height:1.08;letter-spacing:-.025em;color:#fff;
+  }
+  .a-body p{margin-top:18px;font-size:15.5px;line-height:1.65;color:oklch(89% 0.02 30);max-width:40ch}
+
+  .a-stats{display:flex;gap:30px;margin-top:auto;padding-top:34px}
+  .a-stats .s b{font-family:var(--font-display);font-size:26px;font-weight:700;color:#fff;letter-spacing:-.01em;display:block}
+  .a-stats .s span{font-size:12px;color:oklch(83% 0.02 30);letter-spacing:.02em}
+
+  /* ============ RIGHT — formulaire ============ */
+  .main{display:grid;place-items:center;padding:48px 40px}
+  .card{width:100%;max-width:404px}
+
+  .m-head{margin-bottom:28px}
+  .m-head h2{font-family:var(--font-display);font-size:27px;font-weight:700;letter-spacing:-.02em}
+  .m-head p{margin-top:7px;font-size:14.5px;color:var(--muted)}
+  .m-head p a{color:var(--accent);font-weight:600;text-decoration:none}
+  .m-head p a:hover{text-decoration:underline}
+
+
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:13px;font-weight:500;color:var(--fg);margin-bottom:7px}
+  .field .wrap{position:relative}
+  .field input{
+    width:100%;height:46px;border:1px solid var(--border-2);border-radius:11px;
+    background:var(--bg);padding:0 14px;font-size:14.5px;color:var(--fg);transition:.16s;
+  }
+  .field input::placeholder{color:var(--faint)}
+  .field input:hover{border-color:var(--border)}
+  .field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);background:var(--surface)}
+  .field.invalid input{border-color:var(--danger)}
+  .field.invalid input:focus{box-shadow:0 0 0 4px oklch(58% 0.20 25 / .12)}
+  .field .pw-toggle{
+    position:absolute;right:6px;top:50%;transform:translateY(-50%);
+    width:34px;height:34px;border:0;background:transparent;border-radius:8px;
+    display:grid;place-items:center;color:var(--faint);transition:.15s;
+  }
+  .field .pw-toggle:hover{color:var(--fg);background:oklch(96% 0.004 262)}
+  .field .pw-toggle svg{width:19px;height:19px}
+  .field .err{display:none;font-size:12.5px;color:var(--danger);margin-top:6px}
+  .field.invalid .err{display:block}
+
+  .row-between{display:flex;align-items:center;justify-content:space-between;margin:-2px 0 20px}
+  .remember{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted);cursor:pointer;user-select:none}
+  .remember input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+  .forgot{font-size:13.5px;color:var(--accent);font-weight:600;text-decoration:none}
+  .forgot:hover{text-decoration:underline}
+
+  .submit{
+    width:100%;height:48px;border:0;border-radius:11px;color:#fff;font-size:15px;font-weight:600;
+    background:linear-gradient(150deg,var(--accent),var(--accent-d));
+    box-shadow:0 6px 18px oklch(55% 0.205 27 / .32);transition:.16s;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+  }
+  .submit:hover{transform:translateY(-1px);box-shadow:0 10px 26px oklch(55% 0.205 27 / .4)}
+  .submit:active{transform:translateY(0)}
+  .submit[disabled]{opacity:.75;cursor:default;transform:none}
+  .submit .spin{width:17px;height:17px;border:2.5px solid oklch(100% 0 0 / .4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+  .submit.loading .spin{display:block}
+  .submit.loading .label{opacity:.85}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .enterprise{
+    margin-top:22px;padding-top:20px;border-top:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;gap:8px;font-size:13.5px;color:var(--muted);
+  }
+  .enterprise a{color:var(--fg);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  .enterprise a svg{width:15px;height:15px;color:var(--accent)}
+  .enterprise a:hover{color:var(--accent)}
+
+  .legal{margin-top:30px;text-align:center;font-size:12px;color:var(--faint);line-height:1.6}
+  .legal a{color:var(--muted);text-decoration:underline;text-underline-offset:2px}
+
+  /* mobile brand (hidden on desktop) */
+  .m-brand{display:none;align-items:center;gap:11px;margin-bottom:30px}
+  .m-brand .a-mark{background:#fff;border:1px solid var(--border);color:var(--accent);box-shadow:0 4px 12px oklch(55% 0.205 27 / .18)}
+  .m-brand .name{font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:-.01em;line-height:1;color:var(--fg)}
+  .m-brand .sub{font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:3px}
+
+  /* ============ responsive ============ */
+  @media (max-width:860px){
+    .shell{grid-template-columns:1fr}
+    .aside{display:none}
+    .m-brand{display:flex}
+    .main{padding:40px 24px;align-items:start;min-height:100%}
+    .card{margin-top:6px}
+  }
+  @media (max-width:420px){
+    .main{padding:32px 20px}
+    .m-head h2{font-size:24px}
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+
+    <!-- ====== VITRINE ====== -->
+    <aside class="aside">
+      <div class="a-brand">
+        <span class="a-mark">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="currentColor" d="M24 3 L45 45 L24 45 Z"/><path fill="currentColor" fill-opacity=".62" d="M24 3 L24 45 L3 45 Z"/><path fill="#fff" d="M24 16 L31 31 L17 31 Z"/></svg>
+        </span>
+        <span>
+          <span class="name">APISIX</span>
+          <span class="sub">Portail Développeur</span>
+        </span>
+      </div>
+
+      <div class="a-body">
+        <span class="a-eyebrow"><span class="dot"></span> Tous les services · 100&nbsp;% disponibles</span>
+        <h1>Vos API, un seul portail.</h1>
+        <p>Parcourez le catalogue, testez les points de terminaison et gérez vos abonnements — tout au même endroit.</p>
+      </div>
+
+      <div class="a-stats">
+        <div class="s"><b>9</b><span>API publiées</span></div>
+        <div class="s"><b>4</b><span>catégories</span></div>
+        <div class="s"><b>99.9%</b><span>disponibilité</span></div>
+      </div>
+    </aside>
+
+    <!-- ====== FORMULAIRE ====== -->
+    <main class="main">
+      <form class="card" id="loginForm" novalidate>
+
+        <div class="m-brand">
+          <span class="a-mark">
+            <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="currentColor" d="M24 3 L45 45 L24 45 Z"/><path fill="currentColor" fill-opacity=".62" d="M24 3 L24 45 L3 45 Z"/><path fill="#fff" d="M24 16 L31 31 L17 31 Z"/></svg>
+          </span>
+          <span>
+            <span class="name">APISIX</span>
+            <span class="sub">Portail Développeur</span>
+          </span>
+        </div>
+
+        <div class="m-head">
+          <h2>Bon retour</h2>
+          <p>Pas encore de compte ? <a href="#">Créer un compte</a></p>
+        </div>
+
+        <div class="field" id="f-email">
+          <label for="email">Adresse email</label>
+          <div class="wrap">
+            <input type="email" id="email" name="email" placeholder="vous@entreprise.com" autocomplete="email" required>
+          </div>
+          <div class="err" id="err-email">Entrez une adresse email valide.</div>
+        </div>
+
+        <div class="field" id="f-pw">
+          <label for="password">Mot de passe</label>
+          <div class="wrap">
+            <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
+            <button type="button" class="pw-toggle" id="pwToggle" aria-label="Afficher le mot de passe">
+              <svg id="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="err" id="err-pw">Le mot de passe est requis.</div>
+        </div>
+
+        <div class="row-between">
+          <label class="remember"><input type="checkbox" id="remember"> Rester connecté</label>
+          <a class="forgot" href="#">Mot de passe oublié ?</a>
+        </div>
+
+        <button type="submit" class="submit" id="submitBtn">
+          <span class="spin"></span><span class="label">Se connecter</span>
+        </button>
+
+        <div class="enterprise">
+          <span>Membre d'une équipe ?</span>
+          <a href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 4 6v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-4Z" stroke-linejoin="round"/></svg>
+            Se connecter via votre entreprise
+          </a>
+        </div>
+
+        <p class="legal">En continuant, vous acceptez nos <a href="#">Conditions</a> et notre <a href="#">Politique de confidentialité</a>.</p>
+      </form>
+    </main>
+
+  </div>
+
+<script>
+(function(){
+  var form = document.getElementById('loginForm');
+  var email = document.getElementById('email');
+  var pw = document.getElementById('password');
+  var fEmail = document.getElementById('f-email');
+  var fPw = document.getElementById('f-pw');
+  var btn = document.getElementById('submitBtn');
+
+  // password visibility toggle
+  var pwToggle = document.getElementById('pwToggle');
+  var eye = document.getElementById('eye');
+  var EYE = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/>';
+  var EYE_OFF = '<path d="M3 3l18 18" stroke-linecap="round"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2M9.4 5.3A9.6 9.6 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.2 6.2A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 3.4-.6" stroke-linecap="round" stroke-linejoin="round"/>';
+  pwToggle.addEventListener('click', function(){
+    var show = pw.type === 'password';
+    pw.type = show ? 'text' : 'password';
+    eye.innerHTML = show ? EYE_OFF : EYE;
+    pwToggle.setAttribute('aria-label', show ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
+    pw.focus();
+  });
+
+  function validEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()); }
+
+  // clear error state as the user fixes the field
+  email.addEventListener('input', function(){ if(validEmail(email.value)) fEmail.classList.remove('invalid'); });
+  pw.addEventListener('input', function(){ if(pw.value) fPw.classList.remove('invalid'); });
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var ok = true;
+    if(!validEmail(email.value)){ fEmail.classList.add('invalid'); ok = false; }
+    else fEmail.classList.remove('invalid');
+    if(!pw.value){ fPw.classList.add('invalid'); ok = false; }
+    else fPw.classList.remove('invalid');
+    if(!ok){ (fEmail.classList.contains('invalid') ? email : pw).focus(); return; }
+
+    // simulate auth round-trip
+    btn.classList.add('loading');
+    btn.disabled = true;
+    btn.querySelector('.label').textContent = 'Connexion…';
+    setTimeout(function(){
+      btn.classList.remove('loading');
+      btn.disabled = false;
+      btn.querySelector('.label').textContent = 'Connecté ✓';
+      btn.style.background = 'linear-gradient(150deg, oklch(58% 0.13 155), oklch(50% 0.12 155))';
+      // window.location.href = 'index.html';  // brancher ici la redirection réelle
+    }, 1100);
+  });
+})();
+</script>
+</body>
+</html>
