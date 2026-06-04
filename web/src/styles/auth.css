@@ -66,7 +66,7 @@
 
 /* ============ RIGHT — formulaire ============ */
 .auth-shell .auth-main{display:grid;place-items:center;padding:48px 40px}
-.auth-shell .acard{width:100%;max-width:404px}
+.auth-shell .acard{width:100%;max-width:480px} /* widened from blueprint's 404px (user: too much empty space) */
 
 .auth-shell .m-head{margin-bottom:28px}
 .auth-shell .m-head h2{font-family:var(--font-display);font-size:27px;font-weight:700;letter-spacing:-.02em}
