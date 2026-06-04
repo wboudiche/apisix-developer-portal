@@ -120,4 +120,14 @@ describe('RegisterPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Créer le compte' }))
     await waitFor(() => expect(screen.getByText('email already used')).toBeInTheDocument())
   })
+
+  it('clears the password field error as soon as the user edits the field', async () => {
+    renderRegister()
+    await userEvent.type(screen.getByLabelText('Email'), 'a@b.c')
+    await userEvent.type(screen.getByLabelText('Mot de passe'), 'short')
+    await userEvent.click(screen.getByRole('button', { name: 'Créer le compte' }))
+    expect(await screen.findByText('Mot de passe : 8 caractères minimum')).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('Mot de passe'), 'x')
+    expect(screen.queryByText('Mot de passe : 8 caractères minimum')).not.toBeInTheDocument()
+  })
 })

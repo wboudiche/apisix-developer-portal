@@ -69,7 +69,7 @@ export function RegisterPage() {
             <input
               id="reg-pw" aria-label="Mot de passe" type={showPw ? 'text' : 'password'} placeholder="8 caractères minimum"
               autoComplete="new-password" required value={password}
-              onChange={e => { setPassword(e.target.value); if (e.target.value.length >= 8) setPwErr('') }}
+              onChange={e => { setPassword(e.target.value); if (pwErr) setPwErr('') }}
             />
             <button
               type="button" className="pw-toggle"
