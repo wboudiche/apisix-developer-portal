@@ -13,10 +13,13 @@ the form card on the right. Both pages share the layout; only the form differs.
 ## Decisions (user-confirmed)
 
 1. **Scope:** Login **and** Register both get the new design.
-2. **Dead UI omitted:** no "Rester connecté", no "Mot de passe oublié ?",
-   no "Se connecter via votre entreprise" (SSO), no legal line
-   (its Conditions/Confidentialité links are equally dead). All easy to add
-   back when real features exist.
+2. **Pixel-fidelity to the blueprint (revised 2026-06-04):** "Rester
+   connecté", "Mot de passe oublié ?", the enterprise SSO row, and the legal
+   line are all rendered exactly as in `login.html`, as visual placeholders
+   (links `href="#"`, checkbox without effect) until the real features exist.
+   The Register page mirrors the same card chrome but only carries the
+   elements that make sense there (no remember/forgot row; enterprise row and
+   legal line kept).
 3. **Stats are live:** vitrine stats show real counts from the public catalog
    (`N API publiées`, `M catégories` = distinct categories). `99.9 %
    disponibilité` stays static. On fetch failure, fall back to the blueprint's
@@ -69,6 +72,10 @@ Form card inside `AuthShell`, blueprint markup:
   `aria-label` swaps Afficher/Masquer, keeps focus in the input).
 - Submit: gradient `.submit` button, **loading state** (spinner + disabled)
   while the `login()` promise is in flight; label "Se connecter".
+- Row between fields and submit: "Rester connecté" checkbox + "Mot de passe
+  oublié ?" link, visual placeholders per the blueprint.
+- Below submit: enterprise SSO row and legal line, visual placeholders per
+  the blueprint.
 - Errors: server errors (bad credentials) render in the blueprint's `.err`
   style under the form head, `role="alert"`. Client-side: empty/invalid
   fields get `.field.invalid` treatment on submit.
@@ -101,6 +108,7 @@ Same shell + card:
 
 ## Out of scope
 
-- Password-reset, remember-me, SSO flows (future features).
+- Password-reset, remember-me, SSO *behavior* (the controls render as
+  placeholders only; wiring them up is future work).
 - Any change to catalog/applications/admin pages.
 - Backend changes: none.
