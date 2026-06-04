@@ -17,6 +17,10 @@ describe('AuthShell', () => {
     render(<AuthShell><p>FORM HERE</p></AuthShell>)
     expect(screen.getByText('FORM HERE')).toBeInTheDocument()
     expect(screen.getByText('Vos API, un seul portail.')).toBeInTheDocument()
+    // Blueprint v2 feature list
+    expect(screen.getByText('Catalogue unifié')).toBeInTheDocument()
+    expect(screen.getByText('Clés en libre-service')).toBeInTheDocument()
+    expect(screen.getByText('Quotas & abonnements')).toBeInTheDocument()
     expect(await screen.findByText('disponibilité')).toBeInTheDocument()
   })
 

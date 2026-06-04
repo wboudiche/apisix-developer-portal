@@ -59,6 +59,17 @@
   line-height:1.08;letter-spacing:-.025em;color:#fff;
 }
 .auth-shell .a-body p{margin-top:18px;font-size:15.5px;line-height:1.65;color:oklch(89% 0.02 30);max-width:40ch}
+.auth-shell .a-feats{margin-top:30px;display:flex;flex-direction:column;gap:15px;max-width:420px}
+.auth-shell .a-feats li{display:flex;align-items:flex-start;gap:13px;list-style:none}
+.auth-shell .a-feats .fi{
+  width:34px;height:34px;border-radius:10px;flex:none;display:grid;place-items:center;
+  background:linear-gradient(150deg, oklch(100% 0 0 / .16), oklch(100% 0 0 / .04));
+  border:1px solid oklch(100% 0 0 / .16);color:oklch(94% 0.04 32);
+}
+.auth-shell .a-feats .fi svg{width:18px;height:18px}
+.auth-shell .a-feats .ft b{display:block;font-family:var(--font-display);font-weight:600;font-size:15px;color:#fff;letter-spacing:-.01em}
+.auth-shell .a-feats .ft span{display:block;margin-top:2px;font-size:13px;line-height:1.45;color:oklch(85% 0.02 30)}
+.auth-shell .a-feats code{font-family:var(--font-mono);font-size:12px;color:oklch(90% 0.05 32)}
 
 .auth-shell .a-stats{display:flex;gap:30px;margin-top:auto;padding-top:34px}
 .auth-shell .a-stats .s b{font-family:var(--font-display);font-size:26px;font-weight:700;color:#fff;letter-spacing:-.01em;display:block}
@@ -66,20 +77,20 @@
 
 /* ============ RIGHT — formulaire ============ */
 .auth-shell .auth-main{display:grid;place-items:center;padding:48px 40px}
-.auth-shell .acard{width:100%;max-width:480px} /* widened from blueprint's 404px (user: too much empty space) */
+.auth-shell .acard{width:100%;max-width:424px} /* blueprint v2 width */
 
-.auth-shell .m-head{margin-bottom:28px}
-.auth-shell .m-head h2{font-family:var(--font-display);font-size:27px;font-weight:700;letter-spacing:-.02em}
-.auth-shell .m-head p{margin-top:7px;font-size:14.5px;color:var(--muted)}
+.auth-shell .m-head{margin-bottom:34px}
+.auth-shell .m-head h2{font-family:var(--font-display);font-size:31px;font-weight:700;letter-spacing:-.02em}
+.auth-shell .m-head p{margin-top:9px;font-size:15px;color:var(--muted)}
 .auth-shell .m-head p a{color:var(--accent);font-weight:600;text-decoration:none}
 .auth-shell .m-head p a:hover{text-decoration:underline}
 
-.auth-shell .field{margin-bottom:16px}
-.auth-shell .field label{display:block;font-size:13px;font-weight:500;color:var(--fg);margin-bottom:7px}
+.auth-shell .field{margin-bottom:20px}
+.auth-shell .field label{display:block;font-size:13.5px;font-weight:500;color:var(--fg);margin-bottom:8px}
 .auth-shell .field .wrap{position:relative}
 .auth-shell .field input{
-  width:100%;height:46px;border:1px solid var(--border-2);border-radius:11px;
-  background:var(--bg);padding:0 14px;font-size:14.5px;color:var(--fg);transition:.16s;
+  width:100%;height:52px;border:1px solid var(--border-2);border-radius:12px;
+  background:var(--bg);padding:0 15px;font-size:15px;color:var(--fg);transition:.16s;
 }
 .auth-shell .field input::placeholder{color:var(--faint)}
 .auth-shell .field input:hover{border-color:var(--border)}
@@ -96,14 +107,14 @@
 .auth-shell .field .err{display:none;font-size:12.5px;color:var(--danger);margin-top:6px}
 .auth-shell .field.invalid .err{display:block}
 
-.auth-shell .row-between{display:flex;align-items:center;justify-content:space-between;margin:-2px 0 20px}
+.auth-shell .row-between{display:flex;align-items:center;justify-content:space-between;margin:2px 0 26px}
 .auth-shell .remember{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted);cursor:pointer;user-select:none}
 .auth-shell .remember input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
 .auth-shell .forgot{font-size:13.5px;color:var(--accent);font-weight:600;text-decoration:none}
 .auth-shell .forgot:hover{text-decoration:underline}
 
 .auth-shell .submit{
-  width:100%;height:48px;border:0;border-radius:11px;color:#fff;font-size:15px;font-weight:600;
+  width:100%;height:54px;border:0;border-radius:12px;color:#fff;font-size:15.5px;font-weight:600;
   background:linear-gradient(150deg,var(--accent),var(--accent-d));
   box-shadow:0 6px 18px oklch(55% 0.205 27 / .32);transition:.16s;
   display:flex;align-items:center;justify-content:center;gap:10px;
@@ -119,7 +130,7 @@
 .auth-shell .form-err{font-size:13px;color:var(--danger);margin:-12px 0 16px}
 
 .auth-shell .enterprise{
-  margin-top:22px;padding-top:20px;border-top:1px solid var(--border);
+  margin-top:28px;padding-top:24px;border-top:1px solid var(--border);
   display:flex;align-items:center;justify-content:center;gap:8px;font-size:13.5px;color:var(--muted);
 }
 .auth-shell .enterprise a{color:var(--fg);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
