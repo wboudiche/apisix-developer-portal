@@ -178,10 +178,10 @@ export function TopBar({
 
       <Link className="brand" to="/">
         <span className="mark">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M5 7l-3 5 3 5M19 7l3 5-3 5M14 4l-4 16" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <img src="/brand-apisix.svg" alt="" aria-hidden="true" />
         </span>
         <span>
-          <span className="name">Atlas</span>
+          <span className="name">APISIX</span>
           <span className="sub">Portail Développeur</span>
         </span>
       </Link>

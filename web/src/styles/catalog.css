@@ -11,12 +11,10 @@
 }
 .brand{display:flex;align-items:center;gap:11px;flex:none}
 .brand .mark{
-  width:34px;height:34px;border-radius:9px;flex:none;
-  background:linear-gradient(145deg,var(--accent),var(--accent-d));
-  display:grid;place-items:center;color:#fff;
-  box-shadow:0 4px 12px oklch(55% 0.205 27 /.35);
+  width:34px;height:34px;flex:none;
+  display:grid;place-items:center;
 }
-.brand .mark svg{width:19px;height:19px}
+.brand .mark img{width:30px;height:auto;display:block}
 .brand .name{font-family:var(--font-display);font-weight:700;font-size:17px;letter-spacing:-.01em;line-height:1}
 .brand .sub{font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
 
