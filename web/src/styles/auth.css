@@ -6,7 +6,7 @@
 .auth-shell{
   min-height:100vh;
   display:grid;
-  grid-template-columns:1.05fr 1fr;
+  grid-template-columns:0.7fr 1.3fr; /* user: narrower vitrine, larger form side */
 }
 
 /* ============ LEFT — vitrine rouge APISIX ============ */
@@ -77,7 +77,7 @@
 
 /* ============ RIGHT — formulaire ============ */
 .auth-shell .auth-main{display:grid;place-items:center;padding:48px 40px}
-.auth-shell .acard{width:100%;max-width:424px} /* blueprint v2 width */
+.auth-shell .acard{width:100%;max-width:640px} /* user: form elements as wide as possible */
 
 .auth-shell .m-head{margin-bottom:34px}
 .auth-shell .m-head h2{font-family:var(--font-display);font-size:31px;font-weight:700;letter-spacing:-.02em}
