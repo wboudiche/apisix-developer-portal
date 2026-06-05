@@ -24,7 +24,7 @@ per-application detail page matching the blueprint.
 | App name, ID (`app_<id>`), glyph initials | REAL — `getApplications` / `getApplicationDetail` |
 | Status pill next to name | REAL — derived: any active sub → `Active`; any pending → `En attente`; else `Sans abonnement` (muted) |
 | Meta "N abonnements" + tab badge | REAL — count of subscriptions |
-| Meta "Créée le …" | OMITTED (backend has no createdAt) — meta shows ID + count + switcher only |
+| Meta "Créée le …" | REAL — `Application.createdAt` exists (formatted fr-FR); likewise Settings' description prefills `Application.description` |
 | App switcher entries | REAL — app list; "+ Nouvelle application" opens a create modal (real `createApplication`, navigates to the new app) |
 | Abonnements table: API name, context path, plan name | REAL — detail subscriptions |
 | Abonnements table: Débit (e.g. `1 000 / min`) | REAL — plan `rate`/`window` via `getPlans` lookup |
