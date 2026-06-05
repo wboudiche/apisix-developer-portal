@@ -24,7 +24,7 @@ export const DEMO_FEED: ReadonlyArray<{ icon: 'check' | 'rotate' | 'alert' | 'pl
   { icon: 'check', lead: 'Abonnement', rest: ' à Inventory API · plan Gold', when: 'il y a 2 h' },
   { icon: 'rotate', lead: 'Clé Sandbox', rest: ' régénérée', when: 'hier · 16:41' },
   { icon: 'alert', lead: 'Pic de débit', rest: ' sur Payments — 280/300 rpm', when: 'hier · 12:08' },
-  { icon: 'plus', lead: 'Application créée', rest: '', when: '12 mars 2026' },
+  { icon: 'plus', lead: 'Application créée', rest: ' par Admin', when: '12 mars 2026' },
 ]
 
 export const DEMO_CHART = {
@@ -46,7 +46,7 @@ export const demoBarWidth = (productId: number) => 15 + ((productId * 37) % 80)
 export const demoRpm = (productId: number) => 40 + ((productId * 113) % 600)
 
 // Quickstart fallback when the app has no active subscription yet.
-export const DEMO_QUICKSTART = { path: '/orders', key: 'ax_live_a3f9c1e7b240d8e5f6...' }
+export const DEMO_QUICKSTART = { apiName: 'Orders API', path: '/orders', key: 'ax_live_a3f9c1e7b240d8e5f6...' }
 
 export function demoRotatedKey(prefix: 'ax_test_'): string {
   let s = ''

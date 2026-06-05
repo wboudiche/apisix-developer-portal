@@ -54,14 +54,12 @@ export function OverviewTab({ detail, notify }: { detail: AppDetail; notify: (ms
       <div className="twocol">
         <div className="dcard">
           <div className="ch">
-            <div>
-              <h3>Démarrage rapide</h3>
-              <p>Authentification par clé API — un seul en-tête <span className="mono">apikey</span>.</p>
-            </div>
+            <h3>Démarrage rapide</h3>
+            <p>Authentification par clé API — un seul en-tête <span className="mono">apikey</span>.</p>
           </div>
           <div className="cb">
             <div className="code">
-              <div className="cbar"><i /><i /><i /><span>requête — production</span>
+              <div className="cbar"><i /><i /><i /><span>requête — {active ? active.productName : DEMO_QUICKSTART.apiName} · production</span>
                 <button className="copy" onClick={copyCurl}>Copier</button>
               </div>
               <pre><span className="c"># Un seul en-tête, c'est tout</span>{'\n'}<span className="cmd">curl</span> http://localhost:9080{path} \{'\n'}  <span className="flag">-H</span> <span className="str">"apikey: {key}"</span></pre>

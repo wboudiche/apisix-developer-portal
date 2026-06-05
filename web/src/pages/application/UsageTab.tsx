@@ -8,10 +8,8 @@ export function UsageTab() {
     <section className="panel">
       <div className="dcard">
         <div className="ch">
-          <div>
-            <h3>Requêtes · 14 derniers jours</h3>
-            <p>Toutes API confondues, environnement production.</p>
-          </div>
+          <h3>Requêtes · 14 derniers jours</h3>
+          <p>Toutes API confondues, environnement production.</p>
           <div className="right"><span className="stpill muted"><span className="led" />421 K ce mois</span></div>
         </div>
         <div className="cb">

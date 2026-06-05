@@ -23,10 +23,8 @@ export function SubscriptionsTab({ subs, plans, onResiliate }: {
     <section className="panel">
       <div className="dcard">
         <div className="ch">
-          <div>
-            <h3>API abonnées</h3>
-            <p>Chaque abonnement lie cette application à une API, à un palier de débit.</p>
-          </div>
+          <h3>API abonnées</h3>
+          <p>Chaque abonnement lie cette application à une API, à un palier de débit.</p>
           <div className="right">
             <Link className="btn primary sm" to="/"><PlusIcon />Abonner une API</Link>
           </div>
