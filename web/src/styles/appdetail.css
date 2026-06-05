@@ -1,0 +1,231 @@
+/* Application detail page — port of /application.html blueprint.
+   Scoped under .appdetail. Renames (global-CSS collision proofing):
+   .card→.dcard  .pill→.stpill  .modal→.dmodal  .tag→.envtag
+   keyframes: fade→ad-fade  pop→ad-pop
+   (catalog.css owns global .card{opacity:0}, .pill, .tag; base.css owns .modal) */
+
+.appdetail{max-width:1120px;margin:0 auto;padding:26px 28px 80px}
+.appdetail .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+.appdetail .crumbs{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-bottom:18px}
+.appdetail .crumbs a:hover{color:var(--fg)}
+.appdetail .crumbs svg{width:14px;height:14px;color:var(--faint)}
+
+/* app header */
+.appdetail .apphead{display:flex;align-items:flex-start;gap:18px;flex-wrap:wrap}
+.appdetail .apphead .glyph{
+  width:56px;height:56px;border-radius:15px;flex:none;display:grid;place-items:center;
+  color:#fff;font-family:var(--font-display);font-weight:700;font-size:22px;box-shadow:var(--shadow);
+}
+.appdetail .apphead .htext{min-width:0}
+.appdetail .apphead h1{font-family:var(--font-display);font-size:26px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.appdetail .apphead .meta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:7px;font-size:13px;color:var(--muted)}
+.appdetail .apphead .meta .mono{color:var(--fg)}
+.appdetail .apphead .meta .sep{width:3px;height:3px;border-radius:50%;background:var(--border-2)}
+.appdetail .apphead .actions{margin-left:auto;display:flex;gap:10px;align-self:center}
+
+.appdetail .stpill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 11px;border-radius:999px;letter-spacing:.01em}
+.appdetail .stpill .led{width:6px;height:6px;border-radius:50%}
+.appdetail .stpill.ok{background:var(--success-soft);color:oklch(42% 0.12 155)}
+.appdetail .stpill.ok .led{background:var(--success);box-shadow:0 0 0 3px oklch(58% 0.13 155 /.18)}
+.appdetail .stpill.warn{background:var(--warn-soft);color:oklch(48% 0.12 75)}
+.appdetail .stpill.warn .led{background:var(--warn)}
+.appdetail .stpill.muted{background:color-mix(in oklab, var(--fg) 7%, transparent);color:var(--muted)}
+.appdetail .stpill.muted .led{background:var(--faint)}
+
+.appdetail .btn{height:40px;padding:0 16px;border-radius:11px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:8px;transition:.16s;border:1px solid transparent}
+.appdetail .btn svg{width:16px;height:16px}
+.appdetail .btn.primary{background:linear-gradient(150deg,var(--accent),var(--accent-d));color:#fff;box-shadow:0 5px 16px oklch(55% 0.205 27 /.3)}
+.appdetail .btn.primary:hover{transform:translateY(-1px);box-shadow:0 9px 24px oklch(55% 0.205 27 /.4)}
+.appdetail .btn.ghost{background:var(--surface);border-color:var(--border-2);color:var(--fg)}
+.appdetail .btn.ghost:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.appdetail .btn.danger{background:var(--surface);border-color:var(--border-2);color:var(--danger)}
+.appdetail .btn.danger:hover{background:var(--danger-soft);border-color:var(--danger)}
+.appdetail .btn.sm{height:34px;padding:0 13px;font-size:13px;border-radius:9px}
+
+/* tabs */
+.appdetail .tabs{display:flex;gap:4px;margin:26px 0 24px;border-bottom:1px solid var(--border);overflow-x:auto}
+.appdetail .tabs button{
+  background:none;border:0;padding:11px 4px;margin-right:20px;font-size:14.5px;font-weight:500;color:var(--muted);
+  position:relative;white-space:nowrap;transition:.15s;
+}
+.appdetail .tabs button:hover{color:var(--fg)}
+.appdetail .tabs button.on{color:var(--accent);font-weight:600}
+.appdetail .tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--accent);border-radius:2px}
+.appdetail .tabs button .badge{margin-left:7px;font-family:var(--font-mono);font-size:11px;color:var(--faint);border:1px solid var(--border-2);border-radius:6px;padding:1px 6px}
+.appdetail .tabs button.on .badge{color:var(--accent);border-color:var(--accent-soft);background:var(--accent-soft)}
+
+.appdetail .panel{animation:ad-fade .25s ease}
+@keyframes ad-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* cards */
+.appdetail .dcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow)}
+.appdetail .dcard .ch{display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid var(--border)}
+.appdetail .dcard .ch h3{font-family:var(--font-display);font-size:16px;font-weight:600;letter-spacing:-.01em}
+.appdetail .dcard .ch p{font-size:12.5px;color:var(--muted);margin-top:2px}
+.appdetail .dcard .ch .right{margin-left:auto}
+.appdetail .dcard .cb{padding:20px}
+
+.appdetail .section-title{font-family:var(--font-display);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 14px}
+
+/* stat grid */
+.appdetail .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.appdetail .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:17px 18px}
+.appdetail .stat .k{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px}
+.appdetail .stat .k svg{width:15px;height:15px;color:var(--faint)}
+.appdetail .stat .v{font-family:var(--font-display);font-size:27px;font-weight:700;letter-spacing:-.02em;margin-top:9px;font-variant-numeric:tabular-nums}
+.appdetail .stat .v small{font-size:15px;color:var(--muted);font-weight:500}
+.appdetail .stat .d{font-size:12px;margin-top:4px;display:flex;align-items:center;gap:5px}
+.appdetail .stat .d.up{color:var(--success)}.appdetail .stat .d.down{color:var(--danger)}.appdetail .stat .d.flat{color:var(--muted)}
+.appdetail .stat .d svg{width:13px;height:13px}
+
+/* key cards */
+.appdetail .keygrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.appdetail .keycard{border:1px solid var(--border);border-radius:var(--r);background:var(--surface);overflow:hidden}
+.appdetail .keycard.prod{border-color:oklch(80% 0.07 27)}
+.appdetail .keycard .kh{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--border)}
+.appdetail .keycard .kh .env{font-family:var(--font-display);font-weight:600;font-size:15px;display:flex;align-items:center;gap:9px}
+.appdetail .keycard .kh .env .envtag{font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;padding:3px 8px;border-radius:6px}
+.appdetail .keycard.prod .kh .env .envtag{background:var(--accent-soft);color:var(--accent)}
+.appdetail .keycard.sbx .kh .env .envtag{background:color-mix(in oklab, var(--fg) 7%, transparent);color:var(--muted)}
+.appdetail .keycard .kb{padding:18px}
+.appdetail .keyrow{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border-2);border-radius:10px;padding:11px 13px}
+.appdetail .keyrow code{flex:1;font-family:var(--font-mono);font-size:13.5px;letter-spacing:.02em;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.appdetail .iconbtn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);display:grid;place-items:center;color:var(--muted);flex:none;transition:.14s}
+.appdetail .iconbtn:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.appdetail .iconbtn.copied{color:var(--success);border-color:var(--success)}
+.appdetail .iconbtn svg{width:16px;height:16px}
+.appdetail .keymeta{display:flex;align-items:center;justify-content:space-between;margin-top:14px;font-size:12.5px;color:var(--muted)}
+.appdetail .keymeta .rotate{color:var(--accent);font-weight:600;display:inline-flex;align-items:center;gap:6px;background:none;border:0;font-size:12.5px}
+.appdetail .keymeta .rotate:hover{text-decoration:underline}
+.appdetail .keymeta .rotate svg{width:14px;height:14px}
+
+/* code block */
+.appdetail .code{background:var(--ink);border-radius:12px;overflow:hidden;margin-top:4px}
+.appdetail .code .cbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid oklch(100% 0 0 /.08)}
+.appdetail .code .cbar i{width:10px;height:10px;border-radius:50%;display:block}
+.appdetail .code .cbar i:nth-child(1){background:oklch(70% 0.18 25)}
+.appdetail .code .cbar i:nth-child(2){background:oklch(82% 0.14 85)}
+.appdetail .code .cbar i:nth-child(3){background:oklch(75% 0.16 150)}
+.appdetail .code .cbar span{margin-left:6px;font-family:var(--font-mono);font-size:11px;color:oklch(78% 0.01 262)}
+.appdetail .code .cbar .copy{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:oklch(82% 0.01 262);border:1px solid oklch(100% 0 0 /.14);border-radius:6px;padding:3px 9px;background:transparent}
+.appdetail .code .cbar .copy:hover{background:oklch(100% 0 0 /.08);color:#fff}
+.appdetail .code pre{padding:15px 16px;font-family:var(--font-mono);font-size:13px;line-height:1.8;color:oklch(90% 0.01 262);overflow-x:auto}
+.appdetail .code .c{color:oklch(62% 0.02 262)}.appdetail .code .cmd{color:oklch(80% 0.14 150)}
+.appdetail .code .flag{color:oklch(82% 0.10 32)}.appdetail .code .str{color:oklch(80% 0.10 85)}
+
+/* table */
+.appdetail .tbl{width:100%;border-collapse:collapse}
+.appdetail .tbl th{text-align:left;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:0 16px 12px;border-bottom:1px solid var(--border)}
+.appdetail .tbl td{padding:15px 16px;border-bottom:1px solid var(--border);font-size:14px;vertical-align:middle}
+.appdetail .tbl tr:last-child td{border-bottom:0}
+.appdetail .tbl tbody tr{transition:.12s}
+.appdetail .tbl tbody tr:hover{background:color-mix(in oklab, var(--fg) 3%, transparent)}
+.appdetail .apicell{display:flex;align-items:center;gap:12px}
+.appdetail .apicell .ig{width:36px;height:36px;border-radius:9px;flex:none;display:grid;place-items:center;color:#fff;font-family:var(--font-mono);font-weight:600;font-size:12px}
+.appdetail .apicell .nm{font-weight:600;font-size:14px}
+.appdetail .apicell .cx{font-family:var(--font-mono);font-size:11.5px;color:var(--muted);display:block}
+.appdetail .plan-pill{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600}
+.appdetail .plan-pill .dot{width:8px;height:8px;border-radius:50%}
+.appdetail .rate{font-family:var(--font-mono);font-size:13px;color:var(--muted)}
+.appdetail .bar{height:6px;border-radius:3px;background:color-mix(in oklab, var(--fg) 8%, transparent);overflow:hidden;width:110px}
+.appdetail .bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent-d))}
+.appdetail .bar.hi i{background:linear-gradient(90deg,var(--warn),oklch(66% 0.17 55))}
+.appdetail .rowsub{font-size:11.5px;color:var(--faint);margin-top:3px;font-family:var(--font-mono)}
+.appdetail .rowact{display:flex;gap:8px;justify-content:flex-end}
+.appdetail .linkbtn{font-size:13px;color:var(--muted);font-weight:500;cursor:pointer}
+.appdetail .linkbtn:hover{color:var(--accent)}
+.appdetail .linkbtn.danger:hover{color:var(--danger)}
+
+/* usage chart */
+.appdetail .chart{display:flex;align-items:flex-end;gap:10px;height:200px;padding:10px 4px 0}
+.appdetail .chart .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end}
+.appdetail .chart .col .bw{width:100%;max-width:34px;border-radius:7px 7px 0 0;background:linear-gradient(180deg,var(--accent),oklch(62% 0.16 27));transition:.5s cubic-bezier(.2,.8,.2,1);position:relative}
+.appdetail .chart .col:hover .bw{filter:brightness(1.08)}
+.appdetail .chart .col .bw::after{content:attr(data-v);position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:11px;color:var(--muted);opacity:0;transition:.15s;white-space:nowrap}
+.appdetail .chart .col:hover .bw::after{opacity:1}
+.appdetail .chart .col small{font-family:var(--font-mono);font-size:11px;color:var(--faint)}
+
+.appdetail .twocol{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;align-items:start}
+
+.appdetail .feed{list-style:none}
+.appdetail .feed li{display:flex;gap:13px;padding:12px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.appdetail .feed li:last-child{border-bottom:0}
+.appdetail .feed .fi{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;background:var(--bg);border:1px solid var(--border)}
+.appdetail .feed .fi svg{width:15px;height:15px;color:var(--muted)}
+.appdetail .feed .ft{flex:1}
+.appdetail .feed .ft b{font-weight:600}
+.appdetail .feed .ft small{display:block;color:var(--faint);font-size:11.5px;margin-top:2px;font-family:var(--font-mono)}
+
+/* form (settings) */
+.appdetail .field{margin-bottom:18px;max-width:480px}
+.appdetail .field label{display:block;font-size:13px;font-weight:600;margin-bottom:7px}
+.appdetail .field input,.appdetail .field textarea,.appdetail .field select{
+  width:100%;border:1px solid var(--border-2);border-radius:11px;background:var(--bg);
+  padding:11px 13px;font-size:14px;font-family:inherit;color:var(--fg);transition:.16s;
+}
+.appdetail .field textarea{resize:vertical;min-height:80px;line-height:1.5}
+.appdetail .field input:focus,.appdetail .field textarea:focus,.appdetail .field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);background:var(--surface)}
+.appdetail .field .hint{font-size:12px;color:var(--muted);margin-top:6px}
+.appdetail .danger-zone{border:1px solid var(--danger-soft);background:var(--danger-soft);border-radius:var(--r);padding:18px 20px;margin-top:8px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.appdetail .danger-zone .dz-t{flex:1;min-width:220px}
+.appdetail .danger-zone h4{font-size:14px;font-weight:600;color:oklch(45% 0.16 25)}
+.appdetail .danger-zone p{font-size:13px;color:oklch(50% 0.08 25);margin-top:3px}
+
+/* dropdown (app switcher) */
+.appdetail .switch{position:relative}
+.appdetail .switch .trigger{display:inline-flex;align-items:center;gap:9px;height:40px;padding:0 13px;border:1px solid var(--border-2);border-radius:11px;background:var(--surface);font-size:14px;font-weight:600;color:var(--fg)}
+.appdetail .switch .trigger:hover{border-color:var(--accent)}
+.appdetail .switch .trigger svg{width:15px;height:15px;color:var(--muted)}
+.appdetail .switch .menu{position:absolute;top:46px;left:0;min-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow-h);padding:7px;z-index:30;display:none}
+.appdetail .switch.open .menu{display:block}
+.appdetail .switch .menu a{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;font-size:14px;cursor:pointer}
+.appdetail .switch .menu a:hover{background:color-mix(in oklab, var(--fg) 4%, transparent)}
+.appdetail .switch .menu a.cur{background:var(--accent-soft)}
+.appdetail .switch .menu a .mg{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;color:#fff;font-family:var(--font-display);font-weight:700;font-size:13px}
+.appdetail .switch .menu a .mt small{display:block;color:var(--muted);font-size:11.5px;font-family:var(--font-mono)}
+.appdetail .switch .menu .div{height:1px;background:var(--border);margin:6px 4px}
+.appdetail .switch .menu .new{color:var(--accent);font-weight:600}
+
+/* toast */
+.appdetail-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:13.5px;font-weight:500;padding:12px 18px;border-radius:11px;box-shadow:var(--shadow-h);display:flex;align-items:center;gap:9px;opacity:0;pointer-events:none;transition:.25s;z-index:90}
+.appdetail-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.appdetail-toast svg{width:17px;height:17px;color:var(--success)}
+
+/* modal */
+.appdetail-scrim{position:fixed;inset:0;background:oklch(20% 0.02 262 /.45);backdrop-filter:blur(3px);display:grid;place-items:center;z-index:80;padding:20px}
+.appdetail-scrim .dmodal{background:var(--surface);border-radius:18px;box-shadow:var(--shadow-h);max-width:440px;width:100%;padding:26px;animation:ad-pop .2s ease}
+@keyframes ad-pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+.appdetail-scrim .dmodal .mi{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;margin-bottom:15px}
+.appdetail-scrim .dmodal .mi svg{width:24px;height:24px}
+.appdetail-scrim .dmodal h3{font-family:var(--font-display);font-size:19px;font-weight:700;letter-spacing:-.01em}
+.appdetail-scrim .dmodal p{font-size:14px;color:var(--muted);line-height:1.55;margin-top:9px}
+.appdetail-scrim .dmodal .ma{display:flex;gap:10px;margin-top:22px;justify-content:flex-end}
+.appdetail-scrim .dmodal .field{margin:16px 0 0;max-width:none}
+.appdetail-scrim .dmodal .field input{width:100%;border:1px solid var(--border-2);border-radius:11px;background:var(--bg);padding:11px 13px;font-size:14px;font-family:inherit;color:var(--fg)}
+.appdetail-scrim .dmodal .btn{height:40px;padding:0 16px;border-radius:11px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:8px;border:1px solid transparent}
+.appdetail-scrim .dmodal .btn.primary{background:linear-gradient(150deg,var(--accent),var(--accent-d));color:#fff}
+.appdetail-scrim .dmodal .btn.ghost{background:var(--surface);border-color:var(--border-2);color:var(--fg)}
+.appdetail-scrim .dmodal .btn.danger{background:var(--surface);border-color:var(--border-2);color:var(--danger)}
+.appdetail-scrim .dmodal .btn.danger:hover{background:var(--danger-soft);border-color:var(--danger)}
+
+/* dark-mode readability for blueprint literals */
+:root[data-theme="dark"] .appdetail .stpill.ok{color:oklch(80% 0.1 155)}
+:root[data-theme="dark"] .appdetail .stpill.warn{color:oklch(85% 0.1 85)}
+:root[data-theme="dark"] .appdetail .danger-zone h4{color:oklch(78% 0.12 25)}
+:root[data-theme="dark"] .appdetail .danger-zone p{color:oklch(70% 0.06 25)}
+:root[data-theme="dark"] .appdetail .keycard.prod{border-color:oklch(45% 0.09 27)}
+
+/* responsive (blueprint, minus topbar rules) */
+@media(max-width:880px){
+  .appdetail .stats{grid-template-columns:1fr 1fr}
+  .appdetail .keygrid{grid-template-columns:1fr}
+  .appdetail .twocol{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  .appdetail .stats{grid-template-columns:1fr}
+  .appdetail .apphead .actions{margin-left:0;width:100%}
+  .appdetail .apphead .actions .btn{flex:1;justify-content:center}
+  .appdetail .tblwrap{overflow-x:auto}
+  .appdetail .tbl{min-width:620px}
+}
