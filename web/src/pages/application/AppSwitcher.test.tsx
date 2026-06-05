@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -18,12 +19,14 @@ describe('AppSwitcher', () => {
     expect(screen.getByText('Boutique Mobile').closest('a')).toHaveClass('cur')
     expect(screen.getByText('app_2')).toBeInTheDocument()
   })
-  it('exposes the Nouvelle application action', async () => {
+  it('exposes the Nouvelle application action as a real button', async () => {
     const onCreate = vi.fn()
     render(<MemoryRouter><AppSwitcher apps={apps} currentId={1} onCreate={onCreate} /></MemoryRouter>)
     await userEvent.click(screen.getByRole('button', { name: /Changer d'application/ }))
-    await userEvent.click(screen.getByText('Nouvelle application'))
-    expect(onCreate).toHaveBeenCalled()
+    const item = screen.getByText('Nouvelle application').closest('button')
+    expect(item).not.toBeNull() // keyboard-reachable, fires on Enter/Space
+    await userEvent.click(item!)
+    expect(onCreate).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -38,5 +41,33 @@ describe('CreateAppModal', () => {
   it('renders nothing when closed', () => {
     const { container } = render(<CreateAppModal open={false} onClose={() => {}} onCreate={async () => {}} />)
     expect(container.firstChild).toBeNull()
+  })
+  it('is an accessible dialog: Annuler and Escape close without creating', async () => {
+    const onClose = vi.fn()
+    const onCreate = vi.fn().mockResolvedValue(undefined)
+    render(<CreateAppModal open onClose={onClose} onCreate={onCreate} />)
+    expect(screen.getByRole('dialog', { name: 'Nouvelle application' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Annuler' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+    await userEvent.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalledTimes(2)
+    expect(onCreate).not.toHaveBeenCalled()
+  })
+  it('restores focus to the trigger when closed', async () => {
+    function Host() {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>ouvrir</button>
+          <CreateAppModal open={open} onClose={() => setOpen(false)} onCreate={async () => {}} />
+        </>
+      )
+    }
+    render(<Host />)
+    const trigger = screen.getByRole('button', { name: 'ouvrir' })
+    await userEvent.click(trigger)
+    expect(document.activeElement).toBe(screen.getByLabelText("Nom de l'application"))
+    await userEvent.click(screen.getByRole('button', { name: 'Annuler' }))
+    expect(document.activeElement).toBe(trigger)
   })
 })

@@ -34,10 +34,10 @@ export function AppSwitcher({ apps, currentId, onCreate }: {
           </Link>
         ))}
         <div className="div" />
-        <a className="new" onClick={() => { setOpen(false); onCreate() }} role="menuitem">
+        <button type="button" className="new" onClick={() => { setOpen(false); onCreate() }} role="menuitem">
           <span className="mg" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>+</span>
           <span className="mt">Nouvelle application</span>
-        </a>
+        </button>
       </div>
     </span>
   )
@@ -51,6 +51,26 @@ export function CreateAppModal({ open, onClose, onCreate }: {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
 
+  // Same a11y contract as ConfirmModal (85c35f4): capture the trigger during
+  // render (before the input's autoFocus fires at commit), restore on close.
+  const triggerRef = useRef<HTMLElement | null>(null)
+  const prevOpenRef = useRef(false)
+  if (open && !prevOpenRef.current) triggerRef.current = document.activeElement as HTMLElement | null
+  prevOpenRef.current = open
+
+  useEffect(() => {
+    if (open) return
+    triggerRef.current?.focus()
+    triggerRef.current = null
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   if (!open) return null
 
   async function submit(e: FormEvent) {
@@ -62,7 +82,7 @@ export function CreateAppModal({ open, onClose, onCreate }: {
 
   return (
     <div className="appdetail-scrim" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <form className="dmodal" onSubmit={submit}>
+      <form className="dmodal" onSubmit={submit} role="dialog" aria-modal="true" aria-label="Nouvelle application">
         <h3>Nouvelle application</h3>
         <p>Une application porte sa propre clé d'API et ses abonnements.</p>
         <div className="field">

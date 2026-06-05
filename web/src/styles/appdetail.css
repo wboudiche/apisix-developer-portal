@@ -179,13 +179,13 @@
 .appdetail .switch .trigger svg{width:15px;height:15px;color:var(--muted)}
 .appdetail .switch .menu{position:absolute;top:46px;left:0;min-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow-h);padding:7px;z-index:30;display:none}
 .appdetail .switch.open .menu{display:block}
-.appdetail .switch .menu a{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;font-size:14px;cursor:pointer}
-.appdetail .switch .menu a:hover{background:color-mix(in oklab, var(--fg) 4%, transparent)}
+.appdetail .switch .menu a,.appdetail .switch .menu .new{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;font-size:14px;cursor:pointer}
+.appdetail .switch .menu a:hover,.appdetail .switch .menu .new:hover{background:color-mix(in oklab, var(--fg) 4%, transparent)}
 .appdetail .switch .menu a.cur{background:var(--accent-soft)}
-.appdetail .switch .menu a .mg{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;color:#fff;font-family:var(--font-display);font-weight:700;font-size:13px}
+.appdetail .switch .menu a .mg,.appdetail .switch .menu .new .mg{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;color:#fff;font-family:var(--font-display);font-weight:700;font-size:13px}
 .appdetail .switch .menu a .mt small{display:block;color:var(--muted);font-size:11.5px;font-family:var(--font-mono)}
 .appdetail .switch .menu .div{height:1px;background:var(--border);margin:6px 4px}
-.appdetail .switch .menu .new{color:var(--accent);font-weight:600}
+.appdetail .switch .menu .new{color:var(--accent);font-weight:600;background:none;border:0;width:100%;text-align:left;font-family:inherit}
 
 /* toast */
 .appdetail-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:13.5px;font-weight:500;padding:12px 18px;border-radius:11px;box-shadow:var(--shadow-h);display:flex;align-items:center;gap:9px;opacity:0;pointer-events:none;transition:.25s;z-index:90}
