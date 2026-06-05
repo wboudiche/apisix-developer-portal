@@ -45,7 +45,7 @@ function KeyCard({ kind, label, tag, fullKey, revealed, onToggle, rotatedAt, onC
       <div className="kb">
         <div className="keyrow">
           <code data-testid={testId}>{revealed ? fullKey : maskKey(fullKey)}</code>
-          <button className="iconbtn" aria-label="Afficher / masquer" onClick={onToggle}><EyeIcon /></button>
+          <button className="iconbtn" aria-label="Afficher / masquer" aria-pressed={revealed} onClick={onToggle}><EyeIcon /></button>
           <button className="iconbtn" aria-label="Copier" onClick={onCopy}><CopyIcon /></button>
         </div>
         <div className="keymeta">
