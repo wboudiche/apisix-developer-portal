@@ -43,6 +43,11 @@ export function AppDetailPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [err, setErr] = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // Monotonic guard: only the latest detail request may write state, so a slow
+  // response for app A can't overwrite app B after rapid switcher navigation.
+  const detailReq = useRef(0)
+
+  useEffect(() => () => { clearTimeout(toastTimer.current); detailReq.current++ }, [])
 
   const notify = useCallback((msg: string) => {
     setToastMsg(msg)
@@ -57,7 +62,10 @@ export function AppDetailPage() {
 
   const reloadDetail = useCallback(() => {
     if (!token || !Number.isFinite(appId)) return
-    getApplicationDetail(token, appId).then(setDetail).catch(() => setErr("Impossible de charger l'application."))
+    const seq = ++detailReq.current
+    getApplicationDetail(token, appId)
+      .then(d => { if (seq === detailReq.current) setDetail(d) })
+      .catch(() => { if (seq === detailReq.current) setErr("Impossible de charger l'application.") })
   }, [token, appId])
 
   useEffect(() => {

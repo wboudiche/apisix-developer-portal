@@ -104,4 +104,23 @@ describe('AppDetailPage', () => {
     renderAt('/applications/999')
     await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: /Boutique Mobile/ })).toBeInTheDocument())
   })
+  it('a slow stale detail response never overwrites the current app', async () => {
+    // app 1's detail hangs; app 2's resolves immediately
+    let releaseApp1!: (d: AppDetail) => void
+    const detail2: AppDetail = { apiKey: 'ax_live_k2', consumerUsername: 'app_2', subscriptions: [] }
+    vi.spyOn(api, 'getApplicationDetail').mockImplementation((_t, id) =>
+      id === 1 ? new Promise<AppDetail>(res => { releaseApp1 = res }) : Promise.resolve(detail2))
+    renderAt('/applications/1')
+    await screen.findByRole('heading', { level: 1, name: /Boutique Mobile/ })
+    // navigate to app 2 via the switcher while app 1's request is in flight
+    await userEvent.click(screen.getByRole('button', { name: /Changer d'application/ }))
+    await userEvent.click(screen.getByText('Analytics interne'))
+    await screen.findByRole('heading', { level: 1, name: /Analytics interne/ })
+    await userEvent.click(screen.getByRole('button', { name: /^Identifiants$/ }))
+    expect(screen.getByTestId('key-prod').textContent).toMatch(/k2$/) // masked: first8+•…+last2
+    // the stale response for app 1 lands now — it must be discarded
+    releaseApp1(detail)
+    await waitFor(() => expect(screen.getByTestId('key-prod').textContent).toMatch(/k2$/))
+    expect(screen.getByTestId('key-prod').textContent).not.toMatch(/k1$/)
+  })
 })
