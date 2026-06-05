@@ -64,7 +64,7 @@ export function SubscriptionsTab({ subs, plans, onResiliate }: {
                           <div className="rowact">
                             {/* Blueprint placeholder kept per user choice (spec 2026-06-05) */}
                             <a className="linkbtn">Gérer</a>
-                            <a className="linkbtn danger" onClick={() => onResiliate(s.productId, s.productName)}>Résilier</a>
+                            <button type="button" className="linkbtn danger" onClick={() => onResiliate(s.productId, s.productName)}>Résilier</button>
                           </div>
                         </td>
                       </tr>

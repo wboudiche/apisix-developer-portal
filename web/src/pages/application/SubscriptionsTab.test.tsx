@@ -36,6 +36,7 @@ describe('SubscriptionsTab', () => {
   it('résilier delegates to the page callback', async () => {
     const { onResiliate } = setup()
     await userEvent.click(screen.getAllByText('Résilier')[0])
+    expect(onResiliate).toHaveBeenCalledTimes(1)
     expect(onResiliate).toHaveBeenCalledWith(1, 'Orders API')
   })
   it('shows the empty state when there are no subscriptions', () => {
