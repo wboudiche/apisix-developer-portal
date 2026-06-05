@@ -56,6 +56,13 @@ describe('SettingsTab', () => {
     await userEvent.click(screen.getByRole('button', { name: /Enregistrer/ }))
     expect(notify).toHaveBeenCalledWith('Modifications enregistrées (démo)')
   })
+  it('resyncs the form when a different app is shown (switcher navigation)', () => {
+    const { rerender } = render(<SettingsTab app={app} notify={() => {}} openModal={() => {}} />)
+    const app2: Application = { ...app, id: 5, name: 'Autre App', description: 'autre desc' }
+    rerender(<SettingsTab app={app2} notify={() => {}} openModal={() => {}} />)
+    expect(screen.getByLabelText("Nom de l'application")).toHaveValue('Autre App')
+    expect(screen.getByLabelText('Description')).toHaveValue('autre desc')
+  })
   it('delete app goes through the danger modal then demo toast', async () => {
     const notify = vi.fn()
     let lastModal: ModalSpec | null = null

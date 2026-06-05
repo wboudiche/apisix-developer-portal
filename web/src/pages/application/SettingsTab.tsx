@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Application } from '../../api/types'
 import type { ModalSpec } from './ConfirmModal'
 
@@ -24,6 +24,10 @@ export function SettingsTab({ app, notify, openModal }: {
 }) {
   const [name, setName] = useState(app.name)
   const [desc, setDesc] = useState(app.description)
+
+  // The page shell keeps this mounted while the switcher navigates between
+  // apps — resync the form when the displayed application changes.
+  useEffect(() => { setName(app.name); setDesc(app.description) }, [app.id, app.name, app.description])
 
   return (
     <section className="panel">
