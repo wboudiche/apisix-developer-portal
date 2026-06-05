@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 export interface ModalSpec {
   title: string
@@ -25,6 +25,21 @@ function RotateIcon() {
 }
 
 export function ConfirmModal({ spec, onClose }: { spec: ModalSpec | null; onClose: () => void }) {
+  const triggerRef = useRef<HTMLElement | null>(null)
+  const prevSpecRef = useRef<ModalSpec | null>(null)
+
+  // Capture the trigger during render, before autoFocus runs
+  if (spec && !prevSpecRef.current) {
+    triggerRef.current = document.activeElement as HTMLElement
+  }
+  prevSpecRef.current = spec
+
+  useEffect(() => {
+    if (spec) return
+    triggerRef.current?.focus()
+    triggerRef.current = null
+  }, [spec])
+
   useEffect(() => {
     if (!spec) return
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
@@ -50,6 +65,7 @@ export function ConfirmModal({ spec, onClose }: { spec: ModalSpec | null; onClos
         <div className="ma">
           <button className="btn ghost" onClick={onClose}>Annuler</button>
           <button
+            autoFocus
             className={`btn ${spec.danger ? 'danger' : 'primary'}`}
             onClick={() => { const fn = spec.onConfirm; onClose(); fn() }}
           >
