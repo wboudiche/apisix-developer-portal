@@ -30,7 +30,7 @@ per-application detail page matching the blueprint.
 | Abonnements table: Débit (e.g. `1 000 / min`) | REAL — plan `rate`/`window` via `getPlans` lookup |
 | Abonnements table: status pills | REAL — active/pending/rejected → ok/warn/muted |
 | Résilier | REAL — confirm modal (blueprint copy) → `unsubscribe` → row fade-out + toast + badge refresh |
-| "Gérer" link in rows | OMITTED (no per-subscription management exists; a dead link teaches users it's broken) |
+| "Gérer" link in rows | KEPT as visual placeholder per blueprint (user choice, 2026-06-05); no action wired until per-subscription management exists |
 | Abonner une API (header + subs tab) | REAL — navigates to catalog `/` |
 | Production key card | REAL key — blueprint mask (`first8 + ••• + last2`), reveal toggle, copy + toast. **"Régénérer" opens the modal but confirm shows toast "Rotation des clés à venir"** — no visual fake on a real credential |
 | Sandbox key card | DEMO — fake `ax_test_…` key; reveal/copy/rotate fully functional visually (blueprint behavior) |
