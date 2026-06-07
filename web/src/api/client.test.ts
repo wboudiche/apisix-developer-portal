@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getProducts, login, register, getPlans, getApplications, createApplication, getApplicationDetail, subscribe, adminGetProducts, adminCreateProduct, adminDeleteProduct, adminGetSubscriptions, adminApproveSubscription } from './client'
+import { getProducts, login, register, getPlans, getApplications, createApplication, getApplicationDetail, subscribe, adminGetProducts, adminCreateProduct, adminDeleteProduct, adminGetSubscriptions, adminApproveSubscription, ApiError } from './client'
 
 beforeEach(() => { vi.restoreAllMocks() })
 
@@ -123,5 +123,19 @@ describe('admin endpoints', () => {
     expect(url).toBe('/api/admin/subscriptions/7/approve')
     expect(opts.method).toBe('POST')
     expect(opts.headers.Authorization).toBe('Bearer tok')
+  })
+})
+
+describe('ApiError', () => {
+  it('carries the HTTP status on non-ok responses', async () => {
+    mockFetch(409, { error: 'product has active subscriptions' })
+    try {
+      await adminDeleteProduct('t', 1)
+      expect.unreachable('should have thrown')
+    } catch (e) {
+      expect(e).toBeInstanceOf(ApiError)
+      expect((e as ApiError).status).toBe(409)
+      expect((e as ApiError).message).toBe('product has active subscriptions')
+    }
   })
 })

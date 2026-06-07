@@ -1,10 +1,20 @@
 import type { Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail, AdminProduct, AdminSubscription } from './types'
 
+// ApiError carries the HTTP status so callers can branch on it (e.g. 409 when
+// deleting a product that still has active subscriptions).
+export class ApiError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
 async function parse<T>(res: Response): Promise<T> {
   const body = await res.json().catch(() => ({}))
   if (!res.ok) {
     const msg = (body as { error?: string }).error || `request failed (${res.status})`
-    throw new Error(msg)
+    throw new ApiError(msg, res.status)
   }
   return body as T
 }
@@ -79,7 +89,7 @@ async function sendAuthed(method: string, url: string, token: string, body?: unk
   })
   if (!res.ok) {
     const b = await res.json().catch(() => ({}))
-    throw new Error((b as { error?: string }).error || `request failed (${res.status})`)
+    throw new ApiError((b as { error?: string }).error || `request failed (${res.status})`, res.status)
   }
 }
 
