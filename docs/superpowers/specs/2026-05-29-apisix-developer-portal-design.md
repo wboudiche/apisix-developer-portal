@@ -117,3 +117,29 @@ Port the Atlas design, decomposed into components: `TopBar`, `CategoryRail`, `Ap
 - Confirm the **Application** abstraction and **auto-approve** subscriptions for V1.
 - Confirm **enforcement via `consumer-restriction`** (vs. allowing any valid key to hit any key-auth route).
 - Is a **minimal admin UI** in V1 enough, or should products be seeded via config/migration only for now?
+
+## 10. Addendum — decisions superseded or clarified since (2026-06-07)
+
+Recorded after implementation review; the sections above are kept as written.
+
+- **§4.1 route-at-publish → superseded by lazy provisioning.** Publishing only
+  writes the product row (`published=true` = catalog visibility). The APISIX
+  route `prod_<id>` is created on the **first subscription approval** and
+  rebuilt on whitelist/upstream changes. Consequence: a published product with
+  no subscribers has no gateway route (its path 404s rather than 401s).
+- **§4.2/§4.3 auto-approve → superseded by the approval workflow**
+  (2026-05-30 admin spec, locked): subscribe stores `pending` and provisions
+  nothing; only admin approval provisions the consumer + route.
+- **§4.4 transactionality → implemented as an ordering guarantee** (commit
+  d3cf092): `Approve` marks the subscription `active` only after both gateway
+  calls (consumer + route incl. the new consumer) succeed, so
+  *active in DB ⇒ provisioned in gateway*. A failure leaves the row `pending`
+  and surfaces the error; re-approve is idempotent and converges.
+  Retries with backoff remain **future work**.
+- **§4.3 "deleting an application removes its consumer" → future work.** No
+  application-delete endpoint exists yet (the portal UI shows a demo toast);
+  APISIX consumers are never deleted today.
+- **Data model:** `apisix_route_id` and `openapi_spec` were dropped; route ids
+  are derived (`prod_<id>`, locked in the admin spec). Key rotation and a
+  metrics pipeline remain future work (the application page shows demo data
+  for those seams, see 2026-06-05 app-detail spec).
