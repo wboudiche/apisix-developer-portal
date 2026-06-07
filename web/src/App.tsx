@@ -1,13 +1,13 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { CatalogPage } from './pages/CatalogPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ApplicationsIndex } from './pages/application/ApplicationsIndex'
 import { AppDetailPage } from './pages/application/AppDetailPage'
 import { AdminGuard } from './admin/AdminGuard'
-import { AdminProductsPage } from './pages/AdminProductsPage'
-import { AdminPlansPage } from './pages/AdminPlansPage'
-import { AdminApprovalsPage } from './pages/AdminApprovalsPage'
+import { ProductsPage } from './pages/admin/ProductsPage'
+import { PlansPage } from './pages/admin/PlansPage'
+import { ApprovalsPage } from './pages/admin/ApprovalsPage'
 
 export default function App() {
   return (
@@ -17,9 +17,10 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/applications" element={<ApplicationsIndex />} />
       <Route path="/applications/:id" element={<AppDetailPage />} />
-      <Route path="/admin/products" element={<AdminGuard><AdminProductsPage /></AdminGuard>} />
-      <Route path="/admin/plans" element={<AdminGuard><AdminPlansPage /></AdminGuard>} />
-      <Route path="/admin/approvals" element={<AdminGuard><AdminApprovalsPage /></AdminGuard>} />
+      <Route path="/admin" element={<Navigate to="/admin/products" replace />} />
+      <Route path="/admin/products" element={<AdminGuard><ProductsPage /></AdminGuard>} />
+      <Route path="/admin/plans" element={<AdminGuard><PlansPage /></AdminGuard>} />
+      <Route path="/admin/approvals" element={<AdminGuard><ApprovalsPage /></AdminGuard>} />
     </Routes>
   )
 }
