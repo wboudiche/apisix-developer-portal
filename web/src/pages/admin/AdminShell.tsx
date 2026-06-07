@@ -50,7 +50,7 @@ export function AdminShell({ active, title, description, action, counts, childre
     <>
       <TopBar search="" onSearch={() => {}} />
       <div className="adminpage">
-        <nav className="subnav">
+        <nav className="subnav" aria-label="Sections d’administration">
           <Link className={active === 'products' ? 'active' : ''} to="/admin/products">Produits {badge(n.products)}</Link>
           <Link className={active === 'plans' ? 'active' : ''} to="/admin/plans">Plans {badge(n.plans)}</Link>
           <Link className={active === 'approvals' ? 'active' : ''} to="/admin/approvals">Abonnements {badge(n.pending)}</Link>
