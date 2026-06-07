@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Plan } from '../../api/types'
 import { adminGetPlans, adminCreatePlan, adminUpdatePlan, adminDeletePlan, ApiError } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
@@ -26,9 +26,14 @@ export function PlansPage() {
   const [err, setErr] = useState('')
   const { toast, notify } = useToast()
 
+  // Monotonic guard: only the latest list request may write state.
+  const reqSeq = useRef(0)
   const reload = useCallback(() => {
     if (!token) return
-    adminGetPlans(token).then(setPlans).catch(() => setErr('Impossible de charger les plans.'))
+    const seq = ++reqSeq.current
+    adminGetPlans(token)
+      .then(l => { if (seq === reqSeq.current) setPlans(l) })
+      .catch(() => { if (seq === reqSeq.current) setErr('Impossible de charger les plans.') })
   }, [token])
   useEffect(reload, [reload])
 

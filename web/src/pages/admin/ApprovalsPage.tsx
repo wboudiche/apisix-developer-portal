@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AdminSubscription } from '../../api/types'
 import { adminGetSubscriptions, adminApproveSubscription, adminRejectSubscription } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
@@ -18,11 +18,14 @@ export function ApprovalsPage() {
   const [err, setErr] = useState('')
   const { toast, notify } = useToast()
 
+  // Monotonic guard: only the latest list request may write state.
+  const reqSeq = useRef(0)
   const reload = useCallback(() => {
     if (!token) return
+    const seq = ++reqSeq.current
     adminGetSubscriptions(token, 'pending')
-      .then(l => { setSubs(l); setLoaded(true) })
-      .catch(() => setErr('Impossible de charger les abonnements.'))
+      .then(l => { if (seq === reqSeq.current) { setSubs(l); setLoaded(true) } })
+      .catch(() => { if (seq === reqSeq.current) setErr('Impossible de charger les abonnements.') })
   }, [token])
   useEffect(reload, [reload])
 

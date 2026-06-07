@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AdminProduct } from '../../api/types'
 import { adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, ApiError } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
@@ -30,9 +30,15 @@ export function ProductsPage() {
   const [err, setErr] = useState('')
   const { toast, notify } = useToast()
 
+  // Monotonic guard: only the latest list request may write state, so a slow
+  // response can't overwrite a fresher one after rapid mutations.
+  const reqSeq = useRef(0)
   const reload = useCallback(() => {
     if (!token) return
-    adminGetProducts(token).then(setProducts).catch(() => setErr('Impossible de charger les produits.'))
+    const seq = ++reqSeq.current
+    adminGetProducts(token)
+      .then(l => { if (seq === reqSeq.current) setProducts(l) })
+      .catch(() => { if (seq === reqSeq.current) setErr('Impossible de charger les produits.') })
   }, [token])
   useEffect(reload, [reload])
 
