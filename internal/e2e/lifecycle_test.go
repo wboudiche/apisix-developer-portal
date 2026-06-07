@@ -146,6 +146,9 @@ func TestLifecycle(t *testing.T) {
 	}, &plan); code != http.StatusCreated {
 		t.Fatalf("create plan: got %d want 201", code)
 	}
+	// Delete the plan last (after subscriptions are torn down) so the shared DB
+	// isn't left with extra plans for the next run / other suites.
+	t.Cleanup(func() { _ = h.api(http.MethodDelete, "/api/admin/plans/"+itoa(plan.ID), admin, nil, nil) })
 
 	// 2. developer creates an app and subscribes
 	dev := h.devToken("dev")
@@ -232,5 +235,98 @@ func TestLifecycle(t *testing.T) {
 	// last subscriber gone → route deleted → 404 (pinned, not just "not 200")
 	if code := h.gatewayGet(ctxPath+"/x", apiKey); code != http.StatusNotFound {
 		t.Fatalf("post-unsubscribe gateway: got %d want 404 (route deleted)", code)
+	}
+}
+
+// TestRejectPath: a rejected subscription never activates and the gateway never
+// serves it (the route is never created because approval never happens).
+func TestRejectPath(t *testing.T) {
+	h := newHarness(t)
+	admin := h.adminToken()
+
+	ctxPath := "/" + uniq("e2e")
+	var product struct {
+		ID int64 `json:"id"`
+	}
+	if code := h.api(http.MethodPost, "/api/admin/products", admin, map[string]any{
+		"name": uniq("Prod"), "slug": uniq("prod"), "category": "Engineering",
+		"version": "1.0.0", "contextPath": ctxPath, "description": "",
+		"tags": []string{}, "icon": "", "upstreamUrl": "echo:8080", "published": true,
+	}, &product); code != http.StatusCreated {
+		t.Fatalf("create product: got %d want 201", code)
+	}
+	t.Cleanup(func() {
+		_ = h.gw.DeleteRoute(context.Background(), "prod_"+itoa(product.ID))
+		_ = h.api(http.MethodDelete, "/api/admin/products/"+itoa(product.ID), admin, nil, nil)
+	})
+
+	var plan struct {
+		ID int64 `json:"id"`
+	}
+	if code := h.api(http.MethodPost, "/api/admin/plans", admin, map[string]any{
+		"name": uniq("Plan"), "rateLimit": 5, "windowSeconds": 60,
+	}, &plan); code != http.StatusCreated {
+		t.Fatalf("create plan: got %d want 201", code)
+	}
+	t.Cleanup(func() { _ = h.api(http.MethodDelete, "/api/admin/plans/"+itoa(plan.ID), admin, nil, nil) })
+
+	dev := h.devToken("rej")
+	appName := uniq("App")
+	var app struct {
+		ID int64 `json:"id"`
+	}
+	if code := h.api(http.MethodPost, "/api/applications", dev, map[string]any{"name": appName, "description": ""}, &app); code != http.StatusCreated {
+		t.Fatalf("create app: got %d want 201", code)
+	}
+	t.Cleanup(func() { _ = h.gw.DeleteConsumer(context.Background(), "app_"+itoa(app.ID)) })
+
+	if code := h.api(http.MethodPost, h.appPath(app.ID)+"/subscriptions", dev, map[string]any{
+		"productId": product.ID, "planId": plan.ID,
+	}, nil); code != http.StatusOK && code != http.StatusCreated {
+		t.Fatalf("subscribe: got %d want 200/201", code)
+	}
+
+	// admin finds THIS run's pending subscription and rejects it
+	var queue []struct {
+		ID              int64  `json:"id"`
+		ApplicationName string `json:"applicationName"`
+	}
+	if code := h.api(http.MethodGet, "/api/admin/subscriptions?status=pending", admin, nil, &queue); code != http.StatusOK {
+		t.Fatalf("admin queue: got %d want 200", code)
+	}
+	var subID int64
+	for _, q := range queue {
+		if q.ApplicationName == appName {
+			subID = q.ID
+			break
+		}
+	}
+	if subID == 0 {
+		t.Fatalf("no pending subscription found for app %q", appName)
+	}
+	if code := h.api(http.MethodPost, "/api/admin/subscriptions/"+itoa(subID)+"/reject", admin, nil, nil); code != http.StatusNoContent {
+		t.Fatalf("reject: got %d want 204", code)
+	}
+
+	// the subscription must report rejected (never active)
+	var detail struct {
+		APIKey        string `json:"apiKey"`
+		Subscriptions []struct {
+			Status string `json:"status"`
+		} `json:"subscriptions"`
+	}
+	if code := h.api(http.MethodGet, h.appPath(app.ID), dev, nil, &detail); code != http.StatusOK {
+		t.Fatalf("detail: got %d want 200", code)
+	}
+	for _, s := range detail.Subscriptions {
+		if s.Status == "active" {
+			t.Fatalf("rejected subscription reported active")
+		}
+	}
+
+	// the gateway must never serve a rejected subscription: no route was created
+	time.Sleep(400 * time.Millisecond)
+	if code := h.gatewayGet(ctxPath+"/x", detail.APIKey); code != http.StatusNotFound {
+		t.Fatalf("rejected gateway: got %d want 404 (no route)", code)
 	}
 }

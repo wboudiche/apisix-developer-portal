@@ -32,8 +32,17 @@ func TestListReturnsThreeSeededPlans(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(all) != 3 {
-		t.Fatalf("want 3 plans, got %d", len(all))
+	// Assert the three seeded plans are present rather than an exact total: the
+	// E2E suite (internal/e2e) creates extra plans against the same shared DB,
+	// so an exact-count check is brittle. Presence of the seeds is the invariant.
+	names := make(map[string]bool, len(all))
+	for _, p := range all {
+		names[p.Name] = true
+	}
+	for _, want := range []string{"Free", "Silver", "Gold"} {
+		if !names[want] {
+			t.Fatalf("seeded plan %q missing; got %d plans", want, len(all))
+		}
 	}
 }
 
