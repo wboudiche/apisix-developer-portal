@@ -1,0 +1,26 @@
+/* Shared overlay primitives (Toast + ConfirmModal), used by the application
+   detail page and the admin pages. Class names kept from the appdetail port
+   so existing tests/markup are unchanged. */
+
+/* toast */
+.appdetail-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:13.5px;font-weight:500;padding:12px 18px;border-radius:11px;box-shadow:var(--shadow-h);display:flex;align-items:center;gap:9px;opacity:0;pointer-events:none;transition:.25s;z-index:90}
+.appdetail-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.appdetail-toast svg{width:17px;height:17px;color:var(--success)}
+.appdetail-toast.warn svg{color:oklch(82% 0.14 78)}
+
+/* modal */
+.appdetail-scrim{position:fixed;inset:0;background:oklch(20% 0.02 262 /.45);backdrop-filter:blur(3px);display:grid;place-items:center;z-index:80;padding:20px}
+.appdetail-scrim .dmodal{background:var(--surface);border-radius:18px;box-shadow:var(--shadow-h);max-width:440px;width:100%;padding:26px;animation:ad-pop .2s ease}
+@keyframes ad-pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+.appdetail-scrim .dmodal .mi{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;margin-bottom:15px}
+.appdetail-scrim .dmodal .mi svg{width:24px;height:24px}
+.appdetail-scrim .dmodal h3{font-family:var(--font-display);font-size:19px;font-weight:700;letter-spacing:-.01em}
+.appdetail-scrim .dmodal p{font-size:14px;color:var(--muted);line-height:1.55;margin-top:9px}
+.appdetail-scrim .dmodal .ma{display:flex;gap:10px;margin-top:22px;justify-content:flex-end}
+.appdetail-scrim .dmodal .field{margin:16px 0 0;max-width:none}
+.appdetail-scrim .dmodal .field input{width:100%;border:1px solid var(--border-2);border-radius:11px;background:var(--bg);padding:11px 13px;font-size:14px;font-family:inherit;color:var(--fg)}
+.appdetail-scrim .dmodal .btn{height:40px;padding:0 16px;border-radius:11px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:8px;border:1px solid transparent}
+.appdetail-scrim .dmodal .btn.primary{background:linear-gradient(150deg,var(--accent),var(--accent-d));color:#fff}
+.appdetail-scrim .dmodal .btn.ghost{background:var(--surface);border-color:var(--border-2);color:var(--fg)}
+.appdetail-scrim .dmodal .btn.danger{background:var(--surface);border-color:var(--border-2);color:var(--danger)}
+.appdetail-scrim .dmodal .btn.danger:hover{background:var(--danger-soft);border-color:var(--danger)}

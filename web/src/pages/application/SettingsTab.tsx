@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Application } from '../../api/types'
-import type { ModalSpec } from './ConfirmModal'
+import type { ModalSpec } from '../../components/ConfirmModal'
 
 function CheckIcon() {
   return (

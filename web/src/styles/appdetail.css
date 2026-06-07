@@ -46,7 +46,7 @@
 /* tabs */
 .appdetail .tabs{display:flex;gap:4px;margin:26px 0 24px;border-bottom:1px solid var(--border);overflow-x:auto}
 .appdetail .tabs button{
-  background:none;border:0;padding:11px 4px;margin-right:20px;font-size:14.5px;font-weight:500;color:var(--muted);
+  background:none;border:0;padding:13px 4px;margin-right:20px;font-size:15px;font-weight:500;color:var(--muted);
   position:relative;white-space:nowrap;transition:.15s;
 }
 .appdetail .tabs button:hover{color:var(--fg)}
@@ -60,9 +60,9 @@
 
 /* cards */
 .appdetail .dcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow)}
-.appdetail .dcard .ch{display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid var(--border)}
-.appdetail .dcard .ch h3{font-family:var(--font-display);font-size:16px;font-weight:600;letter-spacing:-.01em}
-.appdetail .dcard .ch p{font-size:12.5px;color:var(--muted);margin-top:2px}
+.appdetail .dcard .ch{display:flex;align-items:center;gap:12px;padding:20px 22px;border-bottom:1px solid var(--border)}
+.appdetail .dcard .ch h3{font-family:var(--font-display);font-size:17px;font-weight:600;letter-spacing:-.01em}
+.appdetail .dcard .ch p{font-size:13.5px;color:var(--muted);margin-top:3px}
 .appdetail .dcard .ch .right{margin-left:auto}
 .appdetail .dcard .cb{padding:20px}
 
@@ -116,24 +116,24 @@
 
 /* table */
 .appdetail .tbl{width:100%;border-collapse:collapse}
-.appdetail .tbl th{text-align:left;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:0 16px 12px;border-bottom:1px solid var(--border)}
-.appdetail .tbl td{padding:15px 16px;border-bottom:1px solid var(--border);font-size:14px;vertical-align:middle}
+.appdetail .tbl th{text-align:left;font-size:12.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:16px 16px 13px;border-bottom:1px solid var(--border)}
+.appdetail .tbl td{padding:19px 16px;border-bottom:1px solid var(--border);font-size:14.5px;vertical-align:middle}
 .appdetail .tbl tr:last-child td{border-bottom:0}
 .appdetail .tbl tbody tr{transition:.12s}
 .appdetail .tbl tbody tr:hover{background:color-mix(in oklab, var(--fg) 3%, transparent)}
 .appdetail .apicell{display:flex;align-items:center;gap:12px}
 .appdetail .apicell .ig{width:36px;height:36px;border-radius:9px;flex:none;display:grid;place-items:center;color:#fff;font-family:var(--font-mono);font-weight:600;font-size:12px}
-.appdetail .apicell .nm{font-weight:600;font-size:14px}
-.appdetail .apicell .cx{font-family:var(--font-mono);font-size:11.5px;color:var(--muted)}
-.appdetail .plan-pill{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600}
+.appdetail .apicell .nm{font-weight:600;font-size:14.5px}
+.appdetail .apicell .cx{font-family:var(--font-mono);font-size:12.5px;color:var(--muted)}
+.appdetail .plan-pill{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600}
 .appdetail .plan-pill .dot{width:8px;height:8px;border-radius:50%}
-.appdetail .rate{font-family:var(--font-mono);font-size:13px;color:var(--muted)}
+.appdetail .rate{font-family:var(--font-mono);font-size:13.5px;color:var(--muted)}
 .appdetail .bar{height:6px;border-radius:3px;background:color-mix(in oklab, var(--fg) 8%, transparent);overflow:hidden;width:110px}
 .appdetail .bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent-d))}
 .appdetail .bar.hi i{background:linear-gradient(90deg,var(--warn),oklch(66% 0.17 55))}
-.appdetail .rowsub{font-size:11.5px;color:var(--faint);margin-top:3px;font-family:var(--font-mono)}
-.appdetail .rowact{display:flex;gap:8px;justify-content:flex-end}
-.appdetail .linkbtn{font-size:13px;color:var(--muted);font-weight:500;cursor:pointer;background:none;border:0;padding:0;font-family:inherit}
+.appdetail .rowsub{font-size:12.5px;color:var(--faint);margin-top:6px;font-family:var(--font-mono)}
+.appdetail .rowact{display:flex;gap:12px;justify-content:flex-end}
+.appdetail .linkbtn{font-size:13.5px;color:var(--muted);font-weight:500;cursor:pointer;background:none;border:0;padding:0;font-family:inherit}
 .appdetail .linkbtn:hover{color:var(--accent)}
 .appdetail .linkbtn.danger:hover{color:var(--danger)}
 
@@ -186,28 +186,6 @@
 .appdetail .switch .menu a .mt small{display:block;color:var(--muted);font-size:11.5px;font-family:var(--font-mono)}
 .appdetail .switch .menu .div{height:1px;background:var(--border);margin:6px 4px}
 .appdetail .switch .menu .new{color:var(--accent);font-weight:600;background:none;border:0;width:100%;text-align:left;font-family:inherit}
-
-/* toast */
-.appdetail-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:13.5px;font-weight:500;padding:12px 18px;border-radius:11px;box-shadow:var(--shadow-h);display:flex;align-items:center;gap:9px;opacity:0;pointer-events:none;transition:.25s;z-index:90}
-.appdetail-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.appdetail-toast svg{width:17px;height:17px;color:var(--success)}
-
-/* modal */
-.appdetail-scrim{position:fixed;inset:0;background:oklch(20% 0.02 262 /.45);backdrop-filter:blur(3px);display:grid;place-items:center;z-index:80;padding:20px}
-.appdetail-scrim .dmodal{background:var(--surface);border-radius:18px;box-shadow:var(--shadow-h);max-width:440px;width:100%;padding:26px;animation:ad-pop .2s ease}
-@keyframes ad-pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
-.appdetail-scrim .dmodal .mi{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;margin-bottom:15px}
-.appdetail-scrim .dmodal .mi svg{width:24px;height:24px}
-.appdetail-scrim .dmodal h3{font-family:var(--font-display);font-size:19px;font-weight:700;letter-spacing:-.01em}
-.appdetail-scrim .dmodal p{font-size:14px;color:var(--muted);line-height:1.55;margin-top:9px}
-.appdetail-scrim .dmodal .ma{display:flex;gap:10px;margin-top:22px;justify-content:flex-end}
-.appdetail-scrim .dmodal .field{margin:16px 0 0;max-width:none}
-.appdetail-scrim .dmodal .field input{width:100%;border:1px solid var(--border-2);border-radius:11px;background:var(--bg);padding:11px 13px;font-size:14px;font-family:inherit;color:var(--fg)}
-.appdetail-scrim .dmodal .btn{height:40px;padding:0 16px;border-radius:11px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:8px;border:1px solid transparent}
-.appdetail-scrim .dmodal .btn.primary{background:linear-gradient(150deg,var(--accent),var(--accent-d));color:#fff}
-.appdetail-scrim .dmodal .btn.ghost{background:var(--surface);border-color:var(--border-2);color:var(--fg)}
-.appdetail-scrim .dmodal .btn.danger{background:var(--surface);border-color:var(--border-2);color:var(--danger)}
-.appdetail-scrim .dmodal .btn.danger:hover{background:var(--danger-soft);border-color:var(--danger)}
 
 /* dark-mode readability for blueprint literals */
 :root[data-theme="dark"] .appdetail .stpill.ok{color:oklch(80% 0.1 155)}

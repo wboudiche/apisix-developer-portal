@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CredentialsTab } from './CredentialsTab'
-import type { ModalSpec } from './ConfirmModal'
+import type { ModalSpec } from '../../components/ConfirmModal'
 
 const KEY = 'ax_live_a3f9c1e7b240d8e5f6a1b9c4d7e2f8a0'
 

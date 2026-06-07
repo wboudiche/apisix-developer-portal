@@ -1,3 +1,4 @@
+import '../styles/overlays.css'
 import { useEffect, useRef } from 'react'
 
 export interface ModalSpec {

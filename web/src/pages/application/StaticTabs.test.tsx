@@ -5,7 +5,7 @@ import { OverviewTab } from './OverviewTab'
 import { UsageTab } from './UsageTab'
 import { SettingsTab } from './SettingsTab'
 import type { AppDetail, Application } from '../../api/types'
-import type { ModalSpec } from './ConfirmModal'
+import type { ModalSpec } from '../../components/ConfirmModal'
 
 beforeEach(() => {
   Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } })

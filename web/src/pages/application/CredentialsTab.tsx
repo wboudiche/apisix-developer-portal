@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { maskKey, copyText } from './helpers'
 import { DEMO_SANDBOX_KEY, DEMO_ROTATION, demoRotatedKey } from './demo'
-import type { ModalSpec } from './ConfirmModal'
+import type { ModalSpec } from '../../components/ConfirmModal'
 
 function EyeIcon() {
   return (
