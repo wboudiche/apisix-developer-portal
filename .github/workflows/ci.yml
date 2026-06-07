@@ -1,0 +1,61 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - name: Go unit tests
+        run: go test ./internal/... ./cmd/...
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Web install
+        working-directory: web
+        run: npm ci
+      - name: Web unit tests
+        working-directory: web
+        run: npx vitest run
+      - name: Web typecheck
+        working-directory: web
+        run: npx tsc -b --force
+      - name: Web build
+        working-directory: web
+        run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - name: Start stack
+        run: docker compose up -d
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            if docker compose exec -T postgres pg_isready -U portal >/dev/null 2>&1; then echo ready; break; fi
+            sleep 2
+          done
+      - name: Wait for APISIX admin
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: edd1c9f034335f136f87ad84b625c8f1" http://localhost:19180/apisix/admin/routes || true)
+            if [ "$code" = "200" ]; then echo ready; break; fi
+            sleep 2
+          done
+      - name: E2E
+        run: RUN_E2E=1 go test ./internal/e2e/... -count=1 -v
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
