@@ -181,7 +181,7 @@ export function TopBar({
           <img src="/brand-apisix.svg" alt="" aria-hidden="true" />
         </span>
         <span>
-          <span className="name">APISIX</span>
+          <span className="name">APISIX</span>{' '}
           <span className="sub">Portail Développeur</span>
         </span>
       </Link>
