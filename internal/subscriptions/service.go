@@ -89,6 +89,14 @@ func NewService(store Store, gw apisix.Gateway, genKey func() string) *Service {
 // ReprovisionRoute rebuilds the product's APISIX route from its current upstream
 // and the set of active subscribers' consumer names. Safe to call repeatedly.
 func (s *Service) ReprovisionRoute(ctx context.Context, productID int64) error {
+	return s.reprovisionRoute(ctx, productID)
+}
+
+// reprovisionRoute rebuilds the product route whitelist from the currently active
+// subscribers, plus any extraConsumers (e.g. a subscription about to be marked
+// active, which is not yet returned by ConsumersForProduct). Extras already in the
+// active set are deduplicated.
+func (s *Service) reprovisionRoute(ctx context.Context, productID int64, extraConsumers ...string) error {
 	prod, err := s.store.GetProduct(ctx, productID)
 	if err != nil {
 		return err
@@ -96,6 +104,18 @@ func (s *Service) ReprovisionRoute(ctx context.Context, productID int64) error {
 	allowed, err := s.store.ConsumersForProduct(ctx, productID)
 	if err != nil {
 		return err
+	}
+	for _, extra := range extraConsumers {
+		present := false
+		for _, a := range allowed {
+			if a == extra {
+				present = true
+				break
+			}
+		}
+		if !present {
+			allowed = append(allowed, extra)
+		}
 	}
 	return s.gw.EnsureRoute(ctx, RouteID(prod.ID), prod.ContextPath+"/*", prod.Upstream, allowed)
 }
@@ -176,8 +196,11 @@ func (s *Service) Unsubscribe(ctx context.Context, appID, productID int64) error
 
 // Approve activates a pending subscription: it provisions the application's
 // consumer with the plan's limits and rebuilds the product route whitelist to
-// include it. Idempotent — approving an already-active subscription re-asserts
-// the gateway state. Returns ErrInvalidTransition if the subscription is rejected.
+// include it, and ONLY THEN marks the subscription active. If any gateway call
+// fails the status stays pending and the error is returned, so the invariant
+// "active in DB ⇒ provisioned in gateway" always holds. Idempotent — approving
+// an already-active subscription re-asserts the gateway state and converges.
+// Returns ErrInvalidTransition if the subscription is rejected.
 func (s *Service) Approve(ctx context.Context, subID int64) error {
 	rec, err := s.store.GetSubscription(ctx, subID)
 	if err != nil {
@@ -198,10 +221,14 @@ func (s *Service) Approve(ctx context.Context, subID int64) error {
 		apisix.RateLimit{Count: plan.Count, WindowSeconds: plan.WindowSeconds}); err != nil {
 		return err
 	}
-	if err := s.store.SetSubscriptionStatus(ctx, subID, StatusActive); err != nil {
+	// Provision the route whitelist INCLUDING the about-to-be-active consumer
+	// before marking the subscription active. If this gateway call fails the
+	// status stays pending, so the invariant "active in DB ⇒ provisioned in
+	// gateway" holds and a later re-approve converges (idempotent).
+	if err := s.reprovisionRoute(ctx, rec.ProductID, cred.ConsumerUsername); err != nil {
 		return err
 	}
-	return s.ReprovisionRoute(ctx, rec.ProductID)
+	return s.store.SetSubscriptionStatus(ctx, subID, StatusActive)
 }
 
 // Reject marks a subscription rejected and rebuilds the product route whitelist

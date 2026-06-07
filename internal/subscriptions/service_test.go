@@ -2,10 +2,22 @@ package subscriptions
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"apisix-portal/internal/apisix"
 )
+
+// routeFailGateway wraps a Fake but makes EnsureRoute fail, simulating APISIX
+// being unreachable when the route whitelist is (re)provisioned.
+type routeFailGateway struct {
+	*apisix.Fake
+	err error
+}
+
+func (g *routeFailGateway) EnsureRoute(_ context.Context, _, _, _ string, _ []string) error {
+	return g.err
+}
 
 type memStore struct {
 	creds    map[int64]Credential
@@ -163,6 +175,64 @@ func TestApproveProvisionsConsumerAndRoute(t *testing.T) {
 	r := gw.Routes["prod_3"]
 	if len(r.Allowed) != 1 || r.Allowed[0] != "app_42" {
 		t.Fatalf("route whitelist after approve: %+v", r.Allowed)
+	}
+}
+
+func TestApproveDoesNotMarkActiveWhenRouteProvisioningFails(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	boom := errors.New("apisix down")
+	gw := &routeFailGateway{Fake: apisix.NewFake(), err: boom}
+	svc := NewService(store, gw, func() string { return "fixed-key" })
+
+	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	rec := store.findRecord(42, 3)
+	err := svc.Approve(ctx, rec.ID)
+	if !errors.Is(err, boom) {
+		t.Fatalf("Approve: want route error, got %v", err)
+	}
+	// Invariant: active in DB ⇒ provisioned in gateway. Gateway provisioning
+	// failed, so the subscription must NOT be active.
+	if got := store.records[rec.ID].Status; got != StatusPending {
+		t.Fatalf("status = %q, want pending (route provisioning failed)", got)
+	}
+}
+
+func TestApproveRouteWhitelistIncludesNewlyApprovedConsumer(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "fixed-key" })
+
+	// An existing active subscriber on the same product.
+	store.creds[41] = Credential{ApplicationID: 41, APIKey: "k41", ConsumerUsername: "app_41"}
+	store.records[500] = &SubscriptionRecord{ID: 500, AppID: 41, ProductID: 3, PlanID: 2, Status: "active"}
+
+	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	rec := store.findRecord(42, 3)
+	if err := svc.Approve(ctx, rec.ID); err != nil {
+		t.Fatalf("Approve: %v", err)
+	}
+	if store.records[rec.ID].Status != "active" {
+		t.Fatalf("status = %q, want active", store.records[rec.ID].Status)
+	}
+	r := gw.Routes["prod_3"]
+	seen := map[string]bool{}
+	for _, a := range r.Allowed {
+		seen[a] = true
+	}
+	if !seen["app_42"] {
+		t.Fatalf("route whitelist missing newly approved consumer app_42: %+v", r.Allowed)
+	}
+	if !seen["app_41"] {
+		t.Fatalf("route whitelist missing existing active consumer app_41: %+v", r.Allowed)
+	}
+	if len(r.Allowed) != 2 {
+		t.Fatalf("route whitelist should have exactly 2 (no dupes): %+v", r.Allowed)
 	}
 }
 
