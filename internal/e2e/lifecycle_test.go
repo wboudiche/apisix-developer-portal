@@ -164,9 +164,10 @@ func TestLifecycle(t *testing.T) {
 		t.Fatalf("subscribe: got %d want 200/201", code)
 	}
 
-	// 3. before approval the gateway must not allow the call (no route/whitelist)
-	if code := h.gatewayGet(ctxPath+"/x", ""); code == http.StatusOK {
-		t.Fatalf("pre-approval gateway returned 200; want non-200")
+	// 3. before approval no route exists for this fresh context path → 404
+	//    (pinning the exact code so a 500/transport error can't masquerade as success)
+	if code := h.gatewayGet(ctxPath+"/x", ""); code != http.StatusNotFound {
+		t.Fatalf("pre-approval gateway: got %d want 404 (no route yet)", code)
 	}
 
 	// 4. admin approves. The pending queue is GLOBAL; a dirty/shared DB may hold
@@ -204,9 +205,11 @@ func TestLifecycle(t *testing.T) {
 	if code := h.gatewayGet(ctxPath+"/x", apiKey); code != http.StatusOK {
 		t.Fatalf("with key: got %d want 200", code)
 	}
-	// plan limit is 2/60s; the two calls above (200 attempts) plus more exceed it
+	// plan limit is 2/60s; APISIX runs single-worker (deploy/apisix/config.yaml)
+	// so limit-count's local counter is shared and deterministic. Keep calling
+	// until the window is exhausted.
 	var got429 bool
-	for i := 0; i < 6; i++ {
+	for i := 0; i < 10; i++ {
 		if h.gatewayGet(ctxPath+"/x", apiKey) == http.StatusTooManyRequests {
 			got429 = true
 			break
@@ -225,8 +228,9 @@ func TestLifecycle(t *testing.T) {
 	if code := h.api(http.MethodDelete, h.appPath(app.ID)+"/subscriptions/"+itoa(product.ID), dev, nil, nil); code != http.StatusNoContent && code != http.StatusOK {
 		t.Fatalf("unsubscribe: got %d want 204/200", code)
 	}
-	time.Sleep(500 * time.Millisecond)
-	if code := h.gatewayGet(ctxPath+"/x", apiKey); code == http.StatusOK {
-		t.Fatalf("post-unsubscribe gateway returned 200; want non-200")
+	time.Sleep(800 * time.Millisecond)
+	// last subscriber gone → route deleted → 404 (pinned, not just "not 200")
+	if code := h.gatewayGet(ctxPath+"/x", apiKey); code != http.StatusNotFound {
+		t.Fatalf("post-unsubscribe gateway: got %d want 404 (route deleted)", code)
 	}
 }

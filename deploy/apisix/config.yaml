@@ -1,3 +1,9 @@
+nginx_config:
+  # Single worker so limit-count's default policy:local keeps one shared counter.
+  # Multiple workers each hold an independent local counter, which makes
+  # per-window rate limits non-deterministic (a concern for tests and small
+  # single-node dev/test deploys). One worker is plenty for the dev stack.
+  worker_processes: 1
 apisix:
   node_listen: 9080
   enable_admin: true
