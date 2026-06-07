@@ -46,7 +46,7 @@ func TestAuthzNegatives(t *testing.T) {
 
 	t.Run("cross-tenant unsubscribe is rejected", func(t *testing.T) {
 		code := h.api(http.MethodDelete, h.appPath(appA.ID)+"/subscriptions/1", devB, nil, nil)
-		if code == http.StatusOK || code == http.StatusNoContent {
+		if code != http.StatusForbidden && code != http.StatusNotFound {
 			t.Fatalf("B unsubscribe on A's app: got %d, want 403/404", code)
 		}
 	})
