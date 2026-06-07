@@ -45,7 +45,7 @@ export function AdminPlansPage() {
         <div className="chead"><div className="titlewrap"><h1>Plans</h1></div></div>
         {err && <p className="autherr" role="alert">{err}</p>}
 
-        <div className="card" style={{ padding: 18, marginBottom: 22, display: 'grid', gap: 10, gridTemplateColumns: '1fr 1fr 1fr' }}>
+        <div className="card in" style={{ padding: 18, marginBottom: 22, display: 'grid', gap: 10, gridTemplateColumns: '1fr 1fr 1fr' }}>
           <label style={{ display: 'grid', gap: 4 }}>Nom du plan<input aria-label="Nom du plan" style={field} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></label>
           <label style={{ display: 'grid', gap: 4 }}>Limite (requêtes)<input aria-label="Limite (requêtes)" type="number" style={field} value={form.rateLimit} onChange={e => setForm(f => ({ ...f, rateLimit: Number(e.target.value) }))} /></label>
           <label style={{ display: 'grid', gap: 4 }}>Fenêtre (secondes)<input aria-label="Fenêtre (secondes)" type="number" style={field} value={form.windowSeconds} onChange={e => setForm(f => ({ ...f, windowSeconds: Number(e.target.value) }))} /></label>

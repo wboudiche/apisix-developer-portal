@@ -50,7 +50,7 @@ export function AdminProductsPage() {
         <div className="chead"><div className="titlewrap"><h1>Produits</h1></div></div>
         {err && <p className="autherr" role="alert">{err}</p>}
 
-        <div className="card" style={{ padding: 18, marginBottom: 22, display: 'grid', gap: 10, gridTemplateColumns: '1fr 1fr' }}>
+        <div className="card in" style={{ padding: 18, marginBottom: 22, display: 'grid', gap: 10, gridTemplateColumns: '1fr 1fr' }}>
           <label style={{ display: 'grid', gap: 4 }}>Nom<input aria-label="Nom" style={field} value={form.name} onChange={e => set('name', e.target.value)} /></label>
           <label style={{ display: 'grid', gap: 4 }}>Slug<input aria-label="Slug" style={field} value={form.slug} onChange={e => set('slug', e.target.value)} /></label>
           <label style={{ display: 'grid', gap: 4 }}>Catégorie<input aria-label="Catégorie" style={field} value={form.category} onChange={e => set('category', e.target.value)} /></label>
