@@ -23,6 +23,8 @@
   --c-finance: oklch(54% 0.09 158);
   --c-marketing: oklch(64% 0.135 55);
   --c-eng: oklch(55% 0.11 288);
+  --c-data: oklch(56% 0.12 230);
+  --raise: oklch(99.4% 0.003 255);
   --r: 14px;
   --shadow: 0 1px 2px oklch(24% 0.03 262 / .05), 0 8px 24px oklch(24% 0.03 262 / .06);
   --shadow-h: 0 2px 4px oklch(24% 0.03 262 / .07), 0 16px 40px oklch(24% 0.03 262 / .12);
@@ -57,4 +59,6 @@
   --danger-soft: oklch(32% 0.07 25);
   --shadow: 0 1px 2px oklch(0% 0 0 / .35), 0 8px 24px oklch(0% 0 0 / .45);
   --shadow-h: 0 2px 4px oklch(0% 0 0 / .45), 0 16px 40px oklch(0% 0 0 / .55);
+  --c-data: oklch(62% 0.11 230);
+  --raise: oklch(24% 0.014 262);
 }
