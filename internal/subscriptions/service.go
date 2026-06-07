@@ -117,6 +117,14 @@ func (s *Service) reprovisionRoute(ctx context.Context, productID int64, extraCo
 			allowed = append(allowed, extra)
 		}
 	}
+	// APISIX's consumer-restriction plugin rejects an empty whitelist
+	// ("expect array to have at least 1 items"). When the last subscriber is
+	// removed the route has no allowed consumers, so delete it entirely rather
+	// than pushing an invalid config. A route with zero subscribers should not
+	// exist; the next approval recreates it.
+	if len(allowed) == 0 {
+		return s.gw.DeleteRoute(ctx, RouteID(prod.ID))
+	}
 	return s.gw.EnsureRoute(ctx, RouteID(prod.ID), prod.ContextPath+"/*", prod.Upstream, allowed)
 }
 
