@@ -59,12 +59,16 @@ func TestValidatePassesProdWithRealSecrets(t *testing.T) {
 
 - [ ] **Step 3: Edit `internal/config/config.go`** — apply these exact changes:
 
-Add the dev enc-key constant to the `const` block:
+Add the dev enc-key constant to the `const` block. The value is the **base64
+encoding of 32 bytes** (here, of the ASCII string
+`dev-credential-encryption-key-32`) — `CREDENTIAL_ENC_KEY` is always base64 of
+32 raw bytes and is base64-decoded by `crypto.New` (Task 8); prod keys come
+from `openssl rand -base64 32`:
 ```go
 const (
 	DevJWTSecret        = "dev-secret-change-me"
 	DevAPISIXAdminKey   = "edd1c9f034335f136f87ad84b625c8f1"
-	DevCredentialEncKey = "dev-credential-encryption-key-32"
+	DevCredentialEncKey = "ZGV2LWNyZWRlbnRpYWwtZW5jcnlwdGlvbi1rZXktMzI=" // base64(32 bytes)
 )
 ```
 
@@ -338,6 +342,20 @@ func TestRequireAdminRechecksDBRole(t *testing.T) {
 		t.Fatalf("demoted admin must get 403 and not reach handler; code=%d called=%v", rr.Code, called)
 	}
 }
+
+func TestRequireAdminLookupErrorIs500(t *testing.T) {
+	tk := auth.NewTokenizer("test-secret-at-least-32-bytes-long!!")
+	tokStr, _ := tk.Issue(7, "a@b.c", "admin")
+	lookup := func(ctx context.Context, id int64) (string, error) { return "", errors.New("db down") }
+	h := auth.RequireAdmin(tk, lookup)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer "+tokStr)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("lookup failure must be 500 (could not verify), got %d", rr.Code)
+	}
+}
 ```
 
 - [ ] **Step 3: Run** `go test ./internal/auth/... -run TestRequireAdmin -count=1` → FAIL (signature mismatch).
@@ -365,7 +383,12 @@ func RequireAdmin(tk *Tokenizer, lookup RoleLookup) func(http.Handler) http.Hand
 				return
 			}
 			role, err := lookup(r.Context(), claims.UserID)
-			if err != nil || role != "admin" {
+			if err != nil {
+				// A failed lookup (DB outage) is "could not verify", not "admin only".
+				httpx.Error(w, http.StatusInternalServerError, "could not verify role")
+				return
+			}
+			if role != "admin" {
 				httpx.Error(w, http.StatusForbidden, "admin only")
 				return
 			}
@@ -438,6 +461,34 @@ func TestRateLimiterAllowsBurstThen429s(t *testing.T) {
 	}
 }
 
+func TestRateLimiter429SetsRetryAfter(t *testing.T) {
+	rl := httpx.NewRateLimiter(1, 0.5)
+	h := rl.Middleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }))
+	req := httptest.NewRequest(http.MethodPost, "/x", nil)
+	req.RemoteAddr = "1.2.3.4:5555"
+	h.ServeHTTP(httptest.NewRecorder(), req)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusTooManyRequests || rr.Header().Get("Retry-After") == "" {
+		t.Fatalf("429 must carry Retry-After; code=%d header=%q", rr.Code, rr.Header().Get("Retry-After"))
+	}
+}
+
+func TestRateLimiterEvictsStaleBuckets(t *testing.T) {
+	rl := httpx.NewRateLimiter(5, 1)
+	now := time.Unix(0, 0)
+	rl.SetNow(func() time.Time { return now })
+	for i := 0; i < 100; i++ {
+		rl.Allow(fmt.Sprintf("ip-%d", i))
+	}
+	// Advance past the idle TTL and trigger a sweep with fresh traffic.
+	now = now.Add(time.Hour)
+	rl.Allow("fresh")
+	if n := rl.Len(); n > 1 {
+		t.Fatalf("stale buckets must be evicted on sweep; %d remain", n)
+	}
+}
+
 func TestRateLimiterIsolatesByIP(t *testing.T) {
 	rl := httpx.NewRateLimiter(1, 0)
 	h := rl.Middleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }))
@@ -459,25 +510,38 @@ func TestRateLimiterIsolatesByIP(t *testing.T) {
 
 - [ ] **Step 2: Run** `go test ./internal/httpx/... -count=1` → FAIL (no RateLimiter).
 
-- [ ] **Step 3: Create `internal/httpx/ratelimit.go`**:
+- [ ] **Step 3: Create `internal/httpx/ratelimit.go`** (the test file needs
+`fmt` and `time` in its imports for the eviction test):
 ```go
 package httpx
 
 import (
+	"math"
 	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 )
 
-// RateLimiter is a simple in-memory per-client-IP token bucket. It is process-
-// local (fine for a single-node portal; a distributed deploy needs shared state).
+const (
+	sweepEvery = time.Minute      // how often Allow scans for stale buckets
+	idleTTL    = 10 * time.Minute // buckets idle this long are dropped
+)
+
+// RateLimiter is a simple in-memory token bucket keyed by an arbitrary string
+// (client IP for the middleware, lowercased email for the login handler). It
+// is process-local (fine for a single-node portal; a distributed deploy needs
+// shared state). Stale buckets are swept periodically so unique keys cannot
+// grow memory without bound.
 type RateLimiter struct {
-	mu      sync.Mutex
-	buckets map[string]*bucket
-	burst   float64
-	refill  float64 // tokens per second
-	now     func() time.Time
+	mu         sync.Mutex
+	buckets    map[string]*bucket
+	burst      float64
+	refill     float64 // tokens per second
+	retryAfter string  // seconds, precomputed for the 429 header
+	now        func() time.Time
+	lastSweep  time.Time
 }
 
 type bucket struct {
@@ -486,14 +550,33 @@ type bucket struct {
 }
 
 // NewRateLimiter creates a limiter allowing `burst` requests immediately, then
-// refilling at `refillPerSec` tokens/second per client IP.
+// refilling at `refillPerSec` tokens/second per key.
 func NewRateLimiter(burst, refillPerSec float64) *RateLimiter {
-	return &RateLimiter{
-		buckets: make(map[string]*bucket),
-		burst:   burst,
-		refill:  refillPerSec,
-		now:     time.Now,
+	retry := 1
+	if refillPerSec > 0 {
+		retry = int(math.Ceil(1 / refillPerSec))
 	}
+	return &RateLimiter{
+		buckets:    make(map[string]*bucket),
+		burst:      burst,
+		refill:     refillPerSec,
+		retryAfter: strconv.Itoa(retry),
+		now:        time.Now,
+	}
+}
+
+// SetNow overrides the limiter's clock. Test hook only.
+func (rl *RateLimiter) SetNow(fn func() time.Time) {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	rl.now = fn
+}
+
+// Len reports the number of tracked buckets. Test hook only.
+func (rl *RateLimiter) Len() int {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	return len(rl.buckets)
 }
 
 func clientIP(r *http.Request) string {
@@ -504,15 +587,23 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
-// allow reports whether a request from ip may proceed, consuming a token.
-func (rl *RateLimiter) allow(ip string) bool {
+// Allow reports whether a request for key may proceed, consuming a token.
+func (rl *RateLimiter) Allow(key string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 	now := rl.now()
-	b := rl.buckets[ip]
+	if now.Sub(rl.lastSweep) >= sweepEvery {
+		for k, b := range rl.buckets {
+			if now.Sub(b.last) >= idleTTL {
+				delete(rl.buckets, k)
+			}
+		}
+		rl.lastSweep = now
+	}
+	b := rl.buckets[key]
 	if b == nil {
 		b = &bucket{tokens: rl.burst, last: now}
-		rl.buckets[ip] = b
+		rl.buckets[key] = b
 	} else {
 		b.tokens += rl.refill * now.Sub(b.last).Seconds()
 		if b.tokens > rl.burst {
@@ -527,11 +618,12 @@ func (rl *RateLimiter) allow(ip string) bool {
 	return true
 }
 
-// Middleware returns an http middleware that 429s requests over the limit.
+// Middleware returns an http middleware that 429s requests over the per-IP limit.
 func (rl *RateLimiter) Middleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !rl.allow(clientIP(r)) {
+			if !rl.Allow(clientIP(r)) {
+				w.Header().Set("Retry-After", rl.retryAfter)
 				Error(w, http.StatusTooManyRequests, "too many requests")
 				return
 			}
@@ -540,6 +632,8 @@ func (rl *RateLimiter) Middleware() func(http.Handler) http.Handler {
 	}
 }
 ```
+(The earlier test snippets call the exported `Allow`/`SetNow`/`Len`; the first
+two tests use `rl.Middleware()` unchanged.)
 
 - [ ] **Step 4: Run** `go test ./internal/httpx/... -count=1` → PASS.
 
@@ -553,6 +647,21 @@ with:
 	mux.Handle("/api/auth/", authLimiter.Middleware()(authH))
 ```
 Add `"apisix-portal/internal/httpx"` to server.go imports if not present. NOTE: burst 10 is high enough that the E2E's sequential auth calls (a handful per test) pass; confirm in Step 6.
+
+- [ ] **Step 5b: Per-account bucket on login** — per-IP alone doesn't stop
+distributed stuffing of one account. Give the auth `Handler` a second limiter
+keyed by lowercased email:
+  - Change `auth.NewHandler(store, tk)` to `auth.NewHandler(store, tk, loginLimiter *httpx.RateLimiter)` (nil = disabled, so existing unit tests can pass nil; update the handler-test call sites the compiler flags).
+  - In `login`, after decoding the body and before the store lookup:
+```go
+	if h.loginLimiter != nil && !h.loginLimiter.Allow(strings.ToLower(c.Email)) {
+		w.Header().Set("Retry-After", "2")
+		httpx.Error(w, http.StatusTooManyRequests, "too many attempts")
+		return
+	}
+```
+  - In `server.New`, construct it with `auth.NewHandler(authRepo, tok, httpx.NewRateLimiter(10, 0.5))`.
+  - Add a unit test: 11 sequential logins for the same email from rotating `RemoteAddr`s → the 11th gets 429 even though each IP is fresh.
 
 - [ ] **Step 6: Run** `go build ./...`, `go test ./internal/... -count=1`, then `RUN_E2E=1 go test ./internal/e2e/... -count=1` → all pass (E2E auth calls stay under the burst).
 
@@ -601,6 +710,20 @@ func TestSecurityHeadersSet(t *testing.T) {
 		t.Fatal("CSP header must be set")
 	}
 }
+
+func TestAPIResponsesAreNoStore(t *testing.T) {
+	h := httpx.SecurityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }))
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/applications/1/credentials", nil))
+	if got := rr.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("/api/ responses must be no-store (they can carry live keys), got %q", got)
+	}
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if rr.Header().Get("Cache-Control") != "" {
+		t.Fatal("non-API paths must not be forced no-store")
+	}
+}
 ```
 
 - [ ] **Step 2: Run** `go test ./internal/httpx/... -run TestSecurityHeaders -count=1` → FAIL.
@@ -609,12 +732,18 @@ func TestSecurityHeadersSet(t *testing.T) {
 ```go
 package httpx
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 // SecurityHeaders sets baseline security response headers on every response.
 // CSP is tuned for the SPA: same-origin by default, the app's Google Fonts
-// origins allowed, framing denied. HSTS is intentionally omitted here (added at
-// the TLS-terminating proxy in production).
+// origins allowed, framing denied. style-src keeps 'unsafe-inline' because the
+// React app uses inline styles — a deliberate CSP weakening. HSTS is
+// intentionally omitted here (added at the TLS-terminating proxy in
+// production). /api/ responses are marked no-store: the credentials endpoint
+// returns the live API key over GET and must never land in an HTTP cache.
 func SecurityHeaders(next http.Handler) http.Handler {
 	const csp = "default-src 'self'; " +
 		"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
@@ -628,6 +757,9 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("Content-Security-Policy", csp)
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			h.Set("Cache-Control", "no-store")
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -662,22 +794,56 @@ git commit -m "fix(server): baseline security headers + CSP (M2)"
 
 The overlap check (M1) requires DB state; do the **format** validation in the pure `validate()` (unit-tested here) and the **uniqueness/overlap** check in the service/repo layer where the DB is available. This task covers format validation + SSRF (both pure); the overlap-uniqueness is enforced via a DB query in the same task's service edit.
 
-- [ ] **Step 1: Write failing tests** — append to `internal/admin/product_test.go`:
+- [ ] **Step 1: Write failing tests** — append to `internal/admin/product_test.go`
+(the file is package `admin`, so the unexported `lookupIP` hook is stubbable
+directly; restore it with `t.Cleanup`):
 ```go
+func stubResolver(t *testing.T, table map[string][]net.IP) {
+	t.Helper()
+	orig := lookupIP
+	lookupIP = func(host string) ([]net.IP, error) {
+		if ips, ok := table[host]; ok {
+			return ips, nil
+		}
+		return nil, errors.New("no such host")
+	}
+	t.Cleanup(func() { lookupIP = orig })
+}
+
 func TestValidUpstreamBlocksPrivateByDefault(t *testing.T) {
 	// allowPrivate=false (production): loopback/link-local/RFC1918 rejected.
-	for _, h := range []string{"127.0.0.1:80", "169.254.169.254:80", "10.0.0.5:8080", "192.168.1.1:9000", "localhost:8080"} {
-		if admin.ValidUpstream(h, false) {
+	for _, h := range []string{"127.0.0.1:80", "[::1]:80", "169.254.169.254:80", "10.0.0.5:8080", "192.168.1.1:9000", "localhost:8080"} {
+		if ValidUpstream(h, false) {
 			t.Fatalf("%s must be rejected when private targets are blocked", h)
 		}
 	}
-	if !admin.ValidUpstream("api.example.com:443", false) {
-		t.Fatal("public host must be allowed")
+}
+
+func TestValidUpstreamResolvesHostnames(t *testing.T) {
+	stubResolver(t, map[string][]net.IP{
+		"api.example.com": {net.ParseIP("93.184.216.34")},
+		"evil.example":    {net.ParseIP("203.0.113.7"), net.ParseIP("169.254.169.254")},
+		"127.1":           {net.ParseIP("127.0.0.1")}, // libc shorthand for loopback
+	})
+	if !ValidUpstream("api.example.com:443", false) {
+		t.Fatal("public host resolving to public IPs must be allowed")
+	}
+	// ANY private resolved address rejects the host (SSRF via attacker DNS).
+	if ValidUpstream("evil.example:80", false) {
+		t.Fatal("host with a private resolved address must be rejected")
+	}
+	// Shorthand IPs are not IP literals to ParseIP but resolve to loopback.
+	if ValidUpstream("127.1:80", false) {
+		t.Fatal("shorthand loopback (127.1) must be rejected")
+	}
+	// Unresolvable hosts are rejected (fail closed).
+	if ValidUpstream("nonexistent.example.com:80", false) {
+		t.Fatal("unresolvable host must be rejected")
 	}
 }
 
 func TestValidUpstreamAllowsPrivateWithFlag(t *testing.T) {
-	if !admin.ValidUpstream("echo:8080", true) {
+	if !ValidUpstream("echo:8080", true) {
 		t.Fatal("dev flag must allow internal docker hosts like echo:8080")
 	}
 }
@@ -686,12 +852,12 @@ func TestValidContextPath(t *testing.T) {
 	ok := []string{"/orders", "/v1/orders", "/a-b_c"}
 	bad := []string{"orders", "/orders/*", "/orders ", "/", "//x", "/a;b"}
 	for _, p := range ok {
-		if !admin.ValidContextPath(p) {
+		if !ValidContextPath(p) {
 			t.Fatalf("%q should be valid", p)
 		}
 	}
 	for _, p := range bad {
-		if admin.ValidContextPath(p) {
+		if ValidContextPath(p) {
 			t.Fatalf("%q should be invalid", p)
 		}
 	}
@@ -724,12 +890,24 @@ func ValidContextPath(p string) bool {
 	return ctxPathRe.MatchString(p)
 }
 
+// lookupIP resolves a hostname at validation time. Overridden in tests.
+var lookupIP = net.LookupIP
+
+func isPrivateIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+		ip.IsPrivate() || ip.IsUnspecified()
+}
+
 // ValidUpstream checks host:port shape and, unless allowPrivate is set, rejects
-// loopback / link-local / private hosts to prevent SSRF (H4). The dev stack sets
-// allowPrivate so docker-internal hosts (echo:8080) work.
+// targets in loopback / link-local / private ranges to prevent SSRF (H4).
+// Hostnames are resolved here and rejected if ANY resolved address is private —
+// this catches libc shorthand IPs ("127.1") and attacker domains pointing at
+// internal ranges. Residual risk: DNS can change between validation and
+// proxying (rebinding); the long-term fix is an operator allow-list. The dev
+// stack sets allowPrivate so docker-internal hosts (echo:8080) work.
 func ValidUpstream(s string, allowPrivate bool) bool {
-	host, port, found := strings.Cut(s, ":")
-	if !found || host == "" || port == "" {
+	host, port, err := net.SplitHostPort(s)
+	if err != nil || host == "" || port == "" {
 		return false
 	}
 	for _, r := range port {
@@ -740,20 +918,26 @@ func ValidUpstream(s string, allowPrivate bool) bool {
 	if allowPrivate {
 		return true
 	}
-	// Block obvious internal names.
 	if strings.EqualFold(host, "localhost") {
 		return false
 	}
-	// If it parses as an IP, reject loopback/link-local/private/ULA.
+	// IP literal (SplitHostPort already unbracketed IPv6).
 	if ip := net.ParseIP(host); ip != nil {
-		if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsPrivate() || ip.IsUnspecified() {
-			return false
-		}
-		return true
+		return !isPrivateIP(ip)
 	}
-	// A hostname with no dot is treated as an internal/docker name → block.
+	// A hostname with no dot is an internal/docker name → block.
 	if !strings.Contains(host, ".") {
 		return false
+	}
+	// Resolve and fail closed: unresolvable or any-private → reject.
+	ips, err := lookupIP(host)
+	if err != nil || len(ips) == 0 {
+		return false
+	}
+	for _, ip := range ips {
+		if isPrivateIP(ip) {
+			return false
+		}
 	}
 	return true
 }
@@ -780,16 +964,38 @@ func (p Product) validate(allowPrivate bool) string {
 
 - [ ] **Step 4: Update `validate()` call sites.** Grep `grep -rn "\.validate()" internal/admin/`. The service/handler that calls `p.validate()` must pass `allowPrivate`. Thread an `allowPrivate bool` field into the admin `Service` (set from `os.Getenv("UPSTREAM_ALLOW_PRIVATE") == "1"` at construction in `internal/server/server.go` where `admin.NewService` is called — read its signature and add the parameter, OR read the env directly inside the service). Minimal approach: read the env inside `validate`'s caller. Implementer picks the cleanest; the env var name is `UPSTREAM_ALLOW_PRIVATE`. Update `admin.NewService`/handler accordingly and adjust `internal/admin/*_test.go` call sites that construct the service or call validate.
 
-- [ ] **Step 5: contextPath overlap (M1, DB).** In the admin product create/update path (`internal/admin/service.go` or repo), before insert/update, query for an existing product with the same `context_path` (excluding the same id on update) and return a conflict (the handler maps it to 409, like the slug conflict). Add:
-  - repo method `ContextPathTaken(ctx, contextPath string, exceptID int64) (bool, error)` using `SELECT EXISTS(SELECT 1 FROM api_products WHERE context_path=$1 AND id<>$2)`.
-  - service create/update calls it and returns a sentinel error (mirror `ErrSlugTaken` handling) → handler 409 "contextPath already in use".
-  Read the existing slug-conflict flow and mirror it exactly. Add a unit/integration test that two products with the same contextPath → second returns the conflict.
+- [ ] **Step 5: contextPath overlap (M1, DB).** Two layers — a unique index for exact duplicates (race-proof) and a prefix-overlap query (check-then-insert; low residual race on an admin-only surface, acceptable):
+  - **New migration** `internal/db/migrations/0007_context_path_unique.sql`:
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS api_products_context_path_key ON api_products (context_path);
+```
+    (Seed paths in `0002_seed.sql` are already distinct, so this applies cleanly.)
+  - **Repo:** add `ErrContextPathTaken`. The existing `isUniqueViolation` (pg code 23505) currently maps every unique violation to `ErrSlugTaken` — disambiguate via `pgErr.ConstraintName`: `api_products_context_path_key` → `ErrContextPathTaken`, otherwise `ErrSlugTaken`. Add the **prefix-overlap** check, called by the service before create/update:
+```go
+// ContextPathOverlaps reports whether p would collide with an existing
+// product's route prefix: equal, or a path-prefix on a "/" boundary in either
+// direction (/v1 vs /v1/orders — APISIX's /v1/* shadows /v1/orders/*).
+func (r *Repo) ContextPathOverlaps(ctx context.Context, p string, exceptID int64) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+		   SELECT 1 FROM api_products
+		   WHERE id <> $2
+		     AND (context_path = $1
+		          OR context_path LIKE $1 || '/%'
+		          OR $1 LIKE context_path || '/%'))`,
+		p, exceptID).Scan(&exists)
+	return exists, err
+}
+```
+  - **Service:** create/update call `ContextPathOverlaps` (exceptID 0 on create) and return `ErrContextPathTaken` on overlap — mirror the `ErrSlugTaken` flow exactly. **Handler:** map it to 409 `"contextPath conflicts with an existing product"`.
+  - Tests: handler test with a fake service returning `ErrContextPathTaken` → 409 (mirror `TestUpdateSlugTakenReturns409`); a DB-backed repo test (if the repo has one for slugs, mirror it) asserting `/v1` vs `/v1/orders` overlaps in both directions and `/v1` vs `/v1beta` does NOT (the `/` boundary matters).
 
 - [ ] **Step 6: Run** `go build ./...`, `go test ./internal/admin/... -count=1`, then with the dev flag set `UPSTREAM_ALLOW_PRIVATE=1 RUN_E2E=1 go test ./internal/e2e/... -count=1` → lifecycle still passes (echo:8080 allowed via flag; contextPath `/e2e_<uniq>` is valid).
 
 - [ ] **Step 7: Commit**
 ```bash
-git add internal/admin/ 
+git add internal/admin/ internal/db/migrations/0007_context_path_unique.sql
 git commit -m "fix(admin): block SSRF upstreams + validate/dedupe contextPath (H4, M1)"
 ```
 
@@ -808,13 +1014,16 @@ git commit -m "fix(admin): block SSRF upstreams + validate/dedupe contextPath (H
 package crypto_test
 
 import (
+	"strings"
 	"testing"
 
 	"apisix-portal/internal/crypto"
 )
 
 func TestEncryptDecryptRoundTrip(t *testing.T) {
-	c, err := crypto.New("dev-credential-encryption-key-32")
+	// The key is base64 of 32 raw bytes (config.DevCredentialEncKey has the
+	// same shape).
+	c, err := crypto.New("ZGV2LWNyZWRlbnRpYWwtZW5jcnlwdGlvbi1rZXktMzI=")
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
@@ -825,15 +1034,30 @@ func TestEncryptDecryptRoundTrip(t *testing.T) {
 	if ct == "ax_live_secret" || ct == "" {
 		t.Fatal("ciphertext must differ from plaintext and be non-empty")
 	}
+	if !strings.HasPrefix(ct, "v1:") {
+		t.Fatalf("ciphertext must carry the v1: version prefix for future key rotation, got %q", ct)
+	}
 	pt, err := c.Decrypt(ct)
 	if err != nil || pt != "ax_live_secret" {
 		t.Fatalf("decrypt: got %q err %v", pt, err)
 	}
 }
 
-func TestNewRejectsShortKey(t *testing.T) {
-	if _, err := crypto.New("too-short"); err == nil {
-		t.Fatal("key shorter than 32 bytes must be rejected")
+func TestNewRejectsBadKeys(t *testing.T) {
+	// Not base64 at all.
+	if _, err := crypto.New("not-base64!!!"); err == nil {
+		t.Fatal("non-base64 key must be rejected")
+	}
+	// Valid base64 but not 32 decoded bytes.
+	if _, err := crypto.New("dG9vLXNob3J0"); err == nil { // base64("too-short")
+		t.Fatal("key that does not decode to 32 bytes must be rejected")
+	}
+}
+
+func TestDecryptRejectsUnversionedCiphertext(t *testing.T) {
+	c, _ := crypto.New("ZGV2LWNyZWRlbnRpYWwtZW5jcnlwdGlvbi1rZXktMzI=")
+	if _, err := c.Decrypt("AAAAAAAAAAAAAAAAAAAAAAAAAAAA"); err == nil {
+		t.Fatal("ciphertext without the v1: prefix must be rejected")
 	}
 }
 ```
@@ -851,18 +1075,30 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"strings"
 )
 
 // Cipher encrypts/decrypts short secrets (API keys) with AES-256-GCM. The key
-// must be exactly 32 bytes (AES-256). Ciphertext is nonce||ct, base64-encoded.
+// is supplied as base64 of 32 raw bytes (a raw ASCII passphrase would carry
+// far less than 256 bits of entropy). Ciphertext is "v1:" + base64(nonce||ct);
+// the version prefix lets a future key rotation re-encrypt v1 rows in place
+// instead of forcing a DB wipe.
 type Cipher struct{ aead cipher.AEAD }
 
-// New builds a Cipher from a 32-byte key string.
-func New(key string) (*Cipher, error) {
-	if len(key) != 32 {
-		return nil, errors.New("credential encryption key must be exactly 32 bytes")
+// v1Prefix tags the ciphertext format/key version.
+const v1Prefix = "v1:"
+
+// New builds a Cipher from a base64-encoded 32-byte key
+// (generate with: openssl rand -base64 32).
+func New(b64Key string) (*Cipher, error) {
+	key, err := base64.StdEncoding.DecodeString(b64Key)
+	if err != nil {
+		return nil, errors.New("credential encryption key must be base64 (of 32 raw bytes)")
 	}
-	block, err := aes.NewCipher([]byte(key))
+	if len(key) != 32 {
+		return nil, errors.New("credential encryption key must decode to exactly 32 bytes")
+	}
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
@@ -873,19 +1109,24 @@ func New(key string) (*Cipher, error) {
 	return &Cipher{aead: aead}, nil
 }
 
-// Encrypt returns base64(nonce || ciphertext).
+// Encrypt returns "v1:" + base64(nonce || ciphertext).
 func (c *Cipher) Encrypt(plain string) (string, error) {
 	nonce := make([]byte, c.aead.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return "", err
 	}
 	ct := c.aead.Seal(nonce, nonce, []byte(plain), nil)
-	return base64.StdEncoding.EncodeToString(ct), nil
+	return v1Prefix + base64.StdEncoding.EncodeToString(ct), nil
 }
 
-// Decrypt reverses Encrypt.
+// Decrypt reverses Encrypt. Ciphertext without a known version prefix is
+// rejected (it is either corrupt or a pre-encryption plaintext row).
 func (c *Cipher) Decrypt(enc string) (string, error) {
-	raw, err := base64.StdEncoding.DecodeString(enc)
+	b64, ok := strings.CutPrefix(enc, v1Prefix)
+	if !ok {
+		return "", errors.New("ciphertext missing version prefix")
+	}
+	raw, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
 		return "", err
 	}
@@ -965,7 +1206,7 @@ Apply the analogous decrypt to `GetCredential` (single row) and `ConsumersForPla
 	}
 	subRepo := subscriptions.NewRepo(pool, cipher)
 ```
-Add `"apisix-portal/internal/crypto"` import. (`New` returns `http.Handler`; a fatal on a bad key at startup is acceptable — the dev key is 32 bytes.) Update any other `subscriptions.NewRepo(pool)` call sites (tests) to pass a cipher built from `crypto.New(config.DevCredentialEncKey)`.
+Add `"apisix-portal/internal/crypto"` import. (`New` returns `http.Handler`; a fatal on a bad key at startup is acceptable — the dev key decodes to 32 bytes.) Update any other `subscriptions.NewRepo(pool)` call sites (tests) to pass a cipher built from `crypto.New(config.DevCredentialEncKey)`.
 
 - [ ] **Step 7: Reset the dev DB and run everything.** Because pre-existing credential rows are plaintext and will fail to decrypt:
 ```bash
@@ -1110,3 +1351,10 @@ git commit -m "docs: mark remediated findings; document E2E env vars (security h
 - Dev-stack escape hatches are explicit: `PORTAL_ENV=dev` (T1 env default is now prod) and `UPSTREAM_ALLOW_PRIVATE=1` (T7) must be set for local E2E — documented in T9/T11; the E2E commands in every task include them from T7 onward.
 - Determinism/E2E: the dev DB must be recreated after T8 (plaintext→encrypted); rate-limit burst (10) is above the E2E's per-IP auth call count; loopback admin binding (T9) keeps `localhost:19180` reachable for the harness.
 - The dummy bcrypt hash in T3 must be a REAL cost-12 hash (the task flags this explicitly — a placeholder would break timing-equalization).
+
+### 2026-06-10 spec-review amendments (applied above, keep in sync with the spec)
+- **T4:** `RequireAdmin` lookup failure → 500 (could not verify), not 403; extra test.
+- **T5:** limiter buckets are swept (idle > 10 min, checked once a minute) so unique IPs can't grow memory unboundedly; 429s carry `Retry-After`; Step 5b adds a per-account (lowercased-email) bucket inside `login` — `auth.NewHandler` gains a third param (nil = disabled).
+- **T6:** `/api/` responses get `Cache-Control: no-store` (credentials GET returns the live key); CSP's `'unsafe-inline'` style-src is noted as a deliberate weakening.
+- **T7:** `ValidUpstream` uses `net.SplitHostPort` (IPv6 literals) and resolves hostnames via an overridable `lookupIP` (closes `127.1`-style shorthand and attacker-DNS bypasses; fail closed on unresolvable). Residual DNS-rebinding TOCTOU documented. contextPath gets migration `0007` (unique index, race-proof exact dups; disambiguate 23505 by `ConstraintName`) + boundary-aware prefix-overlap query (`/v1` vs `/v1beta` must NOT collide).
+- **T8:** `CREDENTIAL_ENC_KEY` is base64 of 32 random bytes, decoded in `crypto.New` (dev default constant updated in T1); ciphertext carries a `v1:` prefix so future key rotation doesn't force a DB wipe. E2E note: unresolvable-host validation only runs when `UPSTREAM_ALLOW_PRIVATE` is unset, so no DNS flakiness in the dev/E2E path.
