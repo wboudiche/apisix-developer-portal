@@ -72,7 +72,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	mux.Handle("/api/admin/subscriptions", requireAdmin(subAdminH))
 	mux.Handle("/api/admin/subscriptions/", requireAdmin(subAdminH))
 
-	return logRequests(mux)
+	return httpx.SecurityHeaders(logRequests(mux))
 }
 
 type statusRecorder struct {
