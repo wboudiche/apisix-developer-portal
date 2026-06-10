@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -24,13 +25,16 @@ type UserStore interface {
 }
 
 type Handler struct {
-	store  UserStore
-	tk     *Tokenizer
-	router chi.Router
+	store        UserStore
+	tk           *Tokenizer
+	loginLimiter *httpx.RateLimiter
+	router       chi.Router
 }
 
-func NewHandler(store UserStore, tk *Tokenizer) *Handler {
-	h := &Handler{store: store, tk: tk, router: chi.NewRouter()}
+// NewHandler creates an auth handler. loginLimiter is an optional per-account
+// rate limiter applied to the login endpoint (nil = disabled).
+func NewHandler(store UserStore, tk *Tokenizer, loginLimiter *httpx.RateLimiter) *Handler {
+	h := &Handler{store: store, tk: tk, loginLimiter: loginLimiter, router: chi.NewRouter()}
 	h.router.Post("/api/auth/register", h.register)
 	h.router.Post("/api/auth/login", h.login)
 	return h
@@ -82,6 +86,11 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	var c credentials
 	if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	if h.loginLimiter != nil && !h.loginLimiter.Allow(strings.ToLower(c.Email)) {
+		w.Header().Set("Retry-After", h.loginLimiter.RetryAfter())
+		httpx.Error(w, http.StatusTooManyRequests, "too many attempts")
 		return
 	}
 	u, hash, err := h.store.GetByEmail(r.Context(), c.Email)

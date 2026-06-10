@@ -13,6 +13,7 @@ import (
 	"apisix-portal/internal/auth"
 	"apisix-portal/internal/catalog"
 	"apisix-portal/internal/config"
+	"apisix-portal/internal/httpx"
 	"apisix-portal/internal/plans"
 	"apisix-portal/internal/subscriptions"
 )
@@ -26,7 +27,8 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 
 	catalogH := catalog.NewHandler(catalog.NewRepo(pool))
 	authRepo := auth.NewRepo(pool)
-	authH := auth.NewHandler(authRepo, tok)
+	authLimiter := httpx.NewRateLimiter(10, 0.5) // 10 burst, refill 1 every 2s, per IP
+	authH := auth.NewHandler(authRepo, tok, authLimiter)
 	if err := authRepo.EnsureAdminRole(ctx, cfg.AdminEmail); err != nil {
 		log.Printf("seed admin role (%s): %v", cfg.AdminEmail, err)
 	}
@@ -58,7 +60,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
 	mux.Handle("/api/products", catalogH)
 	mux.Handle("/api/products/", catalogH)
-	mux.Handle("/api/auth/", authH)
+	mux.Handle("/api/auth/", authLimiter.Middleware()(authH))
 	mux.Handle("/api/plans", plansH)
 	mux.Handle("/api/applications", requireAuth(appsH))
 	mux.Handle("/api/applications/", requireAuth(subH))

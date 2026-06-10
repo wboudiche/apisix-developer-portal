@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
+
+	"apisix-portal/internal/httpx"
 )
 
 // memRepo is an in-memory UserStore for handler tests.
@@ -49,7 +51,7 @@ func (m *memRepo) GetByEmail(_ context.Context, email string) (User, string, err
 }
 
 func newTestHandler() *Handler {
-	return NewHandler(newMemRepo(), NewTokenizer("test-secret"))
+	return NewHandler(newMemRepo(), NewTokenizer("test-secret"), nil)
 }
 
 func TestRegisterThenLogin(t *testing.T) {
@@ -123,7 +125,7 @@ func (b *brokenRepo) GetByEmail(_ context.Context, _ string) (User, string, erro
 }
 
 func TestRegisterDBErrorReturns500(t *testing.T) {
-	h := NewHandler(&brokenRepo{}, NewTokenizer("test-secret"))
+	h := NewHandler(&brokenRepo{}, NewTokenizer("test-secret"), nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/auth/register",
 		strings.NewReader(`{"email":"a@b.c","password":"pw123456","name":"A"}`)))
@@ -172,5 +174,36 @@ func TestRegisterPasswordTooLongReturns400(t *testing.T) {
 		strings.NewReader(body)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("73-byte password: status = %d, want 400; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestLoginPerAccountRateLimitBlocks verifies that repeated login attempts for
+// the same email address are blocked by the per-account limiter, even when the
+// requests arrive from different client IPs (defeating per-IP limits alone).
+func TestLoginPerAccountRateLimitBlocks(t *testing.T) {
+	rl := httpx.NewRateLimiter(2, 0) // burst 2, no refill
+	h := NewHandler(newMemRepo(), NewTokenizer("test-secret"), rl)
+
+	login := func(remoteAddr string) int {
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/login",
+			strings.NewReader(`{"email":"victim@example.com","password":"pw123456"}`))
+		req.RemoteAddr = remoteAddr
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		return rr.Code
+	}
+
+	// First two attempts (from different IPs) consume the burst — they reach the
+	// store and get 401 (no such account), which is the expected auth failure.
+	for i, addr := range []string{"10.0.0.1:1", "10.0.0.2:1"} {
+		code := login(addr)
+		if code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d from %s: got %d, want 401", i+1, addr, code)
+		}
+	}
+
+	// Third attempt from yet another IP must be blocked by the per-email limiter.
+	if code := login("10.0.0.3:1"); code != http.StatusTooManyRequests {
+		t.Fatalf("3rd attempt: got %d, want 429", code)
 	}
 }
