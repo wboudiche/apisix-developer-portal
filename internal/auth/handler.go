@@ -12,8 +12,10 @@ import (
 )
 
 // dummyHash is a valid bcrypt hash compared against when the user is absent, so
-// login response time does not reveal whether an account exists (M3).
-var dummyHash = "$2a$12$kBCKU4PMSdprqnbX9uYhN.uuNofR4mwH3zF5a8xEADAFoRn2M2FMC"
+// login response time does not reveal whether an account exists (M3). Passwords
+// over 72 bytes short-circuit in CheckPassword on BOTH login paths, so that
+// class stays symmetric too.
+const dummyHash = "$2a$12$kBCKU4PMSdprqnbX9uYhN.uuNofR4mwH3zF5a8xEADAFoRn2M2FMC"
 
 // UserStore is the persistence surface the handler needs (satisfied by *Repo).
 type UserStore interface {
