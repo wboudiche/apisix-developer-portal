@@ -89,7 +89,9 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.loginLimiter != nil && !h.loginLimiter.Allow(strings.ToLower(c.Email)) {
-		w.Header().Set("Retry-After", h.loginLimiter.RetryAfter())
+		if ra := h.loginLimiter.RetryAfter(); ra != "" {
+			w.Header().Set("Retry-After", ra)
+		}
 		httpx.Error(w, http.StatusTooManyRequests, "too many attempts")
 		return
 	}

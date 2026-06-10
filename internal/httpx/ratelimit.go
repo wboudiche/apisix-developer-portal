@@ -17,8 +17,9 @@ const (
 // RateLimiter is a simple in-memory token bucket keyed by an arbitrary string
 // (client IP for the middleware, lowercased email for the login handler). It
 // is process-local (fine for a single-node portal; a distributed deploy needs
-// shared state). Stale buckets are swept periodically so unique keys cannot
-// grow memory without bound.
+// shared state). Stale buckets are swept on a fixed cadence, so sustained
+// unique-key floods are bounded per sweep interval rather than growing
+// indefinitely.
 type RateLimiter struct {
 	mu         sync.Mutex
 	buckets    map[string]*bucket
@@ -35,17 +36,21 @@ type bucket struct {
 }
 
 // NewRateLimiter creates a limiter allowing `burst` requests immediately, then
-// refilling at `refillPerSec` tokens/second per key.
+// refilling at `refillPerSec` tokens/second per key. burst must be positive;
+// refillPerSec may be 0 for a fixed-quota limiter that never refills.
 func NewRateLimiter(burst, refillPerSec float64) *RateLimiter {
-	retry := 1
+	if burst <= 0 {
+		panic("httpx: rate limiter burst must be positive")
+	}
+	var retry string
 	if refillPerSec > 0 {
-		retry = int(math.Ceil(1 / refillPerSec))
+		retry = strconv.Itoa(int(math.Ceil(1 / refillPerSec)))
 	}
 	return &RateLimiter{
 		buckets:    make(map[string]*bucket),
 		burst:      burst,
 		refill:     refillPerSec,
-		retryAfter: strconv.Itoa(retry),
+		retryAfter: retry,
 		now:        time.Now,
 	}
 }
@@ -111,7 +116,9 @@ func (rl *RateLimiter) Middleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !rl.Allow(clientIP(r)) {
-				w.Header().Set("Retry-After", rl.retryAfter)
+				if ra := rl.RetryAfter(); ra != "" {
+					w.Header().Set("Retry-After", ra)
+				}
 				Error(w, http.StatusTooManyRequests, "too many requests")
 				return
 			}

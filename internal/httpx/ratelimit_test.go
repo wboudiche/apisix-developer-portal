@@ -61,6 +61,15 @@ func TestRateLimiterIsolatesByIP(t *testing.T) {
 	}
 }
 
+func TestNewRateLimiterPanicsOnZeroBurst(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("NewRateLimiter(0, 1) must panic")
+		}
+	}()
+	httpx.NewRateLimiter(0, 1)
+}
+
 func TestRateLimiterEvictsStaleBuckets(t *testing.T) {
 	rl := httpx.NewRateLimiter(5, 1)
 	now := time.Unix(0, 0)
