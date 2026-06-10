@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
@@ -28,8 +29,8 @@ func TestHashPasswordRejectsTooLong(t *testing.T) {
 	for i := range long {
 		long[i] = 'a'
 	}
-	if _, err := HashPassword(string(long)); err == nil {
-		t.Fatal("passwords longer than 72 bytes must be rejected")
+	if _, err := HashPassword(string(long)); !errors.Is(err, ErrPasswordTooLong) {
+		t.Fatalf("expected ErrPasswordTooLong, got %v", err)
 	}
 }
 
@@ -41,5 +42,21 @@ func TestHashPasswordUsesCost12(t *testing.T) {
 	cost, err := bcrypt.Cost([]byte(h))
 	if err != nil || cost != 12 {
 		t.Fatalf("want cost 12, got %d (err %v)", cost, err)
+	}
+}
+
+func TestCheckPasswordRejectsTooLong(t *testing.T) {
+	// HashPassword already rejects >72 bytes, but CheckPassword must too
+	// (symmetric guard against silent truncation at verification time).
+	validHash, err := HashPassword("a-valid-password")
+	if err != nil {
+		t.Fatalf("HashPassword: %v", err)
+	}
+	long := make([]byte, 73)
+	for i := range long {
+		long[i] = 'a'
+	}
+	if CheckPassword(validHash, string(long)) {
+		t.Fatal("CheckPassword must reject passwords longer than 72 bytes")
 	}
 }

@@ -27,6 +27,11 @@ func HashPassword(plain string) (string, error) {
 }
 
 // CheckPassword reports whether plain matches the stored bcrypt hash.
+// Passwords beyond bcrypt's 72-byte limit are rejected outright (silent
+// truncation must not make a longer password verify).
 func CheckPassword(hash, plain string) bool {
+	if len(plain) > 72 {
+		return false
+	}
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain)) == nil
 }
