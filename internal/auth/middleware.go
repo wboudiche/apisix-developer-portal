@@ -60,9 +60,13 @@ func Role(ctx context.Context) string {
 	return role
 }
 
-// RequireAdmin returns middleware that requires a valid Bearer JWT whose role
-// claim is "admin". It stores the user id and role in the request context.
-func RequireAdmin(tk *Tokenizer) func(http.Handler) http.Handler {
+// RoleLookup returns the current role for a user id (satisfied by *Repo.GetRole).
+type RoleLookup func(ctx context.Context, userID int64) (string, error)
+
+// RequireAdmin requires a valid Bearer JWT AND that the user's CURRENT role in
+// the database is "admin" (the token claim alone is not trusted, so a demoted
+// admin loses access immediately rather than for the token's lifetime). H5.
+func RequireAdmin(tk *Tokenizer, lookup RoleLookup) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			h := r.Header.Get("Authorization")
@@ -75,12 +79,18 @@ func RequireAdmin(tk *Tokenizer) func(http.Handler) http.Handler {
 				httpx.Error(w, http.StatusUnauthorized, "invalid token")
 				return
 			}
-			if claims.Role != "admin" {
+			role, err := lookup(r.Context(), claims.UserID)
+			if err != nil {
+				// A failed lookup (DB outage) is "could not verify", not "admin only".
+				httpx.Error(w, http.StatusInternalServerError, "could not verify role")
+				return
+			}
+			if role != "admin" {
 				httpx.Error(w, http.StatusForbidden, "admin only")
 				return
 			}
 			ctx := WithUserID(r.Context(), claims.UserID)
-			ctx = WithRole(ctx, claims.Role)
+			ctx = WithRole(ctx, role)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

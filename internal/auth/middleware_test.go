@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -69,7 +71,9 @@ func TestRequireAdminAllowsAdmin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/products", nil)
 	req.Header.Set("Authorization", "Bearer "+tok)
 
-	RequireAdmin(tk)(adminTestHandler()).ServeHTTP(rec, req)
+	// lookup confirms DB role matches the token claim
+	lookup := func(_ context.Context, _ int64) (string, error) { return "admin", nil }
+	RequireAdmin(tk, lookup)(adminTestHandler()).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
@@ -86,7 +90,9 @@ func TestRequireAdminRejectsDeveloper(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/products", nil)
 	req.Header.Set("Authorization", "Bearer "+tok)
 
-	RequireAdmin(tk)(adminTestHandler()).ServeHTTP(rec, req)
+	// lookup returns developer — should be rejected at DB-role check
+	lookup := func(_ context.Context, _ int64) (string, error) { return "developer", nil }
+	RequireAdmin(tk, lookup)(adminTestHandler()).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403", rec.Code)
@@ -98,9 +104,41 @@ func TestRequireAdminRejectsMissingToken(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/products", nil)
 
-	RequireAdmin(tk)(adminTestHandler()).ServeHTTP(rec, req)
+	// lookup never called — no token reaches it
+	lookup := func(_ context.Context, _ int64) (string, error) { return "admin", nil }
+	RequireAdmin(tk, lookup)(adminTestHandler()).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+func TestRequireAdminRechecksDBRole(t *testing.T) {
+	tk := NewTokenizer("test-secret-at-least-32-bytes-long!!")
+	// token CLAIMS admin, but the DB now says developer (demoted)
+	tokStr, _ := tk.Issue(7, "a@b.c", "admin")
+	lookup := func(_ context.Context, _ int64) (string, error) { return "developer", nil }
+	called := false
+	h := RequireAdmin(tk, lookup)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true }))
+	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer "+tokStr)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden || called {
+		t.Fatalf("demoted admin must get 403 and not reach handler; code=%d called=%v", rr.Code, called)
+	}
+}
+
+func TestRequireAdminLookupErrorIs500(t *testing.T) {
+	tk := NewTokenizer("test-secret-at-least-32-bytes-long!!")
+	tokStr, _ := tk.Issue(7, "a@b.c", "admin")
+	lookup := func(_ context.Context, _ int64) (string, error) { return "", errors.New("db down") }
+	h := RequireAdmin(tk, lookup)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer "+tokStr)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("lookup failure must be 500 (could not verify), got %d", rr.Code)
 	}
 }

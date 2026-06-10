@@ -50,3 +50,10 @@ func (r *Repo) EnsureAdminRole(ctx context.Context, email string) error {
 	_, err := r.pool.Exec(ctx, `UPDATE users SET role='admin' WHERE email=$1`, email)
 	return err
 }
+
+// GetRole returns the current role of the user with the given id.
+func (r *Repo) GetRole(ctx context.Context, userID int64) (string, error) {
+	var role string
+	err := r.pool.QueryRow(ctx, `SELECT role FROM users WHERE id=$1`, userID).Scan(&role)
+	return role, err
+}

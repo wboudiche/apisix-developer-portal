@@ -52,7 +52,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	subAdminH := subscriptions.NewAdminHandler(subSvc)
 
 	requireAuth := auth.RequireAuth(tok)
-	requireAdmin := auth.RequireAdmin(tok)
+	requireAdmin := auth.RequireAdmin(tok, authRepo.GetRole)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
