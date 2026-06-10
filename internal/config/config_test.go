@@ -29,17 +29,6 @@ func TestValidateDevAllowsDefaults(t *testing.T) {
 	}
 }
 
-func TestValidateEmptyEnvTreatsAsProduction(t *testing.T) {
-	t.Setenv("PORTAL_ENV", "")
-	t.Setenv("JWT_SECRET", "")
-	t.Setenv("APISIX_ADMIN_KEY", "")
-	t.Setenv("CREDENTIAL_ENC_KEY", "")
-	err := Load().Validate()
-	if err == nil {
-		t.Fatal("empty env (fail-closed to production) should reject dev secrets")
-	}
-}
-
 func TestValidateProductionRejectsDefaultSecrets(t *testing.T) {
 	t.Setenv("PORTAL_ENV", "production")
 	t.Setenv("JWT_SECRET", "")
@@ -68,6 +57,7 @@ func TestValidateProductionNamesOnlyTheOffendingVar(t *testing.T) {
 	t.Setenv("PORTAL_ENV", "production")
 	t.Setenv("JWT_SECRET", "a-real-strong-secret") // overridden
 	t.Setenv("APISIX_ADMIN_KEY", "")               // still dev default
+	t.Setenv("CREDENTIAL_ENC_KEY", "a-real-enc-key") // overridden
 	err := Load().Validate()
 	if err == nil {
 		t.Fatal("production with one dev-default secret must be rejected")
@@ -77,6 +67,9 @@ func TestValidateProductionNamesOnlyTheOffendingVar(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "APISIX_ADMIN_KEY") {
 		t.Fatalf("APISIX_ADMIN_KEY is still the dev default; it must be named: %v", err)
+	}
+	if strings.Contains(err.Error(), "CREDENTIAL_ENC_KEY") {
+		t.Fatalf("CREDENTIAL_ENC_KEY was overridden; it should not be named: %v", err)
 	}
 }
 

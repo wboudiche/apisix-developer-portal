@@ -23,7 +23,7 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 	if cfg.UsesDevSecrets() {
-		log.Printf("WARNING: using built-in dev secrets (JWT/APISIX admin key) — set JWT_SECRET and APISIX_ADMIN_KEY before any non-dev deploy")
+		log.Printf("WARNING: using built-in dev secrets — set JWT_SECRET, APISIX_ADMIN_KEY and CREDENTIAL_ENC_KEY before any non-dev deploy")
 	}
 
 	pool, err := db.Connect(ctx, cfg.DatabaseURL)
