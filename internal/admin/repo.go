@@ -15,6 +15,9 @@ var ErrNotFound = errors.New("admin: product not found")
 // ErrSlugTaken is returned when a create/update would duplicate a slug.
 var ErrSlugTaken = errors.New("admin: slug already exists")
 
+// ErrContextPathTaken is returned when a create/update would duplicate a context path.
+var ErrContextPathTaken = errors.New("admin: context path already in use")
+
 type Repo struct{ pool *pgxpool.Pool }
 
 func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
@@ -59,10 +62,10 @@ func (r *Repo) Create(ctx context.Context, p Product) (Product, error) {
 		 VALUES($1,$2,$3,COALESCE(NULLIF($4,''),'1.0.0'),$5,$6,$7,$8,$9,$10)
 		 RETURNING `+productCols,
 		p.Name, p.Slug, p.Category, p.Version, p.ContextPath, p.Description, p.Tags, p.Icon, p.UpstreamURL, p.Published))
-	if isUniqueViolation(err) {
-		return Product{}, ErrSlugTaken
+	if err != nil {
+		return Product{}, uniqueErr(err)
 	}
-	return created, err
+	return created, nil
 }
 
 func (r *Repo) Update(ctx context.Context, p Product) (Product, error) {
@@ -75,10 +78,26 @@ func (r *Repo) Update(ctx context.Context, p Product) (Product, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Product{}, ErrNotFound
 	}
-	if isUniqueViolation(err) {
-		return Product{}, ErrSlugTaken
+	if err != nil {
+		return Product{}, uniqueErr(err)
 	}
-	return updated, err
+	return updated, nil
+}
+
+// ContextPathOverlaps reports whether p would collide with an existing
+// product's route prefix: equal, or a path-prefix on a "/" boundary in either
+// direction (/v1 vs /v1/orders — APISIX's /v1/* shadows /v1/orders/*).
+func (r *Repo) ContextPathOverlaps(ctx context.Context, p string, exceptID int64) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+		   SELECT 1 FROM api_products
+		   WHERE id <> $2
+		     AND (context_path = $1
+		          OR context_path LIKE $1 || '/%'
+		          OR $1 LIKE context_path || '/%'))`,
+		p, exceptID).Scan(&exists)
+	return exists, err
 }
 
 func (r *Repo) Delete(ctx context.Context, id int64) error {
@@ -100,7 +119,22 @@ func (r *Repo) CountActiveSubscriptions(ctx context.Context, productID int64) (i
 	return n, err
 }
 
+// isUniqueViolation returns true for Postgres 23505 unique-constraint errors.
+// Used by plan_repo.go where a single unique constraint is in play.
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+// uniqueErr converts a 23505 unique-violation into the appropriate sentinel
+// error based on the constraint name; all others pass through unchanged.
+func uniqueErr(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if pgErr.ConstraintName == "api_products_context_path_key" {
+			return ErrContextPathTaken
+		}
+		return ErrSlugTaken
+	}
+	return err
 }

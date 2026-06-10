@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -48,8 +49,9 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		return true, nil
 	}
 	subH := subscriptions.NewHandler(subSvc, subRepo, owns)
-	adminSvc := admin.NewService(admin.NewRepo(pool), subSvc)
-	adminH := admin.NewHandler(adminSvc)
+	allowPrivate := os.Getenv("UPSTREAM_ALLOW_PRIVATE") == "1"
+	adminSvc := admin.NewService(admin.NewRepo(pool), subSvc, allowPrivate)
+	adminH := admin.NewHandler(adminSvc, allowPrivate)
 	planAdminSvc := admin.NewPlanService(admin.NewPlanRepo(pool), subSvc)
 	planAdminH := admin.NewPlanHandler(planAdminSvc)
 	subAdminH := subscriptions.NewAdminHandler(subSvc)

@@ -46,7 +46,7 @@ func (f *fakeService) Update(_ context.Context, p Product) (Product, error) {
 }
 func (f *fakeService) Delete(_ context.Context, id int64) error { return f.deleteErr }
 
-func newTestHandler(svc ProductService) *Handler { return NewHandler(svc) }
+func newTestHandler(svc ProductService) *Handler { return NewHandler(svc, true) }
 
 func do(h *Handler, method, target string, body any) *httptest.ResponseRecorder {
 	var rdr *bytes.Reader
@@ -121,5 +121,23 @@ func TestDeleteSuccessReturns204(t *testing.T) {
 	rec := do(h, http.MethodDelete, "/api/admin/products/1", nil)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want 204", rec.Code)
+	}
+}
+
+func TestCreateContextPathTakenReturns409(t *testing.T) {
+	h := newTestHandler(&fakeService{products: map[int64]Product{}, createErr: ErrContextPathTaken})
+	rec := do(h, http.MethodPost, "/api/admin/products",
+		Product{Name: "Pizza", Slug: "pizza", Category: "Food", ContextPath: "/pizza"})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", rec.Code)
+	}
+}
+
+func TestUpdateContextPathTakenReturns409(t *testing.T) {
+	h := newTestHandler(&fakeService{products: map[int64]Product{1: {ID: 1}}, updateErr: ErrContextPathTaken})
+	rec := do(h, http.MethodPut, "/api/admin/products/1",
+		Product{Name: "Pizza", Slug: "pizza", Category: "Food", ContextPath: "/pizza"})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", rec.Code)
 	}
 }

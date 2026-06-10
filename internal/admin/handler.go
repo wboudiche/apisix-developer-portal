@@ -23,12 +23,13 @@ type ProductService interface {
 }
 
 type Handler struct {
-	svc    ProductService
-	router chi.Router
+	svc          ProductService
+	router       chi.Router
+	allowPrivate bool
 }
 
-func NewHandler(svc ProductService) *Handler {
-	h := &Handler{svc: svc, router: chi.NewRouter()}
+func NewHandler(svc ProductService, allowPrivate bool) *Handler {
+	h := &Handler{svc: svc, router: chi.NewRouter(), allowPrivate: allowPrivate}
 	h.router.Get("/api/admin/products", h.list)
 	h.router.Post("/api/admin/products", h.create)
 	h.router.Get("/api/admin/products/{id}", h.get)
@@ -71,13 +72,17 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
-	p, ok := decodeProduct(w, r)
+	p, ok := h.decodeProduct(w, r)
 	if !ok {
 		return
 	}
 	created, err := h.svc.Create(r.Context(), p)
 	if errors.Is(err, ErrSlugTaken) {
 		httpx.Error(w, http.StatusConflict, "slug already exists")
+		return
+	}
+	if errors.Is(err, ErrContextPathTaken) {
+		httpx.Error(w, http.StatusConflict, "contextPath conflicts with an existing product")
 		return
 	}
 	if err != nil {
@@ -93,7 +98,7 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	p, ok := decodeProduct(w, r)
+	p, ok := h.decodeProduct(w, r)
 	if !ok {
 		return
 	}
@@ -105,6 +110,10 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	if errors.Is(err, ErrSlugTaken) {
 		httpx.Error(w, http.StatusConflict, "slug already exists")
+		return
+	}
+	if errors.Is(err, ErrContextPathTaken) {
+		httpx.Error(w, http.StatusConflict, "contextPath conflicts with an existing product")
 		return
 	}
 	if err != nil {
@@ -146,7 +155,7 @@ func parseID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	return id, true
 }
 
-func decodeProduct(w http.ResponseWriter, r *http.Request) (Product, bool) {
+func (h *Handler) decodeProduct(w http.ResponseWriter, r *http.Request) (Product, bool) {
 	var p Product
 	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid body")
@@ -155,7 +164,7 @@ func decodeProduct(w http.ResponseWriter, r *http.Request) (Product, bool) {
 	if p.Tags == nil {
 		p.Tags = []string{}
 	}
-	if msg := p.validate(); msg != "" {
+	if msg := p.validate(h.allowPrivate); msg != "" {
 		httpx.Error(w, http.StatusBadRequest, msg)
 		return Product{}, false
 	}

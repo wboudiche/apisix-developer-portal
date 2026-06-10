@@ -18,6 +18,7 @@ type Store interface {
 	Update(ctx context.Context, p Product) (Product, error)
 	Delete(ctx context.Context, id int64) error
 	CountActiveSubscriptions(ctx context.Context, productID int64) (int, error)
+	ContextPathOverlaps(ctx context.Context, p string, exceptID int64) (bool, error)
 }
 
 // Provisioner triggers APISIX route changes (satisfied by *subscriptions.Service).
@@ -28,17 +29,25 @@ type Provisioner interface {
 
 // Service applies admin product operations and keeps APISIX in sync.
 type Service struct {
-	store Store
-	prov  Provisioner
+	store        Store
+	prov         Provisioner
+	allowPrivate bool
 }
 
-func NewService(store Store, prov Provisioner) *Service {
-	return &Service{store: store, prov: prov}
+func NewService(store Store, prov Provisioner, allowPrivate bool) *Service {
+	return &Service{store: store, prov: prov, allowPrivate: allowPrivate}
 }
 
 func (s *Service) List(ctx context.Context) ([]Product, error)        { return s.store.ListAll(ctx) }
 func (s *Service) Get(ctx context.Context, id int64) (Product, error) { return s.store.Get(ctx, id) }
 func (s *Service) Create(ctx context.Context, p Product) (Product, error) {
+	overlaps, err := s.store.ContextPathOverlaps(ctx, p.ContextPath, 0)
+	if err != nil {
+		return Product{}, err
+	}
+	if overlaps {
+		return Product{}, ErrContextPathTaken
+	}
 	return s.store.Create(ctx, p)
 }
 
@@ -48,6 +57,15 @@ func (s *Service) Update(ctx context.Context, p Product) (Product, error) {
 	old, err := s.store.Get(ctx, p.ID)
 	if err != nil {
 		return Product{}, err
+	}
+	if p.ContextPath != old.ContextPath {
+		overlaps, err := s.store.ContextPathOverlaps(ctx, p.ContextPath, p.ID)
+		if err != nil {
+			return Product{}, err
+		}
+		if overlaps {
+			return Product{}, ErrContextPathTaken
+		}
 	}
 	updated, err := s.store.Update(ctx, p)
 	if err != nil {
