@@ -11,6 +11,10 @@ import (
 	"apisix-portal/internal/httpx"
 )
 
+// dummyHash is a valid bcrypt hash compared against when the user is absent, so
+// login response time does not reveal whether an account exists (M3).
+var dummyHash = "$2a$12$kBCKU4PMSdprqnbX9uYhN.uuNofR4mwH3zF5a8xEADAFoRn2M2FMC"
+
 // UserStore is the persistence surface the handler needs (satisfied by *Repo).
 type UserStore interface {
 	Create(ctx context.Context, email, passwordHash, name string) (User, error)
@@ -45,12 +49,18 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	hash, err := HashPassword(c.Password)
+	if errors.Is(err, ErrPasswordTooLong) {
+		httpx.Error(w, http.StatusBadRequest, "password must be at most 72 bytes")
+		return
+	}
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "could not hash password")
 		return
 	}
 	u, err := h.store.Create(r.Context(), c.Email, hash, c.Name)
 	if errors.Is(err, ErrEmailTaken) {
+		// NOTE: a distinct 409 is an intentional UX trade-off (users must learn an
+		// email is taken). The timing oracle on login is the closed leak (M3).
 		httpx.Error(w, http.StatusConflict, "email already registered")
 		return
 	}
@@ -73,7 +83,14 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, hash, err := h.store.GetByEmail(r.Context(), c.Email)
-	if err != nil || !CheckPassword(hash, c.Password) {
+	if err != nil {
+		// Equalize timing: run a comparison against a dummy hash so an absent
+		// account is indistinguishable from a wrong password.
+		CheckPassword(dummyHash, c.Password)
+		httpx.Error(w, http.StatusUnauthorized, "invalid credentials")
+		return
+	}
+	if !CheckPassword(hash, c.Password) {
 		httpx.Error(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}

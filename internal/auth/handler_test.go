@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // memRepo is an in-memory UserStore for handler tests.
@@ -127,5 +129,48 @@ func TestRegisterDBErrorReturns500(t *testing.T) {
 		strings.NewReader(`{"email":"a@b.c","password":"pw123456","name":"A"}`)))
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", rec.Code)
+	}
+}
+
+// TestLoginAbsentUserStillReturns401 verifies that an unknown email returns 401
+// (not 404 or any other code that would reveal account existence).
+func TestLoginAbsentUserStillReturns401(t *testing.T) {
+	h := newTestHandler() // empty store — no users registered
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/auth/login",
+		strings.NewReader(`{"email":"nobody@example.com","password":"irrelevant"}`)))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("absent user: status = %d, want 401", rec.Code)
+	}
+}
+
+// TestDummyHashIsGenuineCost12 pins that dummyHash is a real bcrypt hash at
+// cost 12.  If it were a fake string, CompareHashAndPassword would return a
+// format error instantly, defeating the timing equalization.
+func TestDummyHashIsGenuineCost12(t *testing.T) {
+	cost, err := bcrypt.Cost([]byte(dummyHash))
+	if err != nil {
+		t.Fatalf("bcrypt.Cost failed: %v — dummyHash is not a valid bcrypt hash", err)
+	}
+	if cost != 12 {
+		t.Fatalf("dummyHash cost = %d, want 12", cost)
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(dummyHash), []byte("not-the-password"))
+	if !errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+		t.Fatalf("expected ErrMismatchedHashAndPassword, got %v", err)
+	}
+}
+
+// TestRegisterPasswordTooLongReturns400 verifies that a password exceeding
+// bcrypt's 72-byte limit is rejected with 400, not 500.
+func TestRegisterPasswordTooLongReturns400(t *testing.T) {
+	h := newTestHandler()
+	longPw := strings.Repeat("a", 73)
+	body := `{"email":"a@b.c","password":"` + longPw + `","name":"A"}`
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/auth/register",
+		strings.NewReader(body)))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("73-byte password: status = %d, want 400; body=%s", rec.Code, rec.Body)
 	}
 }
