@@ -10,3 +10,8 @@
 node_modules/
 # keep the design mockup and docs
 !index.html
+# session artifacts (screenshots, browser logs, local builds)
+.playwright-mcp/
+/*.png
+/main
+/admin-products.html
