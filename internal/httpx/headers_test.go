@@ -3,6 +3,7 @@ package httpx_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"apisix-portal/internal/httpx"
@@ -22,8 +23,14 @@ func TestSecurityHeadersSet(t *testing.T) {
 			t.Fatalf("%s: got %q want %q", k, got, v)
 		}
 	}
-	if rr.Header().Get("Content-Security-Policy") == "" {
+	csp := rr.Header().Get("Content-Security-Policy")
+	if csp == "" {
 		t.Fatal("CSP header must be set")
+	}
+	for _, directive := range []string{"default-src 'self'", "fonts.googleapis.com", "font-src", "frame-ancestors 'none'"} {
+		if !strings.Contains(csp, directive) {
+			t.Errorf("CSP missing %q, got: %s", directive, csp)
+		}
 	}
 }
 
