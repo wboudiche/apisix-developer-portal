@@ -142,3 +142,19 @@ func TestRequireAdminLookupErrorIs500(t *testing.T) {
 		t.Fatalf("lookup failure must be 500 (could not verify), got %d", rr.Code)
 	}
 }
+
+func TestRequireAdminDeletedUserIs403(t *testing.T) {
+	tk := NewTokenizer("test-secret-at-least-32-bytes-long!!")
+	tokStr, _ := tk.Issue(7, "a@b.c", "admin")
+	// lookup returns ErrUserNotFound — user was deleted after the token was issued
+	lookup := func(_ context.Context, _ int64) (string, error) { return "", ErrUserNotFound }
+	called := false
+	h := RequireAdmin(tk, lookup)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true }))
+	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer "+tokStr)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden || called {
+		t.Fatalf("deleted user must get 403 and not reach handler; code=%d called=%v", rr.Code, called)
+	}
+}

@@ -4,12 +4,16 @@ import (
 	"context"
 	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ErrEmailTaken is returned by Create when the email address is already registered.
 var ErrEmailTaken = errors.New("email already registered")
+
+// ErrUserNotFound is returned by GetRole when the user no longer exists.
+var ErrUserNotFound = errors.New("auth: user not found")
 
 type Repo struct{ pool *pgxpool.Pool }
 
@@ -52,8 +56,12 @@ func (r *Repo) EnsureAdminRole(ctx context.Context, email string) error {
 }
 
 // GetRole returns the current role of the user with the given id.
+// Returns ErrUserNotFound if no such user exists.
 func (r *Repo) GetRole(ctx context.Context, userID int64) (string, error) {
 	var role string
 	err := r.pool.QueryRow(ctx, `SELECT role FROM users WHERE id=$1`, userID).Scan(&role)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrUserNotFound
+	}
 	return role, err
 }

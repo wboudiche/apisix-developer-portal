@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -80,6 +81,11 @@ func RequireAdmin(tk *Tokenizer, lookup RoleLookup) func(http.Handler) http.Hand
 				return
 			}
 			role, err := lookup(r.Context(), claims.UserID)
+			if errors.Is(err, ErrUserNotFound) {
+				// A deleted user's token must stop working — authz failure, not server fault.
+				httpx.Error(w, http.StatusForbidden, "admin only")
+				return
+			}
 			if err != nil {
 				// A failed lookup (DB outage) is "could not verify", not "admin only".
 				httpx.Error(w, http.StatusInternalServerError, "could not verify role")
