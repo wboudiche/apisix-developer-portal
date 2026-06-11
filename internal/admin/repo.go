@@ -87,6 +87,9 @@ func (r *Repo) Update(ctx context.Context, p Product) (Product, error) {
 // ContextPathOverlaps reports whether p would collide with an existing
 // product's route prefix: equal, or a path-prefix on a "/" boundary in either
 // direction (/v1 vs /v1/orders — APISIX's /v1/* shadows /v1/orders/*).
+// "_" is escaped on the pattern side of each LIKE: it is a single-char
+// wildcard in LIKE but a legal context-path character ("%" is not, so it
+// needs no escaping).
 func (r *Repo) ContextPathOverlaps(ctx context.Context, p string, exceptID int64) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,
@@ -94,8 +97,8 @@ func (r *Repo) ContextPathOverlaps(ctx context.Context, p string, exceptID int64
 		   SELECT 1 FROM api_products
 		   WHERE id <> $2
 		     AND (context_path = $1
-		          OR context_path LIKE $1 || '/%'
-		          OR $1 LIKE context_path || '/%'))`,
+		          OR context_path LIKE replace($1, '_', '\_') || '/%'
+		          OR $1 LIKE replace(context_path, '_', '\_') || '/%'))`,
 		p, exceptID).Scan(&exists)
 	return exists, err
 }

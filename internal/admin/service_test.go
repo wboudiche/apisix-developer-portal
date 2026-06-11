@@ -90,7 +90,7 @@ func TestUpdateReprovisionsWhenUpstreamChangesAndHasSubs(t *testing.T) {
 	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p", UpstreamURL: "old:8080"}
 	store.counts[1] = 2
 	prov := &fakeProv{}
-	svc := NewService(store, prov, false)
+	svc := NewService(store, prov)
 
 	updated := store.products[1]
 	updated.UpstreamURL = "new:9090"
@@ -107,7 +107,7 @@ func TestUpdateNoReprovisionWhenUpstreamUnchanged(t *testing.T) {
 	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p", UpstreamURL: "same:8080"}
 	store.counts[1] = 5
 	prov := &fakeProv{}
-	svc := NewService(store, prov, false)
+	svc := NewService(store, prov)
 
 	updated := store.products[1]
 	updated.Description = "changed text only"
@@ -124,7 +124,7 @@ func TestUpdateNoReprovisionWhenNoSubs(t *testing.T) {
 	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p", UpstreamURL: "old:8080"}
 	store.counts[1] = 0
 	prov := &fakeProv{}
-	svc := NewService(store, prov, false)
+	svc := NewService(store, prov)
 
 	updated := store.products[1]
 	updated.UpstreamURL = "new:9090"
@@ -141,7 +141,7 @@ func TestDeleteBlockedByActiveSubs(t *testing.T) {
 	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p"}
 	store.counts[1] = 1
 	prov := &fakeProv{}
-	svc := NewService(store, prov, false)
+	svc := NewService(store, prov)
 
 	err := svc.Delete(context.Background(), 1)
 	if !errors.Is(err, ErrHasSubscriptions) {
@@ -160,7 +160,7 @@ func TestDeleteTearsDownRouteWhenNoSubs(t *testing.T) {
 	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p"}
 	store.counts[1] = 0
 	prov := &fakeProv{}
-	svc := NewService(store, prov, false)
+	svc := NewService(store, prov)
 
 	if err := svc.Delete(context.Background(), 1); err != nil {
 		t.Fatal(err)
@@ -178,7 +178,7 @@ func TestContextPathOverlapBlocksCreate(t *testing.T) {
 	// existing product at /v1
 	store.products[1] = Product{ID: 1, Name: "A", Slug: "a", Category: "C", ContextPath: "/v1"}
 	prov := &fakeProv{}
-	svc := NewService(store, prov, false)
+	svc := NewService(store, prov)
 
 	// /v1/orders is a sub-path of /v1 — must be blocked (APISIX /v1/* would shadow /v1/orders/*)
 	_, err := svc.Create(context.Background(), Product{
@@ -202,7 +202,7 @@ func TestContextPathOverlapBlocksUpdate(t *testing.T) {
 	store.products[1] = Product{ID: 1, Name: "A", Slug: "a", Category: "C", ContextPath: "/v1"}
 	store.products[2] = Product{ID: 2, Name: "B", Slug: "b", Category: "C", ContextPath: "/v2"}
 	prov := &fakeProv{}
-	svc := NewService(store, prov, false)
+	svc := NewService(store, prov)
 
 	// update product 2 to use /v1/orders — overlaps /v1
 	updated := store.products[2]

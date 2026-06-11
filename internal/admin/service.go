@@ -28,14 +28,15 @@ type Provisioner interface {
 }
 
 // Service applies admin product operations and keeps APISIX in sync.
+// Upstream/contextPath validation (including the SSRF allowPrivate flag)
+// lives in the handler, at the request boundary.
 type Service struct {
-	store        Store
-	prov         Provisioner
-	allowPrivate bool
+	store Store
+	prov  Provisioner
 }
 
-func NewService(store Store, prov Provisioner, allowPrivate bool) *Service {
-	return &Service{store: store, prov: prov, allowPrivate: allowPrivate}
+func NewService(store Store, prov Provisioner) *Service {
+	return &Service{store: store, prov: prov}
 }
 
 func (s *Service) List(ctx context.Context) ([]Product, error)        { return s.store.ListAll(ctx) }
