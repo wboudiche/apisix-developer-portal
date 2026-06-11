@@ -41,7 +41,11 @@ func New(b64Key string) (*Cipher, error) {
 	return &Cipher{aead: aead}, nil
 }
 
-// Encrypt returns "v1:" + base64(nonce || ciphertext).
+// Encrypt returns "v1:" + base64(nonce || ciphertext). AAD is intentionally
+// nil: ciphertexts are not bound to their DB row, so an attacker with DB
+// *write* access could swap two rows' keys — out of scope for the at-rest
+// threat model, and leaving AAD out keeps bulk re-encryption on key rotation
+// row-context-free. The GCM tag still rejects forgery/corruption.
 func (c *Cipher) Encrypt(plain string) (string, error) {
 	nonce := make([]byte, c.aead.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
