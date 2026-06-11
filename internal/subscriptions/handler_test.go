@@ -2,6 +2,7 @@ package subscriptions
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -29,11 +30,14 @@ func (f fakeReader) SubscriptionsForApp(_ context.Context, _ int64) ([]Subscript
 }
 
 // fakeEvents returns a fixed feed so the detail endpoint's activity wiring is
-// exercised without a database.
-type fakeEvents struct{ feed []events.View }
+// exercised without a database. A non-nil err simulates a feed read failure.
+type fakeEvents struct {
+	feed []events.View
+	err  error
+}
 
 func (f fakeEvents) Recent(_ context.Context, _ int64, _ int) ([]events.View, error) {
-	return f.feed, nil
+	return f.feed, f.err
 }
 
 func newTestHandler() (*Handler, *apisix.Fake) {
@@ -134,6 +138,28 @@ func TestAppDetailIncludesActivityFeed(t *testing.T) {
 	if !strings.Contains(body, `"events":[`) || !strings.Contains(body, `"kind":"subscribed"`) ||
 		!strings.Contains(body, `"productName":"Inventory API"`) || !strings.Contains(body, `"planName":"Gold"`) {
 		t.Fatalf("detail body must carry the activity feed: %s", body)
+	}
+}
+
+func TestAppDetailSurvivesFeedReadError(t *testing.T) {
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "k" }, nil)
+	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
+	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "key-xyz"}}
+	// Feed read fails — the page must still load (200) with an empty feed, not 500.
+	h := NewHandler(svc, reader, fakeEvents{err: errors.New("db down")}, owns)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/applications/1", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 5))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("feed read error must not fail the detail page; got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `"apiKey":"key-xyz"`) || !strings.Contains(body, `"events":[]`) {
+		t.Fatalf("detail must still serve with an empty feed: %s", body)
 	}
 }
 

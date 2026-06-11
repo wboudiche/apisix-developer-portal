@@ -140,12 +140,12 @@ func (h *Handler) detail(w http.ResponseWriter, r *http.Request) {
 		out.Subscriptions = subs
 	}
 	if h.events != nil {
-		feed, err := h.events.Recent(r.Context(), appID, feedLimit)
-		if err != nil {
-			httpx.Error(w, http.StatusInternalServerError, "failed to load activity")
-			return
-		}
-		if feed != nil {
+		// The feed is cosmetic; the detail page is load-bearing. Degrade
+		// gracefully — a feed read error leaves out.Events as [] rather than
+		// failing the whole page (symmetric with the best-effort write path).
+		if feed, err := h.events.Recent(r.Context(), appID, feedLimit); err != nil {
+			log.Printf("activity feed for app %d: %v", appID, err)
+		} else if feed != nil {
 			out.Events = feed
 		}
 	}

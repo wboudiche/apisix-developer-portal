@@ -221,6 +221,9 @@ func (s *Service) Unsubscribe(ctx context.Context, appID, productID int64) error
 	if err := s.store.DeleteSubscription(ctx, appID, productID); err != nil {
 		return err
 	}
+	// Log after the durable delete but before reprovision: the subscription is
+	// already gone, so the event reflects the true DB state even if the gateway
+	// sync below fails (and a retry would otherwise never re-log it).
 	s.logEvent(ctx, appID, events.KindUnsubscribed, &productID, nil)
 	return s.ReprovisionRoute(ctx, productID)
 }
@@ -280,6 +283,8 @@ func (s *Service) Reject(ctx context.Context, subID int64) error {
 	if err := s.store.SetSubscriptionStatus(ctx, subID, StatusRejected); err != nil {
 		return err
 	}
+	// Log after the durable status change (see Unsubscribe): the event reflects
+	// the persisted "rejected" state regardless of the gateway sync outcome.
 	s.logEvent(ctx, rec.AppID, events.KindRejected, &rec.ProductID, nil)
 	return s.ReprovisionRoute(ctx, rec.ProductID)
 }

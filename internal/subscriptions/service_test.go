@@ -19,6 +19,72 @@ func (g *routeFailGateway) EnsureRoute(_ context.Context, _, _, _ string, _ []st
 	return g.err
 }
 
+// captureLogger records the kinds emitted, to assert the service dispatches the
+// right activity events. failOn returns an error for a given kind to prove a log
+// failure can't break the action.
+type captureLogger struct {
+	kinds  []string
+	failOn string
+}
+
+func (c *captureLogger) Log(_ context.Context, _ int64, kind string, _, _ *int64) error {
+	c.kinds = append(c.kinds, kind)
+	if kind == c.failOn {
+		return errors.New("log boom")
+	}
+	return nil
+}
+
+func TestServiceEmitsLifecycleEvents(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	gw := apisix.NewFake()
+	log := &captureLogger{}
+	svc := NewService(store, gw, func() string { return "k" }, log)
+
+	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	if err := svc.Approve(ctx, store.findRecord(42, 3).ID); err != nil {
+		t.Fatalf("Approve: %v", err)
+	}
+	if err := svc.Unsubscribe(ctx, 42, 3); err != nil {
+		t.Fatalf("Unsubscribe: %v", err)
+	}
+	// A second app to exercise Reject without colliding with the unsubscribe above.
+	if _, err := svc.Subscribe(ctx, 43, 3, 2); err != nil {
+		t.Fatalf("Subscribe 43: %v", err)
+	}
+	if err := svc.Reject(ctx, store.findRecord(43, 3).ID); err != nil {
+		t.Fatalf("Reject: %v", err)
+	}
+
+	want := []string{"subscribed", "approved", "unsubscribed", "subscribed", "rejected"}
+	if len(log.kinds) != len(want) {
+		t.Fatalf("emitted kinds = %v, want %v", log.kinds, want)
+	}
+	for i := range want {
+		if log.kinds[i] != want[i] {
+			t.Fatalf("emitted kinds = %v, want %v", log.kinds, want)
+		}
+	}
+}
+
+func TestServiceActionSucceedsWhenEventLogFails(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "k" }, &captureLogger{failOn: "subscribed"})
+
+	// A failing activity log must not fail the subscribe it merely records.
+	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
+		t.Fatalf("Subscribe must succeed despite a log failure, got %v", err)
+	}
+	if r := store.findRecord(42, 3); r == nil || r.Status != StatusPending {
+		t.Fatalf("subscription must be persisted despite the log failure, got %+v", r)
+	}
+}
+
 type memStore struct {
 	creds    map[int64]Credential
 	products map[int64]ProductInfo
