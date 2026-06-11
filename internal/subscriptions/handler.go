@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"apisix-portal/internal/auth"
+	"apisix-portal/internal/events"
 	"apisix-portal/internal/httpx"
 )
 
@@ -23,15 +24,25 @@ type Reader interface {
 	SubscriptionsForApp(ctx context.Context, appID int64) ([]SubscriptionView, error)
 }
 
+// EventReader returns an application's recent activity (satisfied by
+// *events.Repo). nil disables the feed.
+type EventReader interface {
+	Recent(ctx context.Context, appID int64, limit int) ([]events.View, error)
+}
+
+// feedLimit caps how many activity rows the Overview feed loads.
+const feedLimit = 20
+
 type Handler struct {
 	svc    *Service
 	reader Reader
+	events EventReader
 	owns   OwnerCheck
 	router chi.Router
 }
 
-func NewHandler(svc *Service, reader Reader, owns OwnerCheck) *Handler {
-	h := &Handler{svc: svc, reader: reader, owns: owns, router: chi.NewRouter()}
+func NewHandler(svc *Service, reader Reader, eventReader EventReader, owns OwnerCheck) *Handler {
+	h := &Handler{svc: svc, reader: reader, events: eventReader, owns: owns, router: chi.NewRouter()}
 	h.router.Get("/api/applications/{appID}", h.detail)
 	h.router.Post("/api/applications/{appID}/subscriptions", h.subscribe)
 	h.router.Delete("/api/applications/{appID}/subscriptions/{productID}", h.unsubscribe)
@@ -111,7 +122,7 @@ func (h *Handler) detail(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	out := AppDetail{Subscriptions: []SubscriptionView{}}
+	out := AppDetail{Subscriptions: []SubscriptionView{}, Events: []events.View{}}
 	cred, err := h.reader.GetCredential(r.Context(), appID)
 	if err == nil {
 		out.APIKey = cred.APIKey
@@ -127,6 +138,16 @@ func (h *Handler) detail(w http.ResponseWriter, r *http.Request) {
 	}
 	if subs != nil {
 		out.Subscriptions = subs
+	}
+	if h.events != nil {
+		feed, err := h.events.Recent(r.Context(), appID, feedLimit)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to load activity")
+			return
+		}
+		if feed != nil {
+			out.Events = feed
+		}
 	}
 	httpx.JSON(w, http.StatusOK, out)
 }

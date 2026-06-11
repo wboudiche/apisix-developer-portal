@@ -9,6 +9,7 @@ import (
 
 	"apisix-portal/internal/apisix"
 	"apisix-portal/internal/auth"
+	"apisix-portal/internal/events"
 )
 
 type fakeReader struct {
@@ -27,14 +28,22 @@ func (f fakeReader) SubscriptionsForApp(_ context.Context, _ int64) ([]Subscript
 	return f.subs, nil
 }
 
+// fakeEvents returns a fixed feed so the detail endpoint's activity wiring is
+// exercised without a database.
+type fakeEvents struct{ feed []events.View }
+
+func (f fakeEvents) Recent(_ context.Context, _ int64, _ int) ([]events.View, error) {
+	return f.feed, nil
+}
+
 func newTestHandler() (*Handler, *apisix.Fake) {
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "key-xyz" })
+	svc := NewService(store, gw, func() string { return "key-xyz" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "key-xyz", ConsumerUsername: "app_1"},
 		subs: []SubscriptionView{{ProductID: 3, ProductName: "PizzaShackAPI", PlanID: 2, PlanName: "Silver"}}}
-	return NewHandler(svc, reader, owns), gw
+	return NewHandler(svc, reader, fakeEvents{}, owns), gw
 }
 
 func TestSubscribeEndpointReturnsKeyWithoutProvisioning(t *testing.T) {
@@ -102,6 +111,29 @@ func TestAppDetailReturnsKeyAndSubscriptions(t *testing.T) {
 	body := rec.Body.String()
 	if !strings.Contains(body, `"apiKey":"key-xyz"`) || !strings.Contains(body, `"productName":"PizzaShackAPI"`) {
 		t.Fatalf("unexpected detail body: %s", body)
+	}
+}
+
+func TestAppDetailIncludesActivityFeed(t *testing.T) {
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "k" }, nil)
+	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
+	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1}}
+	feed := fakeEvents{feed: []events.View{{Kind: events.KindSubscribed, ProductName: "Inventory API", PlanName: "Gold"}}}
+	h := NewHandler(svc, reader, feed, owns)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/applications/1", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 5))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `"events":[`) || !strings.Contains(body, `"kind":"subscribed"`) ||
+		!strings.Contains(body, `"productName":"Inventory API"`) || !strings.Contains(body, `"planName":"Gold"`) {
+		t.Fatalf("detail body must carry the activity feed: %s", body)
 	}
 }
 

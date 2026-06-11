@@ -131,7 +131,7 @@ func TestSubscribeIsPendingAndDoesNotProvision(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "fixed-key" })
+	svc := NewService(store, gw, func() string { return "fixed-key" }, nil)
 
 	cred, err := svc.Subscribe(ctx, 42, 3, 2)
 	if err != nil {
@@ -156,7 +156,7 @@ func TestApproveProvisionsConsumerAndRoute(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "fixed-key" })
+	svc := NewService(store, gw, func() string { return "fixed-key" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("Subscribe: %v", err)
@@ -183,7 +183,7 @@ func TestApproveDoesNotMarkActiveWhenRouteProvisioningFails(t *testing.T) {
 	store := newMemStore()
 	boom := errors.New("apisix down")
 	gw := &routeFailGateway{Fake: apisix.NewFake(), err: boom}
-	svc := NewService(store, gw, func() string { return "fixed-key" })
+	svc := NewService(store, gw, func() string { return "fixed-key" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("Subscribe: %v", err)
@@ -204,7 +204,7 @@ func TestApproveRouteWhitelistIncludesNewlyApprovedConsumer(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "fixed-key" })
+	svc := NewService(store, gw, func() string { return "fixed-key" }, nil)
 
 	// An existing active subscriber on the same product.
 	store.creds[41] = Credential{ApplicationID: 41, APIKey: "k41", ConsumerUsername: "app_41"}
@@ -240,7 +240,7 @@ func TestRejectSetsStatusAndDoesNotProvision(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "fixed-key" })
+	svc := NewService(store, gw, func() string { return "fixed-key" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("Subscribe: %v", err)
@@ -268,7 +268,7 @@ func TestUnsubscribeRemovesFromWhitelist(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" })
+	svc := NewService(store, gw, func() string { return "k" }, nil)
 	_, _ = svc.Subscribe(ctx, 42, 3, 2)
 	_, _ = svc.Subscribe(ctx, 43, 3, 2)
 	if err := svc.Approve(ctx, store.findRecord(42, 3).ID); err != nil {
@@ -292,7 +292,7 @@ func TestReprovisionRoute(t *testing.T) {
 	store.records[101] = &SubscriptionRecord{ID: 101, AppID: 1, ProductID: 7, PlanID: 2, Status: "active"}
 	store.records[102] = &SubscriptionRecord{ID: 102, AppID: 2, ProductID: 7, PlanID: 2, Status: "active"}
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, GenerateKey)
+	svc := NewService(store, gw, GenerateKey, nil)
 
 	if err := svc.ReprovisionRoute(context.Background(), 7); err != nil {
 		t.Fatalf("reprovision: %v", err)
@@ -314,7 +314,7 @@ func TestDeprovisionRoute(t *testing.T) {
 	store.products[7] = ProductInfo{ID: 7, ContextPath: "/seven", Upstream: "echo:8080", Published: true}
 	gw := apisix.NewFake()
 	_ = gw.EnsureRoute(context.Background(), RouteID(7), "/seven/*", "echo:8080", nil)
-	svc := NewService(store, gw, GenerateKey)
+	svc := NewService(store, gw, GenerateKey, nil)
 
 	if err := svc.DeprovisionRoute(context.Background(), 7); err != nil {
 		t.Fatalf("deprovision: %v", err)
@@ -332,7 +332,7 @@ func TestReprovisionPlanUpdatesEachConsumerLimit(t *testing.T) {
 	store.records[201] = &SubscriptionRecord{ID: 201, AppID: 1, ProductID: 3, PlanID: 2, Status: "active"}
 	store.records[202] = &SubscriptionRecord{ID: 202, AppID: 2, ProductID: 3, PlanID: 2, Status: "active"}
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, GenerateKey)
+	svc := NewService(store, gw, GenerateKey, nil)
 
 	if err := svc.ReprovisionPlan(ctx, 2); err != nil {
 		t.Fatalf("ReprovisionPlan: %v", err)
@@ -356,7 +356,7 @@ func TestSubscribeRejectsUnpublishedProduct(t *testing.T) {
 	store := newMemStore()
 	store.products[8] = ProductInfo{ID: 8, ContextPath: "/x", Upstream: "echo:8080", Published: false}
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" })
+	svc := NewService(store, gw, func() string { return "k" }, nil)
 
 	_, err := svc.Subscribe(ctx, 42, 8, 2)
 	if err != ErrNotFound {
@@ -371,7 +371,7 @@ func TestSubscribeRejectsAlreadyActive(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" })
+	svc := NewService(store, gw, func() string { return "k" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("first Subscribe: %v", err)
@@ -390,7 +390,7 @@ func TestSubscribeAllowsResubscribeWhenRejected(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" })
+	svc := NewService(store, gw, func() string { return "k" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("first Subscribe: %v", err)
@@ -412,7 +412,7 @@ func TestApproveRejectedReturnsInvalidTransition(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" })
+	svc := NewService(store, gw, func() string { return "k" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("Subscribe: %v", err)
@@ -436,7 +436,7 @@ func TestRejectAlreadyRejectedReturnsInvalidTransition(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" })
+	svc := NewService(store, gw, func() string { return "k" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("Subscribe: %v", err)

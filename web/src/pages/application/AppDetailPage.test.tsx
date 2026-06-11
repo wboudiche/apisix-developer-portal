@@ -18,6 +18,7 @@ const detail: AppDetail = {
     { productId: 9, productName: 'Orders API', version: '2.1.0', contextPath: '/orders', planId: 3, planName: 'Gold', status: 'active' },
     { productId: 5, productName: 'Inventory API', version: '1.4.0', contextPath: '/inventory', planId: 1, planName: 'Free', status: 'pending' },
   ],
+  events: [],
 }
 const plans: Plan[] = [
   { id: 1, name: 'Free', rateLimit: 60, windowSeconds: 60 },
@@ -107,7 +108,7 @@ describe('AppDetailPage', () => {
   it('a slow stale detail response never overwrites the current app', async () => {
     // app 1's detail hangs; app 2's resolves immediately
     let releaseApp1!: (d: AppDetail) => void
-    const detail2: AppDetail = { apiKey: 'ax_live_k2', consumerUsername: 'app_2', subscriptions: [] }
+    const detail2: AppDetail = { apiKey: 'ax_live_k2', consumerUsername: 'app_2', subscriptions: [], events: [] }
     vi.spyOn(api, 'getApplicationDetail').mockImplementation((_t, id) =>
       id === 1 ? new Promise<AppDetail>(res => { releaseApp1 = res }) : Promise.resolve(detail2))
     renderAt('/applications/1')

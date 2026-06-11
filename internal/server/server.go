@@ -15,6 +15,7 @@ import (
 	"apisix-portal/internal/catalog"
 	"apisix-portal/internal/config"
 	"apisix-portal/internal/crypto"
+	"apisix-portal/internal/events"
 	"apisix-portal/internal/httpx"
 	"apisix-portal/internal/plans"
 	"apisix-portal/internal/subscriptions"
@@ -43,14 +44,15 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		log.Printf("seed admin role (%s): %v", cfg.AdminEmail, err)
 	}
 	plansH := plans.NewHandler(plans.NewRepo(pool))
+	eventRepo := events.NewRepo(pool)
 	appsRepo := applications.NewRepo(pool)
-	appsH := applications.NewHandler(appsRepo)
+	appsH := applications.NewHandler(appsRepo, eventRepo)
 	cipher, err := crypto.New(cfg.CredentialEncKey)
 	if err != nil {
 		log.Fatalf("credential cipher: %v", err)
 	}
 	subRepo := subscriptions.NewRepo(pool, cipher)
-	subSvc := subscriptions.NewService(subRepo, gw, subscriptions.GenerateKey)
+	subSvc := subscriptions.NewService(subRepo, gw, subscriptions.GenerateKey, eventRepo)
 	owns := func(ctx context.Context, appID, userID int64) (bool, error) {
 		if _, err := appsRepo.Get(ctx, appID, userID); err != nil {
 			if err == applications.ErrNotFound {
@@ -60,7 +62,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		}
 		return true, nil
 	}
-	subH := subscriptions.NewHandler(subSvc, subRepo, owns)
+	subH := subscriptions.NewHandler(subSvc, subRepo, eventRepo, owns)
 	allowPrivate := os.Getenv("UPSTREAM_ALLOW_PRIVATE") == "1"
 	adminSvc := admin.NewService(admin.NewRepo(pool), subSvc)
 	adminH := admin.NewHandler(adminSvc, allowPrivate)

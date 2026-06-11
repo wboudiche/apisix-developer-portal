@@ -1,7 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// ALL demo placeholders for data the backend does not provide yet
-// (metrics pipeline, sandbox environments, key rotation, activity log).
+// Demo placeholders for data the backend does not provide yet
+// (metrics pipeline, sandbox environments, key rotation).
 // When a real backend feature lands, delete its constant here and wire the API.
+// The activity feed is now real (see activity.ts + AppDetail.events).
 // Values mirror /application.html so the page matches the blueprint.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -18,13 +19,6 @@ export const DEMO_STATS: ReadonlyArray<{
   { icon: 'calendar', label: 'Ce mois-ci', value: '421 K', delta: { dir: 'flat', arrow: null, text: 'sur 1 M inclus · 42 %' } },
   { icon: 'clock', label: 'Latence p95', value: '86', unit: 'ms', delta: { dir: 'up', arrow: 'down', text: '-9 ms · plus rapide' } },
   { icon: 'alert', label: "Taux d'erreur", value: '0,21', unit: '%', delta: { dir: 'up', arrow: 'down', text: 'sous le seuil 1 %' } },
-]
-
-export const DEMO_FEED: ReadonlyArray<{ icon: 'check' | 'rotate' | 'alert' | 'plus'; lead: string; rest: string; when: string }> = [
-  { icon: 'check', lead: 'Abonnement', rest: ' à Inventory API · plan Gold', when: 'il y a 2 h' },
-  { icon: 'rotate', lead: 'Clé Sandbox', rest: ' régénérée', when: 'hier · 16:41' },
-  { icon: 'alert', lead: 'Pic de débit', rest: ' sur Payments — 280/300 rpm', when: 'hier · 12:08' },
-  { icon: 'plus', lead: 'Application créée', rest: ' par Admin', when: '12 mars 2026' },
 ]
 
 export const DEMO_CHART = {

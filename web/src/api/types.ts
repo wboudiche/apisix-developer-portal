@@ -86,8 +86,23 @@ export interface AdminSubscription {
   createdAt: string
 }
 
+export type AppEventKind =
+  | 'app_created'
+  | 'subscribed'
+  | 'approved'
+  | 'rejected'
+  | 'unsubscribed'
+
+export interface AppEvent {
+  kind: AppEventKind
+  productName: string
+  planName: string
+  createdAt: string
+}
+
 export interface AppDetail {
   apiKey: string
   consumerUsername: string
   subscriptions: SubscriptionView[]
+  events: AppEvent[]
 }

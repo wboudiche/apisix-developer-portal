@@ -1,6 +1,10 @@
 package subscriptions
 
-import "time"
+import (
+	"time"
+
+	"apisix-portal/internal/events"
+)
 
 // SubscriptionView is one of an application's subscriptions, enriched with the
 // product and plan names for display, including its approval status.
@@ -20,6 +24,7 @@ type AppDetail struct {
 	APIKey           string             `json:"apiKey"`
 	ConsumerUsername string             `json:"consumerUsername"`
 	Subscriptions    []SubscriptionView `json:"subscriptions"`
+	Events           []events.View      `json:"events"`
 }
 
 // SubscriptionRecord is the minimal subscription identity used by the approval

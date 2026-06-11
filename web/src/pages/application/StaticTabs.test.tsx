@@ -15,6 +15,9 @@ const app: Application = { id: 4, ownerId: 1, name: 'Boutique Mobile', descripti
 const detail: AppDetail = {
   apiKey: 'ax_live_real_key_0001', consumerUsername: 'app_4',
   subscriptions: [{ productId: 9, productName: 'Orders API', version: '2.1.0', contextPath: '/orders', planId: 3, planName: 'Gold', status: 'active' }],
+  events: [
+    { kind: 'subscribed', productName: 'Orders API', planName: 'Gold', createdAt: '2026-03-12T00:00:00Z' },
+  ],
 }
 
 describe('OverviewTab', () => {
@@ -35,6 +38,15 @@ describe('OverviewTab', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Copier' }))
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('ax_live_real_key_0001'))
     expect(notify).toHaveBeenCalledWith('Commande copiée')
+  })
+  it('renders the real activity feed from detail.events', () => {
+    render(<OverviewTab detail={detail} notify={() => {}} />)
+    expect(screen.getByText('Abonnement')).toBeInTheDocument()
+    expect(screen.getByText(/à Orders API · plan Gold/)).toBeInTheDocument()
+  })
+  it('shows an empty state when there is no activity', () => {
+    render(<OverviewTab detail={{ ...detail, events: [] }} notify={() => {}} />)
+    expect(screen.getByText(/Aucune activité pour le moment/)).toBeInTheDocument()
   })
 })
 

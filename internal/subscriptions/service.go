@@ -4,9 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	"apisix-portal/internal/apisix"
+	"apisix-portal/internal/events"
 )
+
+// EventLogger records application activity for the Overview feed. Implemented by
+// *events.Repo; nil disables logging (used in tests). Logging is best-effort:
+// the action it describes has already succeeded, so a log failure is swallowed.
+type EventLogger interface {
+	Log(ctx context.Context, appID int64, kind string, productID, planID *int64) error
+}
 
 // Subscription lifecycle states.
 const (
@@ -80,10 +89,22 @@ type Service struct {
 	store  Store
 	gw     apisix.Gateway
 	genKey func() string
+	events EventLogger
 }
 
-func NewService(store Store, gw apisix.Gateway, genKey func() string) *Service {
-	return &Service{store: store, gw: gw, genKey: genKey}
+func NewService(store Store, gw apisix.Gateway, genKey func() string, eventLog EventLogger) *Service {
+	return &Service{store: store, gw: gw, genKey: genKey, events: eventLog}
+}
+
+// logEvent appends an activity event, best-effort: a failure is logged but never
+// propagated, so the feed can never break the action it merely records.
+func (s *Service) logEvent(ctx context.Context, appID int64, kind string, productID, planID *int64) {
+	if s.events == nil {
+		return
+	}
+	if err := s.events.Log(ctx, appID, kind, productID, planID); err != nil {
+		log.Printf("activity log %q for app %d: %v", kind, appID, err)
+	}
 }
 
 // ReprovisionRoute rebuilds the product's APISIX route from its current upstream
@@ -191,6 +212,7 @@ func (s *Service) Subscribe(ctx context.Context, appID, productID, planID int64)
 	if err := s.store.SaveSubscription(ctx, appID, productID, planID); err != nil {
 		return Credential{}, err
 	}
+	s.logEvent(ctx, appID, events.KindSubscribed, &productID, &planID)
 	return cred, nil
 }
 
@@ -199,6 +221,7 @@ func (s *Service) Unsubscribe(ctx context.Context, appID, productID int64) error
 	if err := s.store.DeleteSubscription(ctx, appID, productID); err != nil {
 		return err
 	}
+	s.logEvent(ctx, appID, events.KindUnsubscribed, &productID, nil)
 	return s.ReprovisionRoute(ctx, productID)
 }
 
@@ -236,7 +259,11 @@ func (s *Service) Approve(ctx context.Context, subID int64) error {
 	if err := s.reprovisionRoute(ctx, rec.ProductID, cred.ConsumerUsername); err != nil {
 		return err
 	}
-	return s.store.SetSubscriptionStatus(ctx, subID, StatusActive)
+	if err := s.store.SetSubscriptionStatus(ctx, subID, StatusActive); err != nil {
+		return err
+	}
+	s.logEvent(ctx, rec.AppID, events.KindApproved, &rec.ProductID, &rec.PlanID)
+	return nil
 }
 
 // Reject marks a subscription rejected and rebuilds the product route whitelist
@@ -253,6 +280,7 @@ func (s *Service) Reject(ctx context.Context, subID int64) error {
 	if err := s.store.SetSubscriptionStatus(ctx, subID, StatusRejected); err != nil {
 		return err
 	}
+	s.logEvent(ctx, rec.AppID, events.KindRejected, &rec.ProductID, nil)
 	return s.ReprovisionRoute(ctx, rec.ProductID)
 }
 

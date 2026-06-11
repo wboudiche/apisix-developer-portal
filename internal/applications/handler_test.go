@@ -37,7 +37,7 @@ func withUser(r *http.Request, id int64) *http.Request {
 }
 
 func TestCreateApplication(t *testing.T) {
-	h := NewHandler(&fakeStore{})
+	h := NewHandler(&fakeStore{}, nil)
 	req := withUser(httptest.NewRequest(http.MethodPost, "/api/applications", strings.NewReader(`{"name":"App1"}`)), 5)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -52,7 +52,7 @@ func TestCreateApplication(t *testing.T) {
 }
 
 func TestCreateApplicationRequiresName(t *testing.T) {
-	h := NewHandler(&fakeStore{})
+	h := NewHandler(&fakeStore{}, nil)
 	req := withUser(httptest.NewRequest(http.MethodPost, "/api/applications", strings.NewReader(`{}`)), 5)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -63,7 +63,7 @@ func TestCreateApplicationRequiresName(t *testing.T) {
 
 func TestListApplicationsScopedToUser(t *testing.T) {
 	store := &fakeStore{}
-	h := NewHandler(store)
+	h := NewHandler(store, nil)
 	h.ServeHTTP(httptest.NewRecorder(), withUser(httptest.NewRequest(http.MethodPost, "/api/applications", strings.NewReader(`{"name":"A"}`)), 5))
 	h.ServeHTTP(httptest.NewRecorder(), withUser(httptest.NewRequest(http.MethodPost, "/api/applications", strings.NewReader(`{"name":"B"}`)), 9))
 	rec := httptest.NewRecorder()

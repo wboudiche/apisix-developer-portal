@@ -1,6 +1,7 @@
 import type { AppDetail } from '../../api/types'
 import { copyText } from './helpers'
-import { DEMO_STATS, DEMO_FEED, DEMO_QUICKSTART } from './demo'
+import { describe as describeEvent } from './activity'
+import { DEMO_STATS, DEMO_QUICKSTART } from './demo'
 
 const STAT_ICONS: Record<string, string> = {
   pulse: 'M3 12h4l3 8 4-16 3 8h4',
@@ -73,15 +74,23 @@ export function OverviewTab({ detail, notify }: { detail: AppDetail; notify: (ms
         <div className="dcard">
           <div className="ch"><h3>Activité récente</h3></div>
           <div className="cb" style={{ paddingTop: 6, paddingBottom: 6 }}>
-            {/* DEMO feed — no activity log yet (see demo.ts) */}
-            <ul className="feed">
-              {DEMO_FEED.map(f => (
-                <li key={f.lead + f.when}>
-                  <span className="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path d={FEED_ICONS[f.icon]} strokeLinecap="round" strokeLinejoin="round" /></svg></span>
-                  <span className="ft"><b>{f.lead}</b>{f.rest}<small>{f.when}</small></span>
-                </li>
-              ))}
-            </ul>
+            {detail.events.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--muted)', padding: '14px 4px', lineHeight: 1.55 }}>
+                Aucune activité pour le moment. Abonnez-vous à une API pour démarrer.
+              </p>
+            ) : (
+              <ul className="feed">
+                {detail.events.map((e, i) => {
+                  const f = describeEvent(e)
+                  return (
+                    <li key={i}>
+                      <span className="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path d={FEED_ICONS[f.icon]} strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+                      <span className="ft"><b>{f.lead}</b>{f.rest}<small>{f.when}</small></span>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
           </div>
         </div>
       </div>
