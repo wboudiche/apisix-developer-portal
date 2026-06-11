@@ -14,7 +14,10 @@ deployment:
         key: edd1c9f034335f136f87ad84b625c8f1
         role: admin
     allow_admin:
-      - 0.0.0.0/0
+      - 127.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+      - 10.0.0.0/8
   etcd:
     host:
       - "http://etcd:2379"
