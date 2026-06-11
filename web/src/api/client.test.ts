@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getProducts, login, register, getPlans, getApplications, createApplication, getApplicationDetail, subscribe, adminGetProducts, adminCreateProduct, adminDeleteProduct, adminGetSubscriptions, adminApproveSubscription, ApiError, set401Handler } from './client'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { getProducts, login, register, getPlans, getApplications, createApplication, getApplicationDetail, subscribe, unsubscribe, adminGetProducts, adminCreateProduct, adminDeleteProduct, adminGetSubscriptions, adminApproveSubscription, ApiError, set401Handler, reset401Handler } from './client'
 
 beforeEach(() => { vi.restoreAllMocks() })
 
@@ -141,10 +141,9 @@ describe('ApiError', () => {
 })
 
 describe('401 handling', () => {
-  beforeEach(() => {
-    // Install a spy handler so we can assert on redirect without jsdom location issues
-    set401Handler(vi.fn())
-  })
+  // Each test installs its own spy via set401Handler; restore the real
+  // redirect afterwards so later tests never inherit a stale stub.
+  afterEach(() => { reset401Handler() })
 
   it('clears stored auth and calls the 401 handler on authed endpoint (parse path)', async () => {
     localStorage.setItem('token', 'jwt')
@@ -165,6 +164,18 @@ describe('401 handling', () => {
     set401Handler(handler)
     mockFetch(401, { error: 'invalid token' })
     await expect(adminDeleteProduct('jwt', 1)).rejects.toBeInstanceOf(ApiError)
+    expect(localStorage.getItem('token')).toBeNull()
+    expect(localStorage.getItem('user')).toBeNull()
+    expect(handler).toHaveBeenCalledOnce()
+  })
+
+  it('clears stored auth and calls the 401 handler on unsubscribe (inline path)', async () => {
+    localStorage.setItem('token', 'jwt')
+    localStorage.setItem('user', '{"id":1}')
+    const handler = vi.fn()
+    set401Handler(handler)
+    mockFetch(401, { error: 'invalid token' })
+    await expect(unsubscribe('jwt', 9, 3)).rejects.toBeInstanceOf(ApiError)
     expect(localStorage.getItem('token')).toBeNull()
     expect(localStorage.getItem('user')).toBeNull()
     expect(handler).toHaveBeenCalledOnce()

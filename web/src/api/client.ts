@@ -12,15 +12,22 @@ export class ApiError extends Error {
 
 // Injectable redirect function — defaults to navigating to /login. Replaced in
 // tests via set401Handler() to avoid jsdom location stub issues.
-let _redirectToLogin: () => void = () => {
+function defaultRedirectToLogin(): void {
   if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
     window.location.href = '/login'
   }
 }
 
+let _redirectToLogin: () => void = defaultRedirectToLogin
+
 /** Override the redirect action (used in tests to spy on 401 handling). */
 export function set401Handler(fn: () => void): void {
   _redirectToLogin = fn
+}
+
+/** Restore the default redirect (tests must call this after stubbing). */
+export function reset401Handler(): void {
+  _redirectToLogin = defaultRedirectToLogin
 }
 
 // Auth endpoints that must NOT trigger the 401 handler: a wrong-password login
