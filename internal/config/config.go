@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
@@ -83,6 +84,11 @@ func (c Config) Validate() error {
 	}
 	if len(c.JWTSecret) < 32 {
 		return fmt.Errorf("JWT_SECRET must be at least 32 bytes in %q environment", c.Env)
+	}
+	// Same shape check crypto.New applies at boot — done here so a malformed
+	// key fails fast with a config error instead of mid-startup.
+	if key, err := base64.StdEncoding.DecodeString(c.CredentialEncKey); err != nil || len(key) != 32 {
+		return fmt.Errorf("CREDENTIAL_ENC_KEY must be base64 of 32 raw bytes (openssl rand -base64 32) in %q environment", c.Env)
 	}
 	return nil
 }
