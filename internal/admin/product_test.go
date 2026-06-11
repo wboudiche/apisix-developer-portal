@@ -56,7 +56,7 @@ func stubResolver(t *testing.T, table map[string][]net.IP) {
 }
 
 func TestValidUpstreamBlocksPrivateByDefault(t *testing.T) {
-	for _, h := range []string{"127.0.0.1:80", "[::1]:80", "169.254.169.254:80", "10.0.0.5:8080", "192.168.1.1:9000", "localhost:8080"} {
+	for _, h := range []string{"127.0.0.1:80", "[::1]:80", "169.254.169.254:80", "10.0.0.5:8080", "192.168.1.1:9000", "localhost:8080", "echo:8080"} {
 		if ValidUpstream(h, false) {
 			t.Fatalf("%s must be rejected when private targets are blocked", h)
 		}
@@ -91,7 +91,7 @@ func TestValidUpstreamAllowsPrivateWithFlag(t *testing.T) {
 
 func TestValidContextPath(t *testing.T) {
 	ok := []string{"/orders", "/v1/orders", "/a-b_c"}
-	bad := []string{"orders", "/orders/*", "/orders ", "/", "//x", "/a;b"}
+	bad := []string{"orders", "/orders/*", "/orders ", "/", "//x", "/a;b", "/orders/"}
 	for _, p := range ok {
 		if !ValidContextPath(p) {
 			t.Fatalf("%q should be valid", p)
