@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"apisix-portal/internal/config"
+	"apisix-portal/internal/crypto"
 	"apisix-portal/internal/db"
 )
 
@@ -36,7 +38,11 @@ func testRepo(t *testing.T) (context.Context, *Repo, int64) {
 		`INSERT INTO applications(owner_id,name) VALUES($1,'CredApp') RETURNING id`, uid).Scan(&appID); err != nil {
 		t.Fatalf("seed app: %v", err)
 	}
-	return ctx, NewRepo(pool), appID
+	cipher, err := crypto.New(config.DevCredentialEncKey)
+	if err != nil {
+		t.Fatalf("cipher: %v", err)
+	}
+	return ctx, NewRepo(pool, cipher), appID
 }
 
 func TestGetOrCreateCredentialIsIdempotent(t *testing.T) {

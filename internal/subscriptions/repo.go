@@ -8,18 +8,29 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"apisix-portal/internal/crypto"
 )
 
 var ErrNotFound = errors.New("not found")
 
-type Repo struct{ pool *pgxpool.Pool }
+type Repo struct {
+	pool   *pgxpool.Pool
+	cipher *crypto.Cipher
+}
 
-func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
+func NewRepo(pool *pgxpool.Pool, cipher *crypto.Cipher) *Repo {
+	return &Repo{pool: pool, cipher: cipher}
+}
 
-// GenerateKey returns a random 32-hex-char API key.
+// GenerateKey returns a random 32-hex-char API key. It panics if the system
+// CSPRNG fails (an unrecoverable entropy outage) rather than emitting a
+// predictable all-zero key.
 func GenerateKey() string {
 	b := make([]byte, 16)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic("subscriptions: crypto/rand failed: " + err.Error())
+	}
 	return hex.EncodeToString(b)
 }
 
@@ -27,15 +38,27 @@ func (r *Repo) GetOrCreateCredential(ctx context.Context, appID int64, genKey fu
 	// Atomic upsert: one credential per application, race-safe across concurrent
 	// subscribe calls. ON CONFLICT performs a no-op UPDATE so RETURNING yields the
 	// existing row; a freshly generated key on a losing INSERT is simply discarded.
-	want := Credential{ApplicationID: appID, APIKey: genKey(), ConsumerUsername: consumerName(appID)}
+	plain := genKey()
+	encKey, err := r.cipher.Encrypt(plain)
+	if err != nil {
+		return Credential{}, err
+	}
 	var c Credential
-	err := r.pool.QueryRow(ctx,
+	var stored string
+	err = r.pool.QueryRow(ctx,
 		`INSERT INTO credentials(application_id, api_key, consumer_username) VALUES($1,$2,$3)
 		 ON CONFLICT (application_id) DO UPDATE SET application_id = credentials.application_id
 		 RETURNING application_id, api_key, consumer_username`,
-		want.ApplicationID, want.APIKey, want.ConsumerUsername,
-	).Scan(&c.ApplicationID, &c.APIKey, &c.ConsumerUsername)
-	return c, err
+		appID, encKey, consumerName(appID),
+	).Scan(&c.ApplicationID, &stored, &c.ConsumerUsername)
+	if err != nil {
+		return Credential{}, err
+	}
+	c.APIKey, err = r.cipher.Decrypt(stored)
+	if err != nil {
+		return Credential{}, err
+	}
+	return c, nil
 }
 
 func (r *Repo) GetProduct(ctx context.Context, id int64) (ProductInfo, error) {
@@ -110,9 +133,15 @@ func (r *Repo) ConsumersForPlan(ctx context.Context, planID int64) ([]Credential
 	var out []Credential
 	for rows.Next() {
 		var c Credential
-		if err := rows.Scan(&c.ApplicationID, &c.APIKey, &c.ConsumerUsername); err != nil {
+		var stored string
+		if err := rows.Scan(&c.ApplicationID, &stored, &c.ConsumerUsername); err != nil {
 			return nil, err
 		}
+		plain, err := r.cipher.Decrypt(stored)
+		if err != nil {
+			return nil, err
+		}
+		c.APIKey = plain
 		out = append(out, c)
 	}
 	return out, rows.Err()
@@ -123,13 +152,22 @@ var _ Store = (*Repo)(nil)
 // GetCredential returns the application's credential, or ErrNotFound if it has none yet.
 func (r *Repo) GetCredential(ctx context.Context, appID int64) (Credential, error) {
 	var c Credential
+	var stored string
 	err := r.pool.QueryRow(ctx,
 		`SELECT application_id, api_key, consumer_username FROM credentials WHERE application_id=$1`, appID,
-	).Scan(&c.ApplicationID, &c.APIKey, &c.ConsumerUsername)
+	).Scan(&c.ApplicationID, &stored, &c.ConsumerUsername)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Credential{}, ErrNotFound
 	}
-	return c, err
+	if err != nil {
+		return Credential{}, err
+	}
+	plain, err := r.cipher.Decrypt(stored)
+	if err != nil {
+		return Credential{}, err
+	}
+	c.APIKey = plain
+	return c, nil
 }
 
 // SubscriptionsForApp returns the application's subscriptions for display,

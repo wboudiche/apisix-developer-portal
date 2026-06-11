@@ -14,6 +14,7 @@ import (
 	"apisix-portal/internal/auth"
 	"apisix-portal/internal/catalog"
 	"apisix-portal/internal/config"
+	"apisix-portal/internal/crypto"
 	"apisix-portal/internal/httpx"
 	"apisix-portal/internal/plans"
 	"apisix-portal/internal/subscriptions"
@@ -37,7 +38,11 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	plansH := plans.NewHandler(plans.NewRepo(pool))
 	appsRepo := applications.NewRepo(pool)
 	appsH := applications.NewHandler(appsRepo)
-	subRepo := subscriptions.NewRepo(pool)
+	cipher, err := crypto.New(cfg.CredentialEncKey)
+	if err != nil {
+		log.Fatalf("credential cipher: %v", err)
+	}
+	subRepo := subscriptions.NewRepo(pool, cipher)
 	subSvc := subscriptions.NewService(subRepo, gw, subscriptions.GenerateKey)
 	owns := func(ctx context.Context, appID, userID int64) (bool, error) {
 		if _, err := appsRepo.Get(ctx, appID, userID); err != nil {
