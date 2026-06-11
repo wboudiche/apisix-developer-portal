@@ -50,6 +50,18 @@
 }
 .topbar .icon-btn:hover{color:var(--fg);border-color:var(--accent);background:var(--accent-soft)}
 .topbar .icon-btn svg{width:18px;height:18px}
+
+/* Logged-out CTA: a real text pill (not the 38px square icon-btn, which would
+   clip the label and overflow the bar). Height-matched to the icon buttons. */
+.login-cta{
+  flex:none;white-space:nowrap;
+  height:38px;padding:0 18px;border-radius:10px;
+  display:inline-flex;align-items:center;
+  font-size:14px;font-weight:600;
+  background:linear-gradient(150deg,var(--accent),var(--accent-d));color:#fff;
+  box-shadow:0 4px 14px oklch(55% 0.205 27 /.28);transition:.15s;
+}
+.login-cta:hover{filter:brightness(1.05);box-shadow:0 6px 18px oklch(55% 0.205 27 /.36)}
 /* ── User trigger ──────────────────────────────────────────────────────────── */
 .usermenu-wrap{position:relative}
 .user{

@@ -247,7 +247,7 @@ export function TopBar({
           )}
         </div>
       ) : (
-        <Link className="icon-btn" to="/login" aria-label="Connexion">Connexion</Link>
+        <Link className="login-cta" to="/login">Connexion</Link>
       )}
     </header>
   )
