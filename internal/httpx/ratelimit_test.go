@@ -2,6 +2,7 @@ package httpx_test
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -58,6 +59,79 @@ func TestRateLimiterIsolatesByIP(t *testing.T) {
 	}
 	if call("1.1.1.1") != http.StatusTooManyRequests {
 		t.Fatal("second call from same IP must 429")
+	}
+}
+
+func TestRateLimiterTrustsXFFOnlyFromTrustedProxy(t *testing.T) {
+	mustCIDRs := func(csv string) []*net.IPNet {
+		nets, err := httpx.ParseProxyCIDRs(csv)
+		if err != nil {
+			t.Fatalf("parse %q: %v", csv, err)
+		}
+		return nets
+	}
+
+	// Limiter behind a trusted proxy: requests arrive with RemoteAddr = proxy,
+	// and the real client must be read from X-Forwarded-For so distinct clients
+	// stay isolated instead of sharing one bucket.
+	rl := httpx.NewRateLimiter(1, 0)
+	rl.SetTrustedProxies(mustCIDRs("10.0.0.0/8"))
+	h := rl.Middleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }))
+	call := func(xff string) int {
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/login", nil)
+		req.RemoteAddr = "10.1.2.3:9999" // the trusted proxy
+		req.Header.Set("X-Forwarded-For", xff)
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		return rr.Code
+	}
+	if call("203.0.113.1") != 200 || call("203.0.113.2") != 200 {
+		t.Fatal("distinct real clients (via XFF) must each get their own bucket")
+	}
+	if call("203.0.113.1") != http.StatusTooManyRequests {
+		t.Fatal("second request from the same real client must 429")
+	}
+	// A multi-hop chain "client, innerproxy(10.x)": the rightmost non-trusted
+	// entry is the real client.
+	if call("198.51.100.7, 10.9.9.9") != 200 {
+		t.Fatal("rightmost untrusted XFF entry should be the bucket key")
+	}
+	if call("198.51.100.7, 10.9.9.9") != http.StatusTooManyRequests {
+		t.Fatal("same real client through a proxy chain must 429 on repeat")
+	}
+}
+
+func TestRateLimiterIgnoresXFFFromUntrustedPeer(t *testing.T) {
+	// No trusted proxies configured: a spoofed XFF must be ignored and the
+	// peer (RemoteAddr) used, so an attacker can't dodge the limit by rotating
+	// the header.
+	rl := httpx.NewRateLimiter(1, 0)
+	h := rl.Middleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }))
+	call := func(xff string) int {
+		req := httptest.NewRequest(http.MethodPost, "/x", nil)
+		req.RemoteAddr = "203.0.113.9:4444"
+		req.Header.Set("X-Forwarded-For", xff)
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		return rr.Code
+	}
+	if call("1.1.1.1") != 200 {
+		t.Fatal("first request must pass")
+	}
+	if call("2.2.2.2") != http.StatusTooManyRequests {
+		t.Fatal("a rotated spoofed XFF must NOT mint a new bucket when no proxy is trusted")
+	}
+}
+
+func TestParseProxyCIDRs(t *testing.T) {
+	if nets, err := httpx.ParseProxyCIDRs(""); err != nil || nets != nil {
+		t.Fatalf("empty input must yield (nil, nil); got %v %v", nets, err)
+	}
+	if _, err := httpx.ParseProxyCIDRs("10.0.0.0/8, 127.0.0.1/32"); err != nil {
+		t.Fatalf("valid CIDR list must parse: %v", err)
+	}
+	if _, err := httpx.ParseProxyCIDRs("not-a-cidr"); err == nil {
+		t.Fatal("malformed CIDR must error")
 	}
 }
 

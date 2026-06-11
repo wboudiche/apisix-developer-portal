@@ -39,6 +39,13 @@ API keys are now stored AES-GCM-encrypted. A database created **before** that
 change holds plaintext rows that fail decryption — recreate the dev DB once
 with `docker compose down -v && make up`.
 
+When the portal runs behind a reverse proxy in production, set
+`TRUSTED_PROXIES` to the proxy's CIDR(s) (comma-separated, e.g.
+`TRUSTED_PROXIES=10.0.0.0/8`). The per-IP auth rate limiter then reads the real
+client IP from `X-Forwarded-For` instead of bucketing every request under the
+proxy's address. Leave it unset for a directly-exposed server (local dev) so
+`X-Forwarded-For` is ignored and can't be spoofed.
+
 Covers: publish a product + plan → developer subscribes → admin approves →
 gateway 401 (no key) / 200 (key) / 429 (over the plan limit) → unsubscribe 403
 → delete-with-active-subscription 409, plus authorization negatives

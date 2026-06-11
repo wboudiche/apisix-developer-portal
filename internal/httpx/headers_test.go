@@ -1,6 +1,7 @@
 package httpx_test
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -45,5 +46,27 @@ func TestAPIResponsesAreNoStore(t *testing.T) {
 	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 	if rr.Header().Get("Cache-Control") != "" {
 		t.Fatal("non-API paths must not be forced no-store")
+	}
+}
+
+func TestMaxBodyBytesCapsRequestBody(t *testing.T) {
+	var readErr error
+	h := httpx.MaxBodyBytes(16)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, readErr = io.ReadAll(r.Body)
+		w.WriteHeader(200)
+	}))
+
+	// Within the limit: reads cleanly.
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/x", strings.NewReader("0123456789")))
+	if readErr != nil {
+		t.Fatalf("body under the limit must read without error, got %v", readErr)
+	}
+
+	// Over the limit: the handler's read fails (oversized body rejected).
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/x", strings.NewReader(strings.Repeat("A", 1000))))
+	if readErr == nil {
+		t.Fatal("a body over the cap must surface a read error to the handler")
 	}
 }

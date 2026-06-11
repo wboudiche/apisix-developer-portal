@@ -1,10 +1,12 @@
 package httpx
 
 import (
+	"fmt"
 	"math"
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -28,6 +30,7 @@ type RateLimiter struct {
 	retryAfter string  // seconds, precomputed for the 429 header
 	now        func() time.Time
 	lastSweep  time.Time
+	trusted    []*net.IPNet // proxy CIDRs whose X-Forwarded-For we honor
 }
 
 type bucket struct {
@@ -62,6 +65,40 @@ func (rl *RateLimiter) SetNow(fn func() time.Time) {
 	rl.now = fn
 }
 
+// SetTrustedProxies tells the limiter which immediate-peer CIDRs are trusted
+// reverse proxies. Only when the direct peer (RemoteAddr) is in one of these
+// will X-Forwarded-For be consulted to recover the real client IP — so a
+// spoofed XFF from an untrusted client is ignored. Empty (the default) means
+// RemoteAddr is always used as-is.
+func (rl *RateLimiter) SetTrustedProxies(cidrs []*net.IPNet) {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	rl.trusted = cidrs
+}
+
+// ParseProxyCIDRs parses a comma-separated list of CIDRs (e.g.
+// "10.0.0.0/8,127.0.0.1/32") for use with SetTrustedProxies. Empty input
+// yields a nil slice and no error.
+func ParseProxyCIDRs(csv string) ([]*net.IPNet, error) {
+	csv = strings.TrimSpace(csv)
+	if csv == "" {
+		return nil, nil
+	}
+	var out []*net.IPNet
+	for _, part := range strings.Split(csv, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		_, ipnet, err := net.ParseCIDR(part)
+		if err != nil {
+			return nil, fmt.Errorf("trusted proxy CIDR %q: %w", part, err)
+		}
+		out = append(out, ipnet)
+	}
+	return out, nil
+}
+
 // Len reports the number of tracked buckets. Test hook only.
 func (rl *RateLimiter) Len() int {
 	rl.mu.Lock()
@@ -69,10 +106,43 @@ func (rl *RateLimiter) Len() int {
 	return len(rl.buckets)
 }
 
-func clientIP(r *http.Request) string {
+func ipInAny(ip string, nets []*net.IPNet) bool {
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+	for _, n := range nets {
+		if n.Contains(parsed) {
+			return true
+		}
+	}
+	return false
+}
+
+// clientIP returns the key the limiter buckets on. Normally this is the direct
+// peer (RemoteAddr). Only when the peer is a trusted proxy do we walk
+// X-Forwarded-For right-to-left and return the first address that isn't itself
+// a trusted proxy — the real client behind the proxy chain. This keeps XFF
+// unspoofable from untrusted peers while restoring per-client isolation when
+// the portal runs behind a TLS-terminating reverse proxy.
+func clientIP(r *http.Request, trusted []*net.IPNet) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
+	}
+	if len(trusted) == 0 || !ipInAny(host, trusted) {
+		return host
+	}
+	var parts []string
+	for _, v := range r.Header.Values("X-Forwarded-For") {
+		for _, p := range strings.Split(v, ",") {
+			parts = append(parts, strings.TrimSpace(p))
+		}
+	}
+	for i := len(parts) - 1; i >= 0; i-- {
+		if parts[i] != "" && !ipInAny(parts[i], trusted) {
+			return parts[i]
+		}
 	}
 	return host
 }
@@ -115,7 +185,10 @@ func (rl *RateLimiter) RetryAfter() string { return rl.retryAfter }
 func (rl *RateLimiter) Middleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !rl.Allow(clientIP(r)) {
+			rl.mu.Lock()
+			trusted := rl.trusted
+			rl.mu.Unlock()
+			if !rl.Allow(clientIP(r, trusted)) {
 				if ra := rl.RetryAfter(); ra != "" {
 					w.Header().Set("Retry-After", ra)
 				}

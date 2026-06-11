@@ -31,3 +31,18 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// MaxBodyBytes caps every request body at n bytes. A handler reading past the
+// limit gets an error from the decoder (handled as a 400), so an oversized POST
+// can't force unbounded allocation. GET/HEAD bodies are absent, so this is a
+// no-op for them.
+func MaxBodyBytes(n int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Body != nil {
+				r.Body = http.MaxBytesReader(w, r.Body, n)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}

@@ -31,6 +31,13 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	authRepo := auth.NewRepo(pool)
 	ipLimiter := httpx.NewRateLimiter(10, 0.5)    // per client IP, all /api/auth/ endpoints
 	loginLimiter := httpx.NewRateLimiter(10, 0.5) // per account (email), login only
+	if proxies, err := httpx.ParseProxyCIDRs(cfg.TrustedProxies); err != nil {
+		log.Fatalf("TRUSTED_PROXIES: %v", err)
+	} else if proxies != nil {
+		// Behind a reverse proxy, RemoteAddr is the proxy; honor its
+		// X-Forwarded-For so per-IP limiting isolates real clients.
+		ipLimiter.SetTrustedProxies(proxies)
+	}
 	authH := auth.NewHandler(authRepo, tok, loginLimiter)
 	if err := authRepo.EnsureAdminRole(ctx, cfg.AdminEmail); err != nil {
 		log.Printf("seed admin role (%s): %v", cfg.AdminEmail, err)
@@ -79,7 +86,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	mux.Handle("/api/admin/subscriptions", requireAdmin(subAdminH))
 	mux.Handle("/api/admin/subscriptions/", requireAdmin(subAdminH))
 
-	return httpx.SecurityHeaders(logRequests(mux))
+	return httpx.SecurityHeaders(httpx.MaxBodyBytes(1<<20)(logRequests(mux)))
 }
 
 type statusRecorder struct {

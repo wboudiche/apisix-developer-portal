@@ -22,6 +22,7 @@ type Config struct {
 	AdminEmail       string
 	Env              string
 	CredentialEncKey string
+	TrustedProxies   string // comma-separated CIDRs whose X-Forwarded-For is trusted
 }
 
 func get(key, def string) string {
@@ -42,6 +43,7 @@ func Load() Config {
 		AdminEmail:       get("ADMIN_EMAIL", "admin@portal.local"),
 		Env:              get("PORTAL_ENV", ""),
 		CredentialEncKey: get("CREDENTIAL_ENC_KEY", DevCredentialEncKey),
+		TrustedProxies:   get("TRUSTED_PROXIES", ""),
 	}
 }
 
