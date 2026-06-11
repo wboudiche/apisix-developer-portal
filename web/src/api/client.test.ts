@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getProducts, login, register, getPlans, getApplications, createApplication, getApplicationDetail, subscribe, adminGetProducts, adminCreateProduct, adminDeleteProduct, adminGetSubscriptions, adminApproveSubscription, ApiError } from './client'
+import { getProducts, login, register, getPlans, getApplications, createApplication, getApplicationDetail, subscribe, adminGetProducts, adminCreateProduct, adminDeleteProduct, adminGetSubscriptions, adminApproveSubscription, ApiError, set401Handler } from './client'
 
 beforeEach(() => { vi.restoreAllMocks() })
 
@@ -137,5 +137,61 @@ describe('ApiError', () => {
       expect((e as ApiError).status).toBe(409)
       expect((e as ApiError).message).toBe('product has active subscriptions')
     }
+  })
+})
+
+describe('401 handling', () => {
+  beforeEach(() => {
+    // Install a spy handler so we can assert on redirect without jsdom location issues
+    set401Handler(vi.fn())
+  })
+
+  it('clears stored auth and calls the 401 handler on authed endpoint (parse path)', async () => {
+    localStorage.setItem('token', 'jwt')
+    localStorage.setItem('user', '{"id":1}')
+    const handler = vi.fn()
+    set401Handler(handler)
+    mockFetch(401, { error: 'invalid token' })
+    await expect(getApplications('jwt')).rejects.toBeInstanceOf(ApiError)
+    expect(localStorage.getItem('token')).toBeNull()
+    expect(localStorage.getItem('user')).toBeNull()
+    expect(handler).toHaveBeenCalledOnce()
+  })
+
+  it('clears stored auth and calls the 401 handler on sendAuthed path (adminDeleteProduct)', async () => {
+    localStorage.setItem('token', 'jwt')
+    localStorage.setItem('user', '{"id":1}')
+    const handler = vi.fn()
+    set401Handler(handler)
+    mockFetch(401, { error: 'invalid token' })
+    await expect(adminDeleteProduct('jwt', 1)).rejects.toBeInstanceOf(ApiError)
+    expect(localStorage.getItem('token')).toBeNull()
+    expect(localStorage.getItem('user')).toBeNull()
+    expect(handler).toHaveBeenCalledOnce()
+  })
+
+  it('does NOT clear auth or call handler on a 401 from login (auth endpoint exemption)', async () => {
+    localStorage.setItem('token', 'jwt')
+    localStorage.setItem('user', '{"id":1}')
+    const handler = vi.fn()
+    set401Handler(handler)
+    mockFetch(401, { error: 'invalid credentials' })
+    await expect(login('bad@user.com', 'wrongpass')).rejects.toBeInstanceOf(ApiError)
+    // token and user must NOT be cleared — a wrong-password login should not log the user out
+    expect(localStorage.getItem('token')).toBe('jwt')
+    expect(localStorage.getItem('user')).toBe('{"id":1}')
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('does NOT clear auth or call handler on a 401 from register (auth endpoint exemption)', async () => {
+    localStorage.setItem('token', 'jwt')
+    localStorage.setItem('user', '{"id":1}')
+    const handler = vi.fn()
+    set401Handler(handler)
+    mockFetch(401, { error: 'invalid credentials' })
+    await expect(register('bad@user.com', 'wrongpass', 'User')).rejects.toBeInstanceOf(ApiError)
+    expect(localStorage.getItem('token')).toBe('jwt')
+    expect(localStorage.getItem('user')).toBe('{"id":1}')
+    expect(handler).not.toHaveBeenCalled()
   })
 })
