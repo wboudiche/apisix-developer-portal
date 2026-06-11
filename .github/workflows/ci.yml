@@ -52,7 +52,7 @@ jobs:
             sleep 2
           done
       - name: E2E
-        run: RUN_E2E=1 go test ./internal/e2e/... -count=1 -v
+        run: PORTAL_ENV=dev UPSTREAM_ALLOW_PRIVATE=1 RUN_E2E=1 go test ./internal/e2e/... -count=1 -v
       - name: Stack logs on failure
         if: failure()
         run: docker compose logs
