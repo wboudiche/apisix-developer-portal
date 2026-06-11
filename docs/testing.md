@@ -7,7 +7,7 @@ Three layers, fastest first.
 - **Backend:** `make test` (`go test ./internal/... ./cmd/...`). Package tests
   with a faked `apisix.Gateway`. DB-backed repo tests **skip** when
   `DATABASE_URL` is unset; with a database up they run.
-- **Frontend:** `cd web && npx vitest run` — 147 component tests with the API
+- **Frontend:** `cd web && npx vitest run` — component tests with the API
   mocked, plus `npx tsc -b` and `npm run build`.
 
 These need no docker stack and run in seconds. They do **not** cross the
@@ -22,10 +22,22 @@ runs in the hermetic suite.
 
 ```sh
 make up            # postgres, etcd, apisix, echo
-make test-e2e      # RUN_E2E=1 go test ./internal/e2e/...
+make test-e2e      # PORTAL_ENV=dev UPSTREAM_ALLOW_PRIVATE=1 RUN_E2E=1 go test ./internal/e2e/...
 # or one shot:
 make e2e           # up + wait + test-e2e
 ```
+
+Since the 2026-06 security hardening, local E2E (and `make run`) need two env
+vars, which the Makefile targets set for you:
+
+- `PORTAL_ENV=dev` — an unset env is now treated as **production**, which
+  refuses the built-in dev secrets at boot.
+- `UPSTREAM_ALLOW_PRIVATE=1` — the SSRF guard otherwise rejects products whose
+  upstream is a docker-internal/private host like `echo:8080`.
+
+API keys are now stored AES-GCM-encrypted. A database created **before** that
+change holds plaintext rows that fail decryption — recreate the dev DB once
+with `docker compose down -v && make up`.
 
 Covers: publish a product + plan → developer subscribes → admin approves →
 gateway 401 (no key) / 200 (key) / 429 (over the plan limit) → unsubscribe 403

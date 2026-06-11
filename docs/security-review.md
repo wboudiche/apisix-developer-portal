@@ -218,23 +218,47 @@ call; carries no token/key) — self-host to remove the dependency.
 
 ## Remediation checklist
 
-Priority order. Status is updated as fixes land.
+Priority order. Status is updated as fixes land (2026-06-11: all code/config
+items remediated on the `security-hardening` branch; see notes below the table).
 
 | # | Severity | Item | Type | Status |
 |---|----------|------|------|--------|
-| C1 | Critical | Un-publish APISIX admin port; restrict `allow_admin`; rotate key | config | ☐ |
-| H1 | High | Fail-closed dev-secret guard + min JWT secret length | code | ☐ |
-| H3 | High | Rate limiting on auth endpoints | code | ☐ |
-| H4 | High | Block loopback/private ranges in `validUpstream` | code | ☐ |
-| H5 | High | Re-check admin role from DB in `RequireAdmin` | code | ☐ |
+| C1 | Critical | Bind admin port to loopback; restrict `allow_admin` | config | ☑ |
+| H1 | High | Fail-closed dev-secret guard + min JWT secret length | code | ☑ |
+| H3 | High | Rate limiting on auth endpoints | code | ☑ |
+| H4 | High | Block loopback/private ranges in `validUpstream` | code | ☑ |
+| H5 | High | Re-check admin role from DB in `RequireAdmin` | code | ☑ |
 | H2 | High | TLS termination (portal/gateway/admin/DB) | deployment | ☐ (documented) |
-| M1 | Medium | Validate + de-overlap `contextPath` | code | ☐ |
-| M2 | Medium | Security-headers middleware (+ CSP) | code | ☐ |
-| M3 | Medium | Neutralize register enumeration + login timing | code | ☐ |
-| M4 | Medium | Client-side `401 → logout` | code | ☐ |
-| M5 | Medium | Prod DB password / don't expose 5432 / DB TLS | config | ☐ |
-| M6 | Medium | Password policy + 72-byte handling | code | ☐ |
-| L1 | Low | Propagate `crypto/rand` error in `GenerateKey` | code | ☐ |
-| L2 | Low | Hash stored API keys | code | ☐ |
-| L3 | Low | bcrypt cost → 12 | code | ☐ |
+| M1 | Medium | Validate + de-overlap `contextPath` | code | ☑ |
+| M2 | Medium | Security-headers middleware (+ CSP) | code | ☑ |
+| M3 | Medium | Neutralize login timing oracle | code | ☑ |
+| M4 | Medium | Client-side `401 → logout` | code | ☑ |
+| M5 | Medium | Dev: 5432 bound to loopback ☑ / prod DB password + TLS | config | ☐ (documented) |
+| M6 | Medium | Password policy + 72-byte handling | code | ☑ |
+| L1 | Low | Propagate `crypto/rand` error in `GenerateKey` | code | ☑ |
+| L2 | Low | Encrypt stored API keys at rest (AES-256-GCM) | code | ☑ |
+| L3 | Low | bcrypt cost → 12 | code | ☑ |
 | L4 | Low | Commit web lockfile; self-host fonts | build | ☐ |
+
+Implementation notes (deviations from the original "Fix" wording, agreed in the
+2026-06-08 hardening spec):
+
+- **C1** — the admin port stays published but bound to `127.0.0.1` (the E2E and
+  integration suites reach it at `localhost:19180`); `allow_admin` is loopback
+  + the RFC1918 ranges instead of any-source. Prod guidance unchanged: don't
+  publish the port at all, inject a rotated key.
+- **H4** — IP literals and resolved hostname addresses are both checked
+  (stubbable `lookupIP`, fail closed); `UPSTREAM_ALLOW_PRIVATE=1` is the dev
+  escape hatch for docker-internal upstreams. Residual: validation-time DNS is
+  TOCTOU (rebinding) — long-term fix is an operator upstream allow-list.
+- **H5** — only the admin-role DB re-check was implemented; full token
+  revocation/refresh remains future work.
+- **M3** — the login timing oracle is closed (dummy bcrypt compare on absent
+  users + per-account rate limit). Register deliberately keeps its distinct
+  409 as a UX trade-off; the rate limiter blunts bulk enumeration through it.
+- **L2** — implemented as **AES-256-GCM encryption at rest** (`v1:`-prefixed
+  ciphertext, `CREDENTIAL_ENC_KEY` = base64 of 32 random bytes), *not* the
+  originally suggested hash-and-show-once: the portal must re-display the key
+  (CredentialsTab, quickstart) and re-provision APISIX consumers with it, so
+  it has to stay recoverable. Pre-encryption plaintext rows fail decryption
+  with a clear error — recreate dev DBs (`docker compose down -v`).
