@@ -36,6 +36,11 @@ func main() {
 	}
 
 	gw := apisix.NewClient(cfg.APISIXAdminURL, cfg.APISIXAdminKey)
+	// Best-effort: enable gateway request metrics for the KPI cards. A failure
+	// here only means the metrics endpoint stays empty; the portal still runs.
+	if err := gw.EnsureGlobalPrometheus(ctx); err != nil {
+		log.Printf("enable gateway prometheus metrics: %v", err)
+	}
 	handler := server.New(ctx, pool, cfg, gw)
 
 	srv := &http.Server{

@@ -1,0 +1,11 @@
+# Scrapes APISIX's Prometheus plugin endpoint. Short interval so the portal's
+# KPI cards reflect gateway traffic within a few seconds in the dev stack.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: apisix
+    metrics_path: /apisix/prometheus/metrics
+    static_configs:
+      - targets: ["apisix:9091"]

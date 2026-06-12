@@ -116,4 +116,14 @@ func (c *Client) DeleteRoute(ctx context.Context, routeID string) error {
 	return nil
 }
 
+// EnsureGlobalPrometheus installs a global rule that enables the prometheus
+// plugin on every route, so the gateway emits per-route/per-consumer request
+// metrics for the portal's KPI cards. Idempotent (PUT with a fixed id); called
+// best-effort at startup. The metrics are scraped by Prometheus from
+// apisix:9091 (see deploy/apisix/config.yaml + deploy/prometheus).
+func (c *Client) EnsureGlobalPrometheus(ctx context.Context) error {
+	body := map[string]any{"plugins": map[string]any{"prometheus": map[string]any{}}}
+	return c.do(ctx, http.MethodPut, "/apisix/admin/global_rules/portal-prometheus", body)
+}
+
 var _ Gateway = (*Client)(nil)

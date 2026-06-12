@@ -33,3 +33,13 @@ services:
     image: mendhak/http-https-echo:31
     environment:
       HTTP_PORT: "8080"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    depends_on: [apisix]
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    # Loopback-only: the host-run portal queries it at localhost:9099; never
+    # exposed off-box (same posture as the admin/DB ports). Host 9090 is left
+    # for other local stacks; container still listens on 9090.
+    ports: ["127.0.0.1:9099:9090"]

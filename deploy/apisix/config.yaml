@@ -7,6 +7,14 @@ nginx_config:
 apisix:
   node_listen: 9080
   enable_admin: true
+# Expose the Prometheus plugin's metrics on all interfaces inside the container
+# (default bind is 127.0.0.1, unreachable from the prometheus container) so the
+# prometheus service can scrape apisix:9091/apisix/prometheus/metrics.
+plugin_attr:
+  prometheus:
+    export_addr:
+      ip: "0.0.0.0"
+      port: 9091
 deployment:
   admin:
     admin_key:
