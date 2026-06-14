@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { getProducts, login, register, getPlans, getApplications, createApplication, getApplicationDetail, subscribe, unsubscribe, adminGetProducts, adminCreateProduct, adminDeleteProduct, adminGetSubscriptions, adminApproveSubscription, ApiError, set401Handler, reset401Handler } from './client'
+import { getProducts, login, register, getPlans, getApplications, createApplication, getApplicationDetail, getUsage, subscribe, unsubscribe, adminGetProducts, adminCreateProduct, adminDeleteProduct, adminGetSubscriptions, adminApproveSubscription, ApiError, set401Handler, reset401Handler } from './client'
 
 beforeEach(() => { vi.restoreAllMocks() })
 
@@ -85,6 +85,20 @@ describe('authenticated endpoints', () => {
   it('getPlans returns the array', async () => {
     mockFetch(200, [{ id: 1, name: 'Free', rateLimit: 60, windowSeconds: 60 }])
     expect(await getPlans()).toHaveLength(1)
+  })
+
+  it('getUsage GETs the usage URL with range + auth', async () => {
+    mockFetch(200, { summary: { requestsToday: 7, monthToDate: 0, p95Ms: 12, errorRate: 0 }, series: [] })
+    const u = await getUsage('tok', 9, '7d')
+    expect(u.summary.requestsToday).toBe(7)
+    const [url, opts] = (globalThis.fetch as any).mock.calls[0]
+    expect(url).toBe('/api/applications/9/usage?range=7d')
+    expect(opts.headers.Authorization).toBe('Bearer tok')
+  })
+
+  it('getUsage throws ApiError with the status when metrics are unavailable', async () => {
+    mockFetch(503, { error: 'metrics unavailable' })
+    await expect(getUsage('tok', 9, '24h')).rejects.toMatchObject({ status: 503 })
   })
 })
 

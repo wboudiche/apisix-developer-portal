@@ -146,6 +146,20 @@
 .appdetail .chart .col:hover .bw::after{opacity:1}
 .appdetail .chart .col small{font-family:var(--font-mono);font-size:11px;color:var(--faint)}
 
+/* Usage metrics: range selector, loading skeletons, unavailable/empty states. */
+.appdetail .rangesel{display:inline-flex;gap:2px;padding:3px;background:var(--bg);border:1px solid var(--border-2);border-radius:10px}
+.appdetail .rangesel button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);padding:5px 11px;border-radius:7px;cursor:pointer;transition:.14s}
+.appdetail .rangesel button:hover{color:var(--fg)}
+.appdetail .rangesel button.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow)}
+.appdetail .chart-cap{font-size:12.5px;color:var(--muted);margin-top:12px;font-variant-numeric:tabular-nums}
+.appdetail .usage-empty,.appdetail .usage-unavail{font-size:13.5px;color:var(--muted);padding:26px 4px;text-align:center;line-height:1.55}
+.appdetail .usage-unavail{color:var(--danger)}
+.appdetail .stat .v .skeleton{display:inline-block;width:64%;height:26px;border-radius:7px;vertical-align:-4px}
+.appdetail .skeleton,.appdetail .chart .col .bw.skeleton{background:linear-gradient(90deg,color-mix(in oklab,var(--fg) 6%,transparent) 25%,color-mix(in oklab,var(--fg) 12%,transparent) 37%,color-mix(in oklab,var(--fg) 6%,transparent) 63%);background-size:400% 100%;animation:usage-shimmer 1.4s ease infinite}
+.appdetail .chart .col .bw.skeleton{height:42%}
+@keyframes usage-shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.appdetail .skeleton{animation:none}}
+
 .appdetail .twocol{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;align-items:start}
 
 .appdetail .feed{list-style:none}

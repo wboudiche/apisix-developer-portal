@@ -1,4 +1,4 @@
-import type { Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail, AdminProduct, AdminSubscription } from './types'
+import type { Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail, AdminProduct, AdminSubscription, Usage, UsageRange } from './types'
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. 409 when
 // deleting a product that still has active subscriptions).
@@ -102,6 +102,11 @@ export async function createApplication(token: string, name: string, description
 export async function getApplicationDetail(token: string, appId: number): Promise<AppDetail> {
   const url = `/api/applications/${appId}`
   return parse<AppDetail>(await fetch(url, { headers: authHeaders(token) }), url)
+}
+
+export async function getUsage(token: string, appId: number, range: UsageRange): Promise<Usage> {
+  const url = `/api/applications/${appId}/usage?range=${range}`
+  return parse<Usage>(await fetch(url, { headers: authHeaders(token) }), url)
 }
 
 export async function subscribe(token: string, appId: number, productId: number, planId: number): Promise<Credential> {

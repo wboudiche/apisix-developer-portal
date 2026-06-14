@@ -4,8 +4,20 @@ import userEvent from '@testing-library/user-event'
 import { OverviewTab } from './OverviewTab'
 import { UsageTab } from './UsageTab'
 import { SettingsTab } from './SettingsTab'
-import type { AppDetail, Application } from '../../api/types'
+import type { AppDetail, Application, Usage } from '../../api/types'
 import type { ModalSpec } from '../../components/ConfirmModal'
+
+// Stub the metrics hook so these tab tests stay focused on the tab's own
+// concerns (quickstart, feed, chart presence); the cards/chart rendering itself
+// is covered by UsageCards/UsageChart tests.
+const stubUsage: Usage = {
+  summary: { requestsToday: 18402, monthToDate: 421000, p95Ms: 86, errorRate: 0.0021 },
+  series: [
+    { t: '2026-06-14T10:00:00Z', requests: 10, errors: 0 },
+    { t: '2026-06-14T11:00:00Z', requests: 20, errors: 1 },
+  ],
+}
+vi.mock('./useUsage', () => ({ useUsage: () => ({ status: 'ready', usage: stubUsage }) }))
 
 beforeEach(() => {
   Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } })
@@ -21,41 +33,39 @@ const detail: AppDetail = {
 }
 
 describe('OverviewTab', () => {
-  it('renders demo stats and a quickstart with the real gateway path + key', () => {
+  it('renders the real metric cards and a quickstart with the real gateway path + key', () => {
     const notify = vi.fn()
-    render(<OverviewTab detail={detail} notify={notify} />)
+    render(<OverviewTab detail={detail} token="t" appId={4} notify={notify} />)
     expect(screen.getByText("Requêtes · aujourd'hui")).toBeInTheDocument()
     expect(screen.getByText(/9080\/orders/)).toBeInTheDocument()
     expect(screen.getByText(/ax_live_real_key_0001/)).toBeInTheDocument()
   })
   it('falls back to blueprint sample without an active subscription', () => {
-    render(<OverviewTab detail={{ ...detail, subscriptions: [] }} notify={() => {}} />)
+    render(<OverviewTab detail={{ ...detail, subscriptions: [] }} token="t" appId={4} notify={() => {}} />)
     expect(screen.getByText(/ax_live_a3f9c1e7b240d8e5f6/)).toBeInTheDocument()
   })
   it('copy button copies the curl command', async () => {
     const notify = vi.fn()
-    render(<OverviewTab detail={detail} notify={notify} />)
+    render(<OverviewTab detail={detail} token="t" appId={4} notify={notify} />)
     await userEvent.click(screen.getByRole('button', { name: 'Copier' }))
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('ax_live_real_key_0001'))
     expect(notify).toHaveBeenCalledWith('Commande copiée')
   })
   it('renders the real activity feed from detail.events', () => {
-    render(<OverviewTab detail={detail} notify={() => {}} />)
+    render(<OverviewTab detail={detail} token="t" appId={4} notify={() => {}} />)
     expect(screen.getByText('Abonnement')).toBeInTheDocument()
     expect(screen.getByText(/à Orders API · plan Gold/)).toBeInTheDocument()
   })
   it('shows an empty state when there is no activity', () => {
-    render(<OverviewTab detail={{ ...detail, events: [] }} notify={() => {}} />)
+    render(<OverviewTab detail={{ ...detail, events: [] }} token="t" appId={4} notify={() => {}} />)
     expect(screen.getByText(/Aucune activité pour le moment/)).toBeInTheDocument()
   })
 })
 
 describe('UsageTab', () => {
-  it('renders 14 chart columns and the per-API demo table', () => {
-    render(<UsageTab />)
-    expect(screen.getAllByTestId('chart-col')).toHaveLength(14)
-    expect(screen.getByText('Orders API')).toBeInTheDocument()
-    expect(screen.getByText('248 910')).toBeInTheDocument()
+  it('renders the traffic chart (one column per series point)', () => {
+    render(<UsageTab token="t" appId={4} />)
+    expect(screen.getAllByTestId('chart-col')).toHaveLength(stubUsage.series.length)
   })
 })
 

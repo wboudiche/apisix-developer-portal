@@ -1,14 +1,10 @@
 import type { AppDetail } from '../../api/types'
 import { copyText } from './helpers'
 import { describe as describeEvent } from './activity'
-import { DEMO_STATS, DEMO_QUICKSTART } from './demo'
+import { DEMO_QUICKSTART } from './demo'
+import { useUsage } from './useUsage'
+import { UsageCards } from './UsageCards'
 
-const STAT_ICONS: Record<string, string> = {
-  pulse: 'M3 12h4l3 8 4-16 3 8h4',
-  calendar: 'M3 9h18M8 4v16M3 4h18v16H3z',
-  clock: 'M12 7v5l3 2M12 21a9 9 0 100-18 9 9 0 000 18z',
-  alert: 'M12 9v4M12 17h.01M10.3 4.3L2.5 18a2 2 0 001.7 3h15.6a2 2 0 001.7-3L13.7 4.3a2 2 0 00-3.4 0z',
-}
 const FEED_ICONS: Record<string, string> = {
   check: 'M20 6L9 17l-5-5',
   rotate: 'M21 2v6h-6M3 12a9 9 0 0115-6.7L21 8M3 22v-6h6M21 12a9 9 0 01-15 6.7L3 16',
@@ -16,15 +12,11 @@ const FEED_ICONS: Record<string, string> = {
   plus: 'M12 5v14M5 12h14',
 }
 
-function Arrow({ dir }: { dir: 'up' | 'down' }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
-      <path d={dir === 'up' ? 'M6 15l6-6 6 6' : 'M18 9l-6 6-6-6'} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
+export function OverviewTab({ detail, token, appId, notify }: { detail: AppDetail; token: string; appId: number; notify: (msg: string) => void }) {
+  // Cards load asynchronously so the page shell (quickstart, activity feed)
+  // renders immediately; the 24h window backs the "today"/p95/error cards.
+  const usage = useUsage(token, appId, '24h')
 
-export function OverviewTab({ detail, notify }: { detail: AppDetail; notify: (msg: string) => void }) {
   // Quickstart uses the first ACTIVE subscription's real gateway path + real key;
   // the blueprint sample otherwise.
   const active = detail.subscriptions.find(s => s.status === 'active')
@@ -38,19 +30,7 @@ export function OverviewTab({ detail, notify }: { detail: AppDetail; notify: (ms
 
   return (
     <section className="panel">
-      {/* DEMO metrics — no metrics pipeline yet (see demo.ts) */}
-      <div className="stats">
-        {DEMO_STATS.map(s => (
-          <div className="stat" key={s.label}>
-            <div className="k">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path d={STAT_ICONS[s.icon]} strokeLinecap="round" strokeLinejoin="round" /></svg>
-              {s.label}
-            </div>
-            <div className="v">{s.value}{s.unit && <> <small>{s.unit}</small></>}</div>
-            <div className={`d ${s.delta.dir}`}>{s.delta.arrow && <Arrow dir={s.delta.arrow} />}{s.delta.text}</div>
-          </div>
-        ))}
-      </div>
+      <UsageCards state={usage} />
 
       <div className="twocol">
         <div className="dcard">

@@ -169,10 +169,10 @@ export function AppDetailPage() {
 
         {detail && app && (
           <>
-            {tab === 'overview' && <OverviewTab detail={detail} notify={notify} />}
+            {tab === 'overview' && <OverviewTab detail={detail} token={token} appId={appId} notify={notify} />}
             {tab === 'creds' && <CredentialsTab apiKey={detail.apiKey} notify={notify} openModal={setModal} />}
             {tab === 'subs' && <SubscriptionsTab subs={subs} plans={plans} onResiliate={onResiliate} />}
-            {tab === 'usage' && <UsageTab />}
+            {tab === 'usage' && <UsageTab token={token} appId={appId} />}
             {tab === 'settings' && <SettingsTab app={app} notify={notify} openModal={setModal} />}
           </>
         )}

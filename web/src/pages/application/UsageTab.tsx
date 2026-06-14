@@ -1,47 +1,17 @@
-import { DEMO_CHART, DEMO_USAGE_ROWS } from './demo'
-import { frNum } from './helpers'
+import { useState } from 'react'
+import type { UsageRange } from '../../api/types'
+import { useUsage } from './useUsage'
+import { UsageChart } from './UsageChart'
 
-// Entirely DEMO — no metrics pipeline yet (see demo.ts).
-export function UsageTab() {
-  const max = Math.max(...DEMO_CHART.values)
+// UsageTab shows the real traffic chart with a selectable range. The per-product
+// "Répartition par API" breakdown is deferred — the /usage endpoint is
+// app-level; per-product rows need route→product attribution (see the plan doc).
+export function UsageTab({ token, appId }: { token: string; appId: number }) {
+  const [range, setRange] = useState<UsageRange>('7d')
+  const usage = useUsage(token, appId, range)
   return (
     <section className="panel">
-      <div className="dcard">
-        <div className="ch">
-          <h3>Requêtes · 14 derniers jours</h3>
-          <p>Toutes API confondues, environnement production.</p>
-          <div className="right"><span className="stpill muted"><span className="led" />421 K ce mois</span></div>
-        </div>
-        <div className="cb">
-          <div className="chart">
-            {DEMO_CHART.values.map((v, i) => (
-              <div className="col" key={i} data-testid="chart-col">
-                <div className="bw" data-v={`${frNum(v * 1000)} req`} style={{ height: `${Math.round((v / max) * 100)}%` }} />
-                <small>{DEMO_CHART.labels[i]}</small>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="dcard" style={{ marginTop: 20 }}>
-        <div className="ch"><h3>Répartition par API</h3></div>
-        <div className="cb" style={{ padding: 0 }}>
-          <table className="tbl">
-            <thead><tr><th>API</th><th>Requêtes (mois)</th><th>Part</th><th>Erreurs</th></tr></thead>
-            <tbody>
-              {DEMO_USAGE_ROWS.map(r => (
-                <tr key={r.name}>
-                  <td><div className="apicell"><span className="ig" style={{ background: r.bg }}>{r.ini}</span><span className="nm">{r.name}</span></div></td>
-                  <td className="mono">{r.requests}</td>
-                  <td><div className="bar"><i style={{ width: `${r.share}%` }} /></div></td>
-                  <td className="mono" style={{ color: r.errColor }}>{r.errors}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <UsageChart state={usage} range={range} onRange={setRange} />
     </section>
   )
 }

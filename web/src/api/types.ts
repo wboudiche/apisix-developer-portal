@@ -106,3 +106,25 @@ export interface AppDetail {
   subscriptions: SubscriptionView[]
   events: AppEvent[]
 }
+
+// Usage metrics for the Overview cards and the traffic chart, served by
+// GET /api/applications/{id}/usage. Range is an allow-listed enum on the API.
+export type UsageRange = '24h' | '7d' | '30d'
+
+export interface UsageSummary {
+  requestsToday: number
+  monthToDate: number
+  p95Ms: number
+  errorRate: number // 0..1
+}
+
+export interface UsagePoint {
+  t: string // RFC3339 bucket timestamp
+  requests: number
+  errors: number
+}
+
+export interface Usage {
+  summary: UsageSummary
+  series: UsagePoint[]
+}
