@@ -1,7 +1,9 @@
 # Traffic Metrics Pipeline — Plan (follow-up to the activity feed)
 
 **Date:** 2026-06-11
-**Status:** Steps 1–2 implemented. Step 3 (frontend) and step 4 (E2E) remain.
+**Status:** Done. Steps 1–4 implemented and verified (commits `feat(metrics): step 1…4`).
+Deferred: per-product "Répartition par API" breakdown (needs route→product
+attribution — see step 3 note).
 
 ## Implementation notes (added 2026-06-14)
 
