@@ -17,6 +17,7 @@ import (
 	"apisix-portal/internal/crypto"
 	"apisix-portal/internal/events"
 	"apisix-portal/internal/httpx"
+	"apisix-portal/internal/metrics"
 	"apisix-portal/internal/plans"
 	"apisix-portal/internal/subscriptions"
 )
@@ -63,6 +64,11 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		return true, nil
 	}
 	subH := subscriptions.NewHandler(subSvc, subRepo, eventRepo, owns)
+	// Usage metrics are a read-only consumer of Prometheus; left unconfigured
+	// (empty URL) the /usage endpoint reports unavailable rather than guessing.
+	if cfg.PrometheusURL != "" {
+		subH.SetUsageReader(metrics.NewService(metrics.NewClient(cfg.PrometheusURL)))
+	}
 	allowPrivate := os.Getenv("UPSTREAM_ALLOW_PRIVATE") == "1"
 	adminSvc := admin.NewService(admin.NewRepo(pool), subSvc)
 	adminH := admin.NewHandler(adminSvc, allowPrivate)
@@ -88,7 +94,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	mux.Handle("/api/admin/subscriptions", requireAdmin(subAdminH))
 	mux.Handle("/api/admin/subscriptions/", requireAdmin(subAdminH))
 
-	return httpx.SecurityHeaders(httpx.MaxBodyBytes(1<<20)(logRequests(mux)))
+	return httpx.SecurityHeaders(httpx.MaxBodyBytes(1 << 20)(logRequests(mux)))
 }
 
 type statusRecorder struct {

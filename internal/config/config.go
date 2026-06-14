@@ -23,6 +23,7 @@ type Config struct {
 	Env              string
 	CredentialEncKey string
 	TrustedProxies   string // comma-separated CIDRs whose X-Forwarded-For is trusted
+	PrometheusURL    string // base URL of the Prometheus read API; empty disables usage metrics
 }
 
 func get(key, def string) string {
@@ -44,6 +45,7 @@ func Load() Config {
 		Env:              get("PORTAL_ENV", ""),
 		CredentialEncKey: get("CREDENTIAL_ENC_KEY", DevCredentialEncKey),
 		TrustedProxies:   get("TRUSTED_PROXIES", ""),
+		PrometheusURL:    get("PROMETHEUS_URL", "http://localhost:9099"),
 	}
 }
 

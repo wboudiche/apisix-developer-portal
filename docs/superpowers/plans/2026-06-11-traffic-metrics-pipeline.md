@@ -1,7 +1,28 @@
 # Traffic Metrics Pipeline — Plan (follow-up to the activity feed)
 
 **Date:** 2026-06-11
-**Status:** Planned, not implemented.
+**Status:** Steps 1–2 implemented. Step 3 (frontend) and step 4 (E2E) remain.
+
+## Implementation notes (added 2026-06-14)
+
+- **Step 1 (stack):** done — APISIX `prometheus` plugin enabled globally
+  (`EnsureGlobalPrometheus`), metrics bound to `0.0.0.0:9091` in the container,
+  and an internal-only `prometheus` service scrapes it. Verified: the `consumer`
+  label is emitted and equals the portal's `app_<id>` consumer username, so
+  per-app attribution works; latency buckets are in milliseconds.
+- **Step 2 (backend):** done, but built on the **cache-in-front-of-bounded-
+  queries** option (the endpoint section below), *not* the rollup-job +
+  `app_metrics_summary` table the rollout list sketched. The architectural rule
+  still holds — metrics never touch the portal's Postgres path: `internal/metrics`
+  reads only from Prometheus and an in-memory short-TTL (15s) cache keyed by
+  `(consumer, range)`. Every query is bounded (range is an enum; chart step caps
+  points), so no migration and no background goroutine were needed. If sustained
+  high traffic later makes even the cached miss too costly, promote to recording
+  rules without changing the endpoint contract. The `consumer` label is
+  validated against `^[A-Za-z0-9_]+$` before interpolation (PromQL-injection
+  defense-in-depth). Counts use duration-back-from-now windows (Prometheus has
+  no calendar alignment), so in a bursty dev stack `increase()` reads 0 when the
+  counter is flat — correct, not a bug; continuous production traffic reads true.
 **Context:** The application Overview page has four stat cards (Requêtes
 aujourd'hui, Ce mois-ci, Latence p95, Taux d'erreur) and a Usage tab — all
 still `DEMO_STATS` / `DEMO_USAGE_ROWS` / `DEMO_CHART` placeholders. The activity

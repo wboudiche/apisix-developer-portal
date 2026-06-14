@@ -20,6 +20,20 @@ func TestAdminEmailOverride(t *testing.T) {
 	}
 }
 
+func TestPrometheusURLDefault(t *testing.T) {
+	os.Unsetenv("PROMETHEUS_URL")
+	if got := Load().PrometheusURL; got != "http://localhost:9099" {
+		t.Fatalf("default PrometheusURL = %q, want http://localhost:9099", got)
+	}
+}
+
+func TestPrometheusURLOverride(t *testing.T) {
+	t.Setenv("PROMETHEUS_URL", "http://prometheus:9090")
+	if got := Load().PrometheusURL; got != "http://prometheus:9090" {
+		t.Fatalf("PrometheusURL = %q", got)
+	}
+}
+
 func TestValidateDevAllowsDefaults(t *testing.T) {
 	t.Setenv("PORTAL_ENV", "dev")
 	t.Setenv("JWT_SECRET", "")

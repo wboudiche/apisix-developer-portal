@@ -13,6 +13,7 @@ import (
 	"apisix-portal/internal/auth"
 	"apisix-portal/internal/events"
 	"apisix-portal/internal/httpx"
+	"apisix-portal/internal/metrics"
 )
 
 // OwnerCheck reports whether appID belongs to userID.
@@ -30,13 +31,23 @@ type EventReader interface {
 	Recent(ctx context.Context, appID int64, limit int) ([]events.View, error)
 }
 
+// UsageReader returns gateway traffic metrics for a consumer over a range
+// (satisfied by *metrics.Service). nil disables the usage endpoint.
+type UsageReader interface {
+	Usage(ctx context.Context, consumer string, r metrics.Range) (metrics.Usage, error)
+}
+
 // feedLimit caps how many activity rows the Overview feed loads.
 const feedLimit = 20
+
+// defaultUsageRange is used when the request omits ?range=.
+const defaultUsageRange = "24h"
 
 type Handler struct {
 	svc    *Service
 	reader Reader
 	events EventReader
+	usage  UsageReader
 	owns   OwnerCheck
 	router chi.Router
 }
@@ -44,10 +55,15 @@ type Handler struct {
 func NewHandler(svc *Service, reader Reader, eventReader EventReader, owns OwnerCheck) *Handler {
 	h := &Handler{svc: svc, reader: reader, events: eventReader, owns: owns, router: chi.NewRouter()}
 	h.router.Get("/api/applications/{appID}", h.detail)
+	h.router.Get("/api/applications/{appID}/usage", h.usageHandler)
 	h.router.Post("/api/applications/{appID}/subscriptions", h.subscribe)
 	h.router.Delete("/api/applications/{appID}/subscriptions/{productID}", h.unsubscribe)
 	return h
 }
+
+// SetUsageReader wires the metrics backend. Left unset (nil) when metrics are
+// not configured; the usage endpoint then reports unavailable.
+func (h *Handler) SetUsageReader(u UsageReader) { h.usage = u }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.ServeHTTP(w, r) }
 
@@ -150,4 +166,51 @@ func (h *Handler) detail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	httpx.JSON(w, http.StatusOK, out)
+}
+
+// usageHandler serves GET /api/applications/{id}/usage?range=24h|7d|30d — the
+// Overview stat cards and traffic chart, scoped to the app's gateway consumer.
+func (h *Handler) usageHandler(w http.ResponseWriter, r *http.Request) {
+	appID, ok := h.authorize(w, r)
+	if !ok {
+		return
+	}
+	rangeKey := r.URL.Query().Get("range")
+	if rangeKey == "" {
+		rangeKey = defaultUsageRange
+	}
+	rng, err := metrics.ParseRange(rangeKey)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "unsupported range")
+		return
+	}
+	// The metrics are usage data per tenant — same no-store posture as detail.
+	w.Header().Set("Cache-Control", "no-store")
+
+	// Resolve the gateway consumer. No credential means the app has no
+	// subscription yet, so no traffic — return zeroed usage, not an error.
+	cred, err := h.reader.GetCredential(r.Context(), appID)
+	if errors.Is(err, ErrNotFound) {
+		httpx.JSON(w, http.StatusOK, metrics.Usage{Series: []metrics.Point{}})
+		return
+	}
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load credential")
+		return
+	}
+	if h.usage == nil {
+		httpx.Error(w, http.StatusServiceUnavailable, "metrics unavailable")
+		return
+	}
+	u, err := h.usage.Usage(r.Context(), cred.ConsumerUsername, rng)
+	if err != nil {
+		// Surface the dependency outage explicitly; never fall back to demo data.
+		log.Printf("usage for app %d (consumer %s): %v", appID, cred.ConsumerUsername, err)
+		httpx.Error(w, http.StatusServiceUnavailable, "metrics unavailable")
+		return
+	}
+	if u.Series == nil {
+		u.Series = []metrics.Point{}
+	}
+	httpx.JSON(w, http.StatusOK, u)
 }
