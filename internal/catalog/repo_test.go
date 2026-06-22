@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"apisix-portal/internal/db"
+	"apisix-portal/internal/paging"
 )
 
 func testPool(t *testing.T) (context.Context, *Repo) {
@@ -28,7 +29,7 @@ func testPool(t *testing.T) (context.Context, *Repo) {
 
 func TestListReturnsSeededProducts(t *testing.T) {
 	ctx, repo := testPool(t)
-	all, err := repo.List(ctx, Query{})
+	all, total, err := repo.List(ctx, Query{}, paging.Params{Page: 1, Size: 20})
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -38,16 +39,22 @@ func TestListReturnsSeededProducts(t *testing.T) {
 	if len(all) < 9 {
 		t.Fatalf("expected at least 9 seeded products, got %d", len(all))
 	}
+	if total < 9 {
+		t.Fatalf("expected total >= 9, got %d", total)
+	}
 }
 
 func TestListFiltersByCategory(t *testing.T) {
 	ctx, repo := testPool(t)
-	fin, err := repo.List(ctx, Query{Category: "Finance"})
+	fin, total, err := repo.List(ctx, Query{Category: "Finance"}, paging.Params{Page: 1, Size: 20})
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
 	if len(fin) != 2 {
 		t.Fatalf("expected 2 Finance products, got %d", len(fin))
+	}
+	if total != 2 {
+		t.Fatalf("expected total 2 for Finance, got %d", total)
 	}
 }
 
@@ -65,7 +72,7 @@ func TestGetBySlug(t *testing.T) {
 func TestListSearchMatchesNameAndDescription(t *testing.T) {
 	ctx, repo := testPool(t)
 	// "pizza" appears in the PizzaShackAPI name
-	byName, err := repo.List(ctx, Query{Search: "pizza"})
+	byName, _, err := repo.List(ctx, Query{Search: "pizza"}, paging.Params{Page: 1, Size: 20})
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -73,7 +80,7 @@ func TestListSearchMatchesNameAndDescription(t *testing.T) {
 		t.Fatalf("search 'pizza' => %d results, want 1 (pizzashackapi)", len(byName))
 	}
 	// "backlinks" appears only in the SEOAPI description, not any name
-	byDesc, err := repo.List(ctx, Query{Search: "backlinks"})
+	byDesc, _, err := repo.List(ctx, Query{Search: "backlinks"}, paging.Params{Page: 1, Size: 20})
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -81,7 +88,7 @@ func TestListSearchMatchesNameAndDescription(t *testing.T) {
 		t.Fatalf("search 'backlinks' => %d results, want 1 (seoapi)", len(byDesc))
 	}
 	// case-insensitive
-	ci, _ := repo.List(ctx, Query{Search: "PIZZA"})
+	ci, _, _ := repo.List(ctx, Query{Search: "PIZZA"}, paging.Params{Page: 1, Size: 20})
 	if len(ci) != 1 {
 		t.Fatalf("search 'PIZZA' (uppercase) => %d, want 1", len(ci))
 	}
@@ -89,13 +96,16 @@ func TestListSearchMatchesNameAndDescription(t *testing.T) {
 
 func TestListFiltersByTag(t *testing.T) {
 	ctx, repo := testPool(t)
-	seo, err := repo.List(ctx, Query{Tag: "seo"})
+	seo, total, err := repo.List(ctx, Query{Tag: "seo"}, paging.Params{Page: 1, Size: 20})
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
 	// seoapi and keywordresearchapi both carry the 'seo' tag
 	if len(seo) != 2 {
 		t.Fatalf("tag 'seo' => %d, want 2", len(seo))
+	}
+	if total != 2 {
+		t.Fatalf("tag 'seo' total => %d, want 2", total)
 	}
 }
 

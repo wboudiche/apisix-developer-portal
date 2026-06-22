@@ -7,13 +7,14 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"apisix-portal/internal/httpx"
+	"apisix-portal/internal/paging"
 )
 
 type contextStub = context.Context
 
 // Lister is the read surface the handler needs (satisfied by *Repo).
 type Lister interface {
-	List(ctx context.Context, q Query) ([]Product, error)
+	List(ctx context.Context, q Query, p paging.Params) ([]Product, int, error)
 	GetBySlug(ctx context.Context, slug string) (Product, error)
 }
 
@@ -38,15 +39,13 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		Tag:      r.URL.Query().Get("tag"),
 		Sort:     r.URL.Query().Get("sort"),
 	}
-	items, err := h.repo.List(r.Context(), q)
+	p := paging.Parse(r.URL.Query())
+	items, total, err := h.repo.List(r.Context(), q, p)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to list products")
 		return
 	}
-	if items == nil {
-		items = []Product{}
-	}
-	httpx.JSON(w, http.StatusOK, items)
+	httpx.JSON(w, http.StatusOK, paging.New(items, total, p))
 }
 
 func (h *Handler) getBySlug(w http.ResponseWriter, r *http.Request) {
