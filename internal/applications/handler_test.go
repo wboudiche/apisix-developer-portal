@@ -24,8 +24,14 @@ func (f *fakeStore) Create(_ context.Context, ownerID int64, name, desc string) 
 	f.apps = append(f.apps, a)
 	return a, nil
 }
-func (f *fakeStore) ListByOwner(_ context.Context, _ int64, p paging.Params) ([]Application, int, error) {
-	return f.apps, len(f.apps), f.err
+func (f *fakeStore) ListByOwner(_ context.Context, ownerID int64, p paging.Params) ([]Application, int, error) {
+	var filtered []Application
+	for _, a := range f.apps {
+		if a.OwnerID == ownerID {
+			filtered = append(filtered, a)
+		}
+	}
+	return filtered, len(filtered), f.err
 }
 
 func withUser(r *http.Request, id int64) *http.Request {
@@ -60,7 +66,12 @@ func TestCreateApplicationRequiresName(t *testing.T) {
 func TestListApplicationsScopedToUser(t *testing.T) {
 	store := &fakeStore{}
 	h := NewHandler(store, nil)
+
+	// Seed one app for the authenticated user (id=5) and one for a different user (id=99).
 	h.ServeHTTP(httptest.NewRecorder(), withUser(httptest.NewRequest(http.MethodPost, "/api/applications", strings.NewReader(`{"name":"A"}`)), 5))
+	h.ServeHTTP(httptest.NewRecorder(), withUser(httptest.NewRequest(http.MethodPost, "/api/applications", strings.NewReader(`{"name":"OtherUserApp"}`)), 99))
+
+	// List as user 5 — must see only their own app.
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withUser(httptest.NewRequest(http.MethodGet, "/api/applications", nil), 5))
 	var got paging.Page[Application]
@@ -72,6 +83,15 @@ func TestListApplicationsScopedToUser(t *testing.T) {
 	}
 	if got.Total != 1 {
 		t.Fatalf("Total want 1, got %d", got.Total)
+	}
+	if got.Items[0].OwnerID != 5 {
+		t.Fatalf("item ownerID want 5, got %d", got.Items[0].OwnerID)
+	}
+	// Cross-tenant guard: user 99's app must not appear.
+	for _, item := range got.Items {
+		if item.Name == "OtherUserApp" {
+			t.Fatalf("cross-tenant leak: user 99's app visible to user 5")
+		}
 	}
 	if got.Page != 1 {
 		t.Fatalf("Page want 1, got %d", got.Page)
