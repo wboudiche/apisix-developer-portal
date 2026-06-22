@@ -13,8 +13,6 @@ func TestParseDefaults(t *testing.T) {
 }
 
 func TestParseClampsAndReads(t *testing.T) {
-	cases := []struct{ page, size, wantPage, wantSize string }{}
-	_ = cases
 	got := Parse(url.Values{"page": {"3"}, "pageSize": {"50"}})
 	if got.Page != 3 || got.Size != 50 {
 		t.Fatalf("got %+v, want page=3 size=50", got)
