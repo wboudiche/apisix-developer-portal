@@ -10,11 +10,12 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"apisix-portal/internal/httpx"
+	"apisix-portal/internal/paging"
 )
 
 // AdminService is the surface the admin subscription handler needs (satisfied by *Service).
 type AdminService interface {
-	AdminSubscriptions(ctx context.Context, statusFilter string) ([]AdminSubscriptionView, error)
+	AdminSubscriptions(ctx context.Context, statusFilter string, p paging.Params) ([]AdminSubscriptionView, int, error)
 	Approve(ctx context.Context, subID int64) error
 	Reject(ctx context.Context, subID int64) error
 }
@@ -36,16 +37,14 @@ func NewAdminHandler(svc AdminService) *AdminHandler {
 func (h *AdminHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.ServeHTTP(w, r) }
 
 func (h *AdminHandler) list(w http.ResponseWriter, r *http.Request) {
-	items, err := h.svc.AdminSubscriptions(r.Context(), r.URL.Query().Get("status"))
+	p := paging.Parse(r.URL.Query())
+	items, total, err := h.svc.AdminSubscriptions(r.Context(), r.URL.Query().Get("status"), p)
 	if err != nil {
 		log.Printf("admin list subscriptions: %v", err)
 		httpx.Error(w, http.StatusInternalServerError, "failed to list subscriptions")
 		return
 	}
-	if items == nil {
-		items = []AdminSubscriptionView{}
-	}
-	httpx.JSON(w, http.StatusOK, items)
+	httpx.JSON(w, http.StatusOK, paging.New(items, total, p))
 }
 
 func (h *AdminHandler) approve(w http.ResponseWriter, r *http.Request) {

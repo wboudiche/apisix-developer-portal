@@ -8,6 +8,7 @@ import (
 
 	"apisix-portal/internal/apisix"
 	"apisix-portal/internal/events"
+	"apisix-portal/internal/paging"
 )
 
 // EventLogger records application activity for the Overview feed. Implemented by
@@ -76,7 +77,7 @@ type Store interface {
 	SubscriptionStatus(ctx context.Context, appID, productID int64) (string, error)
 	// AdminSubscriptions lists subscriptions for the admin queue. An empty
 	// statusFilter returns all; otherwise only rows with that status.
-	AdminSubscriptions(ctx context.Context, statusFilter string) ([]AdminSubscriptionView, error)
+	AdminSubscriptions(ctx context.Context, statusFilter string, p paging.Params) ([]AdminSubscriptionView, int, error)
 }
 
 func consumerName(appID int64) string { return fmt.Sprintf("app_%d", appID) }
@@ -290,6 +291,6 @@ func (s *Service) Reject(ctx context.Context, subID int64) error {
 }
 
 // AdminSubscriptions lists subscriptions for the admin queue (see Store).
-func (s *Service) AdminSubscriptions(ctx context.Context, statusFilter string) ([]AdminSubscriptionView, error) {
-	return s.store.AdminSubscriptions(ctx, statusFilter)
+func (s *Service) AdminSubscriptions(ctx context.Context, statusFilter string, p paging.Params) ([]AdminSubscriptionView, int, error) {
+	return s.store.AdminSubscriptions(ctx, statusFilter, p)
 }

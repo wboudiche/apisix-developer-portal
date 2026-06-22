@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"apisix-portal/internal/crypto"
+	"apisix-portal/internal/paging"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -233,7 +234,13 @@ func (r *Repo) SetSubscriptionStatus(ctx context.Context, subID int64, status st
 
 // AdminSubscriptions lists subscriptions for the admin queue, newest first. An
 // empty statusFilter returns all rows; otherwise only those with that status.
-func (r *Repo) AdminSubscriptions(ctx context.Context, statusFilter string) ([]AdminSubscriptionView, error) {
+func (r *Repo) AdminSubscriptions(ctx context.Context, statusFilter string, p paging.Params) ([]AdminSubscriptionView, int, error) {
+	var total int
+	if err := r.pool.QueryRow(ctx,
+		`SELECT count(*) FROM subscriptions s WHERE ($1 = '' OR s.status = $1)`, statusFilter,
+	).Scan(&total); err != nil {
+		return nil, 0, err
+	}
 	rows, err := r.pool.Query(ctx,
 		`SELECT s.id, a.name, u.email, p.name, p.version, pl.name, s.status, s.created_at
 		 FROM subscriptions s
@@ -242,20 +249,20 @@ func (r *Repo) AdminSubscriptions(ctx context.Context, statusFilter string) ([]A
 		 JOIN api_products p ON p.id = s.api_product_id
 		 JOIN plans pl ON pl.id = s.plan_id
 		 WHERE ($1 = '' OR s.status = $1)
-		 ORDER BY s.created_at DESC`, statusFilter)
+		 ORDER BY s.created_at DESC LIMIT $2 OFFSET $3`, statusFilter, p.Limit(), p.Offset())
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 	var out []AdminSubscriptionView
 	for rows.Next() {
 		var v AdminSubscriptionView
 		if err := rows.Scan(&v.ID, &v.ApplicationName, &v.OwnerEmail, &v.ProductName, &v.Version, &v.PlanName, &v.Status, &v.CreatedAt); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		out = append(out, v)
 	}
-	return out, rows.Err()
+	return out, total, rows.Err()
 }
 
 var _ Reader = (*Repo)(nil)

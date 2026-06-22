@@ -2,9 +2,12 @@ package subscriptions
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"apisix-portal/internal/paging"
 )
 
 type fakeAdminSvc struct {
@@ -16,9 +19,9 @@ type fakeAdminSvc struct {
 	rejectErr  error
 }
 
-func (f *fakeAdminSvc) AdminSubscriptions(_ context.Context, statusFilter string) ([]AdminSubscriptionView, error) {
+func (f *fakeAdminSvc) AdminSubscriptions(_ context.Context, statusFilter string, p paging.Params) ([]AdminSubscriptionView, int, error) {
 	f.gotFilter = statusFilter
-	return f.list, nil
+	return f.list, len(f.list), nil
 }
 func (f *fakeAdminSvc) Approve(_ context.Context, id int64) error {
 	if f.approveErr != nil {
@@ -46,6 +49,22 @@ func TestAdminListPassesStatusFilter(t *testing.T) {
 	}
 	if svc.gotFilter != "pending" {
 		t.Fatalf("status filter = %q, want pending", svc.gotFilter)
+	}
+	var page paging.Page[AdminSubscriptionView]
+	if err := json.NewDecoder(rec.Body).Decode(&page); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if page.Total != 1 {
+		t.Fatalf("total = %d, want 1", page.Total)
+	}
+	if page.Page != 1 {
+		t.Fatalf("page = %d, want 1", page.Page)
+	}
+	if page.PageSize != paging.DefaultPageSize {
+		t.Fatalf("pageSize = %d, want %d", page.PageSize, paging.DefaultPageSize)
+	}
+	if len(page.Items) != 1 {
+		t.Fatalf("len(items) = %d, want 1", len(page.Items))
 	}
 }
 
