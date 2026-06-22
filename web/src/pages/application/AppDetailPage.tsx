@@ -71,7 +71,7 @@ export function AppDetailPage() {
   useEffect(() => {
     if (!token) return
     getApplications(token).then(r => setApps(r.items)).catch(() => setErr('Impossible de charger les applications.'))
-    getPlans().then(setPlans).catch(() => { /* rates show as — */ })
+    getPlans().then(r => setPlans(r.items)).catch(() => { /* rates show as — */ })
   }, [token])
 
   useEffect(() => { setDetail(null); setErr(''); reloadDetail() }, [reloadDetail])

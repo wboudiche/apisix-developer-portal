@@ -10,12 +10,12 @@ beforeEach(() => {
   localStorage.setItem('token', 'jwt')
   localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'Admin', role: 'admin' }))
   vi.restoreAllMocks()
-  vi.spyOn(api, 'adminGetProducts').mockResolvedValue([{ name: 'P', slug: 'p', category: '', version: '', contextPath: '/p', description: '', tags: [], icon: '', upstreamUrl: '', published: true }])
-  vi.spyOn(api, 'adminGetPlans').mockResolvedValue([])
-  vi.spyOn(api, 'adminGetSubscriptions').mockResolvedValue([
+  vi.spyOn(api, 'adminGetProducts').mockResolvedValue({ items: [{ name: 'P', slug: 'p', category: '', version: '', contextPath: '/p', description: '', tags: [], icon: '', upstreamUrl: '', published: true }], total: 1, page: 1, pageSize: 20 })
+  vi.spyOn(api, 'adminGetPlans').mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 })
+  vi.spyOn(api, 'adminGetSubscriptions').mockResolvedValue({ items: [
     { id: 1, applicationName: 'A', ownerEmail: 'a@b.c', productName: 'P', version: '1', planName: 'Free', status: 'pending', createdAt: '2026-06-06T00:00:00Z' },
     { id: 2, applicationName: 'B', ownerEmail: 'b@b.c', productName: 'P', version: '1', planName: 'Free', status: 'pending', createdAt: '2026-06-06T00:00:00Z' },
-  ])
+  ], total: 2, page: 1, pageSize: 20 })
 })
 
 function renderShell(counts?: { products?: number; plans?: number; pending?: number }) {

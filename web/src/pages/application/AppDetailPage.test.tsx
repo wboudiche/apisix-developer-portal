@@ -32,7 +32,7 @@ beforeEach(() => {
   vi.restoreAllMocks()
   vi.spyOn(api, 'getApplications').mockResolvedValue({ items: apps, total: apps.length, page: 1, pageSize: 20 })
   vi.spyOn(api, 'getApplicationDetail').mockResolvedValue(detail)
-  vi.spyOn(api, 'getPlans').mockResolvedValue(plans)
+  vi.spyOn(api, 'getPlans').mockResolvedValue({ items: plans, total: plans.length, page: 1, pageSize: 20 })
   Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } })
 })
 

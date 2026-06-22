@@ -4,6 +4,7 @@ import { adminGetSubscriptions, adminApproveSubscription, adminRejectSubscriptio
 import { useAuth } from '../../auth/AuthProvider'
 import { AdminShell } from './AdminShell'
 import { Toast, useToast } from '../../components/Toast'
+import { Pagination } from '../../components/Pagination'
 
 // Blueprint avatar initials: capitals of the app name, else first two letters.
 const subInitials = (name: string) =>
@@ -16,6 +17,9 @@ export function ApprovalsPage() {
   const [subs, setSubs] = useState<AdminSubscription[]>([])
   const [loaded, setLoaded] = useState(false)
   const [err, setErr] = useState('')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const pageSize = 20
   const { toast, notify } = useToast()
 
   // Monotonic guard: only the latest list request may write state.
@@ -23,10 +27,10 @@ export function ApprovalsPage() {
   const reload = useCallback(() => {
     if (!token) return
     const seq = ++reqSeq.current
-    adminGetSubscriptions(token, 'pending')
-      .then(l => { if (seq === reqSeq.current) { setSubs(l); setLoaded(true) } })
+    adminGetSubscriptions(token, 'pending', { page, pageSize })
+      .then(r => { if (seq === reqSeq.current) { setSubs(r.items); setTotal(r.total); setLoaded(true) } })
       .catch(() => { if (seq === reqSeq.current) setErr('Impossible de charger les abonnements.') })
-  }, [token])
+  }, [token, page])
   useEffect(reload, [reload])
 
   async function approve(s: AdminSubscription) {
@@ -87,6 +91,7 @@ export function ApprovalsPage() {
         </div>
       )}
 
+      <Pagination page={page} pageSize={pageSize} total={total} onPage={setPage} />
       <Toast msg={toast?.msg ?? null} kind={toast?.kind} />
     </AdminShell>
   )

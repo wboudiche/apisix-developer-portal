@@ -6,6 +6,7 @@ import { AdminShell } from './AdminShell'
 import { Composer } from './Composer'
 import { catMeta, slugify } from './meta'
 import { Toast, useToast } from '../../components/Toast'
+import { Pagination } from '../../components/Pagination'
 import { ConfirmModal, type ModalSpec } from '../../components/ConfirmModal'
 
 interface FormState {
@@ -21,6 +22,9 @@ function PlusIcon() {
 export function ProductsPage() {
   const { token } = useAuth()
   const [products, setProducts] = useState<AdminProduct[]>([])
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const pageSize = 20
   const [filter, setFilter] = useState('')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<AdminProduct | null>(null)
@@ -36,10 +40,10 @@ export function ProductsPage() {
   const reload = useCallback(() => {
     if (!token) return
     const seq = ++reqSeq.current
-    adminGetProducts(token)
-      .then(l => { if (seq === reqSeq.current) setProducts(l) })
+    adminGetProducts(token, { page, pageSize })
+      .then(r => { if (seq === reqSeq.current) { setProducts(r.items); setTotal(r.total) } })
       .catch(() => { if (seq === reqSeq.current) setErr('Impossible de charger les produits.') })
-  }, [token])
+  }, [token, page])
   useEffect(reload, [reload])
 
   const categories = [...new Set(products.map(p => p.category).filter(Boolean))].sort()
@@ -228,6 +232,7 @@ export function ProductsPage() {
           )
         })}
       </div>
+      <Pagination page={page} pageSize={pageSize} total={total} onPage={setPage} />
 
       <Toast msg={toast?.msg ?? null} kind={toast?.kind} />
       <ConfirmModal spec={modal} onClose={() => setModal(null)} />

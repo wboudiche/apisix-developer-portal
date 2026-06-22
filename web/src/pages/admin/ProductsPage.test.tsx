@@ -18,9 +18,9 @@ beforeEach(() => {
   localStorage.setItem('token', 'jwt')
   localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'Admin', role: 'admin' }))
   vi.restoreAllMocks()
-  vi.spyOn(api, 'adminGetProducts').mockResolvedValue(products)
-  vi.spyOn(api, 'adminGetPlans').mockResolvedValue([])
-  vi.spyOn(api, 'adminGetSubscriptions').mockResolvedValue([])
+  vi.spyOn(api, 'adminGetProducts').mockResolvedValue({ items: products, total: products.length, page: 1, pageSize: 20 })
+  vi.spyOn(api, 'adminGetPlans').mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 })
+  vi.spyOn(api, 'adminGetSubscriptions').mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 })
 })
 
 function renderPage() {
