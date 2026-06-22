@@ -1,4 +1,7 @@
-import type { Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail, AdminProduct, AdminSubscription, Usage, UsageRange } from './types'
+import type {
+  Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail,
+  AdminProduct, AdminSubscription, Usage, UsageRange, Paginated,
+} from './types'
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. 409 when
 // deleting a product that still has active subscriptions).
@@ -53,16 +56,25 @@ async function parse<T>(res: Response, url?: string): Promise<T> {
   return body as T
 }
 
-export async function getProducts(q: ProductQuery): Promise<Product[]> {
+export interface PageOpts { page?: number; pageSize?: number }
+
+// appendPage adds page/pageSize to an existing URLSearchParams when provided.
+function appendPage(params: URLSearchParams, page?: PageOpts): void {
+  if (page?.page != null) params.set('page', String(page.page))
+  if (page?.pageSize != null) params.set('pageSize', String(page.pageSize))
+}
+
+export async function getProducts(q: ProductQuery, page?: PageOpts): Promise<Paginated<Product>> {
   const params = new URLSearchParams()
   if (q.search) params.set('search', q.search)
   if (q.category) params.set('category', q.category)
   if (q.tag) params.set('tag', q.tag)
   if (q.sort) params.set('sort', q.sort)
+  appendPage(params, page)
   const qs = params.toString()
   const url = qs ? `/api/products?${qs}` : '/api/products'
   const res = await fetch(url)
-  return parse<Product[]>(res, url)
+  return parse<Paginated<Product>>(res, url)
 }
 
 function postJSON(url: string, body: unknown): Promise<Response> {
@@ -85,12 +97,20 @@ function authHeaders(token: string): HeadersInit {
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
 }
 
-export async function getPlans(): Promise<Plan[]> {
-  return parse<Plan[]>(await fetch('/api/plans'), '/api/plans')
+export async function getPlans(page?: PageOpts): Promise<Paginated<Plan>> {
+  const params = new URLSearchParams()
+  appendPage(params, page)
+  const qs = params.toString()
+  const url = qs ? `/api/plans?${qs}` : '/api/plans'
+  return parse<Paginated<Plan>>(await fetch(url), url)
 }
 
-export async function getApplications(token: string): Promise<Application[]> {
-  return parse<Application[]>(await fetch('/api/applications', { headers: authHeaders(token) }), '/api/applications')
+export async function getApplications(token: string, page?: PageOpts): Promise<Paginated<Application>> {
+  const params = new URLSearchParams()
+  appendPage(params, page)
+  const qs = params.toString()
+  const url = qs ? `/api/applications?${qs}` : '/api/applications'
+  return parse<Paginated<Application>>(await fetch(url, { headers: authHeaders(token) }), url)
 }
 
 export async function createApplication(token: string, name: string, description: string): Promise<Application> {
@@ -139,8 +159,12 @@ async function sendAuthed(method: string, url: string, token: string, body?: unk
 }
 
 // --- Admin: products ---
-export async function adminGetProducts(token: string): Promise<AdminProduct[]> {
-  return parse<AdminProduct[]>(await fetch('/api/admin/products', { headers: authHeaders(token) }), '/api/admin/products')
+export async function adminGetProducts(token: string, page?: PageOpts): Promise<Paginated<AdminProduct>> {
+  const params = new URLSearchParams()
+  appendPage(params, page)
+  const qs = params.toString()
+  const url = qs ? `/api/admin/products?${qs}` : '/api/admin/products'
+  return parse<Paginated<AdminProduct>>(await fetch(url, { headers: authHeaders(token) }), url)
 }
 export async function adminCreateProduct(token: string, p: AdminProduct): Promise<AdminProduct> {
   return parse<AdminProduct>(await fetch('/api/admin/products', { method: 'POST', headers: authHeaders(token), body: JSON.stringify(p) }), '/api/admin/products')
@@ -154,8 +178,12 @@ export async function adminDeleteProduct(token: string, id: number): Promise<voi
 }
 
 // --- Admin: plans ---
-export async function adminGetPlans(token: string): Promise<Plan[]> {
-  return parse<Plan[]>(await fetch('/api/admin/plans', { headers: authHeaders(token) }), '/api/admin/plans')
+export async function adminGetPlans(token: string, page?: PageOpts): Promise<Paginated<Plan>> {
+  const params = new URLSearchParams()
+  appendPage(params, page)
+  const qs = params.toString()
+  const url = qs ? `/api/admin/plans?${qs}` : '/api/admin/plans'
+  return parse<Paginated<Plan>>(await fetch(url, { headers: authHeaders(token) }), url)
 }
 export async function adminCreatePlan(token: string, p: Plan): Promise<Plan> {
   return parse<Plan>(await fetch('/api/admin/plans', { method: 'POST', headers: authHeaders(token), body: JSON.stringify(p) }), '/api/admin/plans')
@@ -169,10 +197,13 @@ export async function adminDeletePlan(token: string, id: number): Promise<void> 
 }
 
 // --- Admin: subscriptions (approval) ---
-export async function adminGetSubscriptions(token: string, status?: string): Promise<AdminSubscription[]> {
-  const qs = status ? `?status=${encodeURIComponent(status)}` : ''
-  const url = `/api/admin/subscriptions${qs}`
-  return parse<AdminSubscription[]>(await fetch(url, { headers: authHeaders(token) }), url)
+export async function adminGetSubscriptions(token: string, status?: string, page?: PageOpts): Promise<Paginated<AdminSubscription>> {
+  const params = new URLSearchParams()
+  if (status) params.set('status', status)
+  appendPage(params, page)
+  const qs = params.toString()
+  const url = qs ? `/api/admin/subscriptions?${qs}` : '/api/admin/subscriptions'
+  return parse<Paginated<AdminSubscription>>(await fetch(url, { headers: authHeaders(token) }), url)
 }
 export async function adminApproveSubscription(token: string, id: number): Promise<void> {
   return sendAuthed('POST', `/api/admin/subscriptions/${id}/approve`, token)

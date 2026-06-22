@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { getProducts, login, register, getPlans, getApplications, createApplication, getApplicationDetail, getUsage, subscribe, unsubscribe, adminGetProducts, adminCreateProduct, adminDeleteProduct, adminGetSubscriptions, adminApproveSubscription, ApiError, set401Handler, reset401Handler } from './client'
+import { getProducts, login, register, getPlans, getApplications, createApplication, getApplicationDetail, getUsage, subscribe, unsubscribe, adminGetProducts, adminGetPlans, adminCreateProduct, adminDeleteProduct, adminGetSubscriptions, adminApproveSubscription, ApiError, set401Handler, reset401Handler } from './client'
 
 beforeEach(() => { vi.restoreAllMocks() })
 
@@ -12,21 +12,30 @@ function mockFetch(status: number, body: unknown) {
 }
 
 describe('getProducts', () => {
-  it('GETs /api/products and returns the array', async () => {
-    mockFetch(200, [{ id: 1, name: 'Orders', slug: 'orders', tags: [] }])
-    const out = await getProducts({})
-    expect(out).toHaveLength(1)
+  it('GETs /api/products and returns the items array', async () => {
+    mockFetch(200, { items: [{ id: 1, name: 'Orders', slug: 'orders', tags: [] }], total: 1, page: 1, pageSize: 20 })
+    const res = await getProducts({})
     expect((globalThis.fetch as any).mock.calls[0][0]).toBe('/api/products')
+    expect(res.items).toHaveLength(1)
+    expect(res.total).toBe(1)
   })
 
   it('encodes query params', async () => {
-    mockFetch(200, [])
+    mockFetch(200, { items: [], total: 0, page: 1, pageSize: 20 })
     await getProducts({ search: 'pi zza', category: 'Finance', sort: 'alpha' })
     const url = (globalThis.fetch as any).mock.calls[0][0] as string
     expect(url).toContain('/api/products?')
     expect(url).toContain('search=pi+zza')
     expect(url).toContain('category=Finance')
     expect(url).toContain('sort=alpha')
+  })
+
+  it('getProducts forwards page + pageSize', async () => {
+    mockFetch(200, { items: [], total: 0, page: 2, pageSize: 10 })
+    await getProducts({}, { page: 2, pageSize: 10 })
+    const url = (globalThis.fetch as any).mock.calls[0][0] as string
+    expect(url).toContain('page=2')
+    expect(url).toContain('pageSize=10')
   })
 })
 
@@ -47,13 +56,21 @@ describe('login/register', () => {
 })
 
 describe('authenticated endpoints', () => {
-  it('getApplications sends the Bearer token', async () => {
-    mockFetch(200, [{ id: 1, name: 'A', ownerId: 5, description: '', createdAt: '' }])
+  it('getApplications sends the Bearer token and returns items', async () => {
+    mockFetch(200, { items: [{ id: 1, name: 'A', ownerId: 5, description: '', createdAt: '' }], total: 1, page: 1, pageSize: 20 })
     const out = await getApplications('tok-1')
-    expect(out).toHaveLength(1)
+    expect(out.items).toHaveLength(1)
     const [url, opts] = (globalThis.fetch as any).mock.calls[0]
     expect(url).toBe('/api/applications')
     expect(opts.headers.Authorization).toBe('Bearer tok-1')
+  })
+
+  it('getApplications forwards page + pageSize', async () => {
+    mockFetch(200, { items: [], total: 0, page: 2, pageSize: 5 })
+    await getApplications('tok-1', { page: 2, pageSize: 5 })
+    const url = (globalThis.fetch as any).mock.calls[0][0] as string
+    expect(url).toContain('page=2')
+    expect(url).toContain('pageSize=5')
   })
 
   it('createApplication POSTs name with auth', async () => {
@@ -82,9 +99,19 @@ describe('authenticated endpoints', () => {
     expect((globalThis.fetch as any).mock.calls[0][0]).toBe('/api/applications/9')
   })
 
-  it('getPlans returns the array', async () => {
-    mockFetch(200, [{ id: 1, name: 'Free', rateLimit: 60, windowSeconds: 60 }])
-    expect(await getPlans()).toHaveLength(1)
+  it('getPlans returns the items array', async () => {
+    mockFetch(200, { items: [{ id: 1, name: 'Free', rateLimit: 60, windowSeconds: 60 }], total: 1, page: 1, pageSize: 20 })
+    const out = await getPlans()
+    expect(out.items).toHaveLength(1)
+    expect(out.total).toBe(1)
+  })
+
+  it('getPlans forwards page + pageSize', async () => {
+    mockFetch(200, { items: [], total: 0, page: 3, pageSize: 15 })
+    await getPlans({ page: 3, pageSize: 15 })
+    const url = (globalThis.fetch as any).mock.calls[0][0] as string
+    expect(url).toContain('page=3')
+    expect(url).toContain('pageSize=15')
   })
 
   it('getUsage GETs the usage URL with range + auth', async () => {
@@ -103,14 +130,40 @@ describe('authenticated endpoints', () => {
 })
 
 describe('admin endpoints', () => {
-  it('adminGetProducts sends Bearer and hits /api/admin/products', async () => {
-    mockFetch(200, [{ id: 1, name: 'P', slug: 'p', category: 'C', version: '1.0.0', contextPath: '/p', description: '', tags: [], icon: '', upstreamUrl: '', published: true }])
+  it('adminGetProducts sends Bearer and hits /api/admin/products, returns items', async () => {
+    mockFetch(200, { items: [{ id: 1, name: 'P', slug: 'p', category: 'C', version: '1.0.0', contextPath: '/p', description: '', tags: [], icon: '', upstreamUrl: '', published: true }], total: 1, page: 1, pageSize: 20 })
     const out = await adminGetProducts('tok')
-    expect(out).toHaveLength(1)
+    expect(out.items).toHaveLength(1)
     const [url, opts] = (globalThis.fetch as any).mock.calls[0]
     expect(url).toBe('/api/admin/products')
     expect(opts.headers.Authorization).toBe('Bearer tok')
   })
+
+  it('adminGetProducts forwards page + pageSize', async () => {
+    mockFetch(200, { items: [], total: 0, page: 2, pageSize: 10 })
+    await adminGetProducts('tok', { page: 2, pageSize: 10 })
+    const url = (globalThis.fetch as any).mock.calls[0][0] as string
+    expect(url).toContain('page=2')
+    expect(url).toContain('pageSize=10')
+  })
+
+  it('adminGetPlans sends Bearer and hits /api/admin/plans, returns items', async () => {
+    mockFetch(200, { items: [{ id: 1, name: 'Free', rateLimit: 60, windowSeconds: 60 }], total: 1, page: 1, pageSize: 20 })
+    const out = await adminGetPlans('tok')
+    expect(out.items).toHaveLength(1)
+    const [url, opts] = (globalThis.fetch as any).mock.calls[0]
+    expect(url).toBe('/api/admin/plans')
+    expect(opts.headers.Authorization).toBe('Bearer tok')
+  })
+
+  it('adminGetPlans forwards page + pageSize', async () => {
+    mockFetch(200, { items: [], total: 0, page: 2, pageSize: 10 })
+    await adminGetPlans('tok', { page: 2, pageSize: 10 })
+    const url = (globalThis.fetch as any).mock.calls[0][0] as string
+    expect(url).toContain('page=2')
+    expect(url).toContain('pageSize=10')
+  })
+
   it('adminCreateProduct POSTs the product with auth', async () => {
     mockFetch(201, { id: 2, name: 'New', slug: 'new', category: 'C', version: '', contextPath: '/new', description: '', tags: [], icon: '', upstreamUrl: 'echo:8080', published: true })
     const p = await adminCreateProduct('tok', { name: 'New', slug: 'new', category: 'C', version: '', contextPath: '/new', description: '', tags: [], icon: '', upstreamUrl: 'echo:8080', published: true })
@@ -120,16 +173,34 @@ describe('admin endpoints', () => {
     expect(opts.method).toBe('POST')
     expect(opts.headers.Authorization).toBe('Bearer tok')
   })
+
   it('adminDeleteProduct throws the server error on 409', async () => {
     mockFetch(409, { error: 'product has active subscriptions' })
     await expect(adminDeleteProduct('tok', 5)).rejects.toThrow('product has active subscriptions')
   })
+
   it('adminGetSubscriptions passes the status filter', async () => {
-    mockFetch(200, [])
+    mockFetch(200, { items: [], total: 0, page: 1, pageSize: 20 })
     await adminGetSubscriptions('tok', 'pending')
     const url = (globalThis.fetch as any).mock.calls[0][0] as string
     expect(url).toBe('/api/admin/subscriptions?status=pending')
   })
+
+  it('adminGetSubscriptions returns items and total', async () => {
+    mockFetch(200, { items: [{ id: 1, applicationName: 'App', ownerEmail: 'a@b.c', productName: 'P', version: '1', planName: 'Free', status: 'pending', createdAt: '' }], total: 1, page: 1, pageSize: 20 })
+    const out = await adminGetSubscriptions('tok')
+    expect(out.items).toHaveLength(1)
+    expect(out.total).toBe(1)
+  })
+
+  it('adminGetSubscriptions forwards page + pageSize', async () => {
+    mockFetch(200, { items: [], total: 0, page: 2, pageSize: 10 })
+    await adminGetSubscriptions('tok', undefined, { page: 2, pageSize: 10 })
+    const url = (globalThis.fetch as any).mock.calls[0][0] as string
+    expect(url).toContain('page=2')
+    expect(url).toContain('pageSize=10')
+  })
+
   it('adminApproveSubscription POSTs to the approve URL and resolves on 204', async () => {
     mockFetch(204, {})
     await adminApproveSubscription('tok', 7)
