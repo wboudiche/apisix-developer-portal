@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"apisix-portal/internal/paging"
 )
 
 type fakeStore struct {
@@ -16,12 +18,12 @@ func newFakeStore() *fakeStore {
 	return &fakeStore{products: map[int64]Product{}, counts: map[int64]int{}, deleted: map[int64]bool{}}
 }
 
-func (f *fakeStore) ListAll(_ context.Context) ([]Product, error) {
+func (f *fakeStore) ListAll(_ context.Context, _ paging.Params) ([]Product, int, error) {
 	out := []Product{}
 	for _, p := range f.products {
 		out = append(out, p)
 	}
-	return out, nil
+	return out, len(out), nil
 }
 func (f *fakeStore) Get(_ context.Context, id int64) (Product, error) {
 	p, ok := f.products[id]

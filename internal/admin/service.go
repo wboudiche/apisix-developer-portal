@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
+
+	"apisix-portal/internal/paging"
 )
 
 // ErrHasSubscriptions is returned when a product cannot be deleted because it
@@ -12,7 +14,7 @@ var ErrHasSubscriptions = errors.New("admin: product has active subscriptions")
 
 // Store is the persistence surface the service needs (satisfied by *Repo).
 type Store interface {
-	ListAll(ctx context.Context) ([]Product, error)
+	ListAll(ctx context.Context, p paging.Params) ([]Product, int, error)
 	Get(ctx context.Context, id int64) (Product, error)
 	Create(ctx context.Context, p Product) (Product, error)
 	Update(ctx context.Context, p Product) (Product, error)
@@ -39,7 +41,9 @@ func NewService(store Store, prov Provisioner) *Service {
 	return &Service{store: store, prov: prov}
 }
 
-func (s *Service) List(ctx context.Context) ([]Product, error)        { return s.store.ListAll(ctx) }
+func (s *Service) List(ctx context.Context, p paging.Params) ([]Product, int, error) {
+	return s.store.ListAll(ctx, p)
+}
 func (s *Service) Get(ctx context.Context, id int64) (Product, error) { return s.store.Get(ctx, id) }
 func (s *Service) Create(ctx context.Context, p Product) (Product, error) {
 	overlaps, err := s.store.ContextPathOverlaps(ctx, p.ContextPath, 0)

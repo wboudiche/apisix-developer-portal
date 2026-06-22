@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"apisix-portal/internal/paging"
 )
 
 // fakeService implements ProductService for handler tests.
@@ -17,12 +19,12 @@ type fakeService struct {
 	deleteErr error
 }
 
-func (f *fakeService) List(_ context.Context) ([]Product, error) {
+func (f *fakeService) List(_ context.Context, _ paging.Params) ([]Product, int, error) {
 	out := []Product{}
 	for _, p := range f.products {
 		out = append(out, p)
 	}
-	return out, nil
+	return out, len(out), nil
 }
 func (f *fakeService) Get(_ context.Context, id int64) (Product, error) {
 	p, ok := f.products[id]
@@ -85,9 +87,21 @@ func TestList(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
-	var got []Product
+	var got paging.Page[Product]
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
-		t.Fatalf("body not a JSON array: %v", err)
+		t.Fatalf("body not a paging envelope: %v", err)
+	}
+	if got.Total != 1 {
+		t.Fatalf("Total = %d, want 1", got.Total)
+	}
+	if got.Page != 1 {
+		t.Fatalf("Page = %d, want 1", got.Page)
+	}
+	if got.PageSize != paging.DefaultPageSize {
+		t.Fatalf("PageSize = %d, want %d", got.PageSize, paging.DefaultPageSize)
+	}
+	if len(got.Items) != 1 {
+		t.Fatalf("len(Items) = %d, want 1", len(got.Items))
 	}
 }
 
