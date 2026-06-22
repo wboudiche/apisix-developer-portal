@@ -70,7 +70,7 @@ export function AppDetailPage() {
 
   useEffect(() => {
     if (!token) return
-    getApplications(token).then(setApps).catch(() => setErr('Impossible de charger les applications.'))
+    getApplications(token).then(r => setApps(r.items)).catch(() => setErr('Impossible de charger les applications.'))
     getPlans().then(setPlans).catch(() => { /* rates show as — */ })
   }, [token])
 
@@ -107,7 +107,7 @@ export function AppDetailPage() {
     setCreateOpen(false)
     notify('Application créée')
     const next = await getApplications(token)
-    setApps(next)
+    setApps(next.items)
     nav(`/applications/${a.id}`)
   }
 

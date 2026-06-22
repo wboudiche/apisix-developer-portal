@@ -6,6 +6,7 @@ import { TopBar } from '../components/TopBar'
 import { CategoryRail } from '../components/CategoryRail'
 import { ApiCard } from '../components/ApiCard'
 import { SubscribeModal } from '../components/SubscribeModal'
+import { Pagination } from '../components/Pagination'
 import { useAuth } from '../auth/AuthProvider'
 import '../styles/catalog.css'
 
@@ -19,33 +20,38 @@ export function CatalogPage() {
   const [tag, setTag] = useState<string | null>(null)
   const [sort, setSort] = useState<'rating' | 'alpha'>('rating')
   const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const pageSize = 20
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [modalProduct, setModalProduct] = useState<Product | null>(null)
   const [railOpen, setRailOpen] = useState(() =>
     typeof window === 'undefined' ? true : window.matchMedia('(min-width: 900px)').matches
   )
-
   function handleSubscribe(p: Product) {
     if (!user) { nav('/login'); return }
     setModalProduct(p)
   }
 
-  // Mount-only: fetch unfiltered catalog for stable category counts
+  // Mount-only: fetch unfiltered catalog (large page) for stable category counts
   useEffect(() => {
-    getProducts({}).then(setAllProducts).catch(() => { /* silent */ })
+    getProducts({}, { pageSize: 100 }).then(r => setAllProducts(r.items)).catch(() => { /* silent */ })
   }, [])
+
+  // Filters/sort change → go back to page 1.
+  useEffect(() => { setPage(1) }, [search, category, tag, sort])
 
   useEffect(() => {
     let alive = true
     setLoading(true)
     setError('')
-    getProducts({ search: search || undefined, category: category || undefined, tag: tag || undefined, sort })
-      .then(p => { if (alive) setProducts(p) })
-      .catch(() => { if (alive) { setProducts([]); setError('Impossible de charger le catalogue. Vérifiez que le service est démarré.') } })
+    getProducts({ search: search || undefined, category: category || undefined, tag: tag || undefined, sort }, { page, pageSize })
+      .then(r => { if (alive) { setProducts(r.items); setTotal(r.total) } })
+      .catch(() => { if (alive) { setProducts([]); setTotal(0); setError('Impossible de charger le catalogue. Vérifiez que le service est démarré.') } })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [search, category, tag, sort])
+  }, [search, category, tag, sort, page])
 
   const categories = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -65,7 +71,7 @@ export function CatalogPage() {
           <div className="chead">
             <div className="titlewrap">
               <h1>Catalogue d'API</h1>
-              <p className="rescount"><b>{products.length}</b> API{products.length > 1 ? 's' : ''}</p>
+              <p className="rescount"><b>{total}</b> API{total > 1 ? 's' : ''}</p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
               <select
@@ -98,6 +104,7 @@ export function CatalogPage() {
             {products.map(p => <ApiCard key={p.id} p={p} onSubscribe={handleSubscribe} />)}
           </div>
           {!loading && !error && products.length === 0 && <p className="rescount">Aucune API ne correspond.</p>}
+          <Pagination page={page} pageSize={pageSize} total={total} onPage={setPage} />
         </main>
       </div>
       {modalProduct && <SubscribeModal product={modalProduct} onClose={() => setModalProduct(null)} />}

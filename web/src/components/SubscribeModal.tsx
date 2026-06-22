@@ -18,9 +18,9 @@ export function SubscribeModal({ product, onClose }: { product: Product; onClose
   useEffect(() => {
     if (!token) return
     Promise.all([getApplications(token), getPlans()])
-      .then(([a, p]) => {
-        setApps(a); setPlans(p)
-        if (a.length) setAppId(a[0].id)
+      .then(([r, p]) => {
+        setApps(r.items); setPlans(p)
+        if (r.items.length) setAppId(r.items[0].id)
         if (p.length) setPlanId(p[0].id)
       })
       .catch(() => setErr('Impossible de charger les applications et les plans.'))

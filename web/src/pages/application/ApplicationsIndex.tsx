@@ -15,7 +15,7 @@ export function ApplicationsIndex() {
 
   useEffect(() => {
     if (!token) return
-    getApplications(token).then(setApps).catch(() => setErr('Impossible de charger les applications.'))
+    getApplications(token).then(r => setApps(r.items)).catch(() => setErr('Impossible de charger les applications.'))
   }, [token])
 
   if (!token) return <Navigate to="/login" replace />
