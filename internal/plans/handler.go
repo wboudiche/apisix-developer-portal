@@ -7,10 +7,11 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"apisix-portal/internal/httpx"
+	"apisix-portal/internal/paging"
 )
 
 type Lister interface {
-	List(ctx context.Context) ([]Plan, error)
+	List(ctx context.Context, p paging.Params) ([]Plan, int, error)
 }
 
 type Handler struct {
@@ -27,13 +28,11 @@ func NewHandler(repo Lister) *Handler {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.ServeHTTP(w, r) }
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
-	items, err := h.repo.List(r.Context())
+	p := paging.Parse(r.URL.Query())
+	items, total, err := h.repo.List(r.Context(), p)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to list plans")
 		return
 	}
-	if items == nil {
-		items = []Plan{}
-	}
-	httpx.JSON(w, http.StatusOK, items)
+	httpx.JSON(w, http.StatusOK, paging.New(items, total, p))
 }

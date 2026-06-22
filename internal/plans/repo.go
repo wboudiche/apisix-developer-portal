@@ -6,6 +6,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"apisix-portal/internal/paging"
 )
 
 var ErrNotFound = errors.New("plan not found")
@@ -14,22 +16,27 @@ type Repo struct{ pool *pgxpool.Pool }
 
 func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
-func (r *Repo) List(ctx context.Context) ([]Plan, error) {
+func (r *Repo) List(ctx context.Context, p paging.Params) ([]Plan, int, error) {
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM plans`).Scan(&total); err != nil {
+		return nil, 0, err
+	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, name, rate_limit_count, rate_limit_window_s FROM plans ORDER BY rate_limit_count ASC`)
+		`SELECT id, name, rate_limit_count, rate_limit_window_s FROM plans
+		 ORDER BY rate_limit_count ASC LIMIT $1 OFFSET $2`, p.Limit(), p.Offset())
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 	var out []Plan
 	for rows.Next() {
-		var p Plan
-		if err := rows.Scan(&p.ID, &p.Name, &p.RateLimit, &p.WindowSeconds); err != nil {
-			return nil, err
+		var pl Plan
+		if err := rows.Scan(&pl.ID, &pl.Name, &pl.RateLimit, &pl.WindowSeconds); err != nil {
+			return nil, 0, err
 		}
-		out = append(out, p)
+		out = append(out, pl)
 	}
-	return out, rows.Err()
+	return out, total, rows.Err()
 }
 
 func (r *Repo) GetByID(ctx context.Context, id int64) (Plan, error) {
