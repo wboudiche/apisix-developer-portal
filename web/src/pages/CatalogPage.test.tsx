@@ -21,21 +21,23 @@ function renderPage() {
 
 beforeEach(() => { localStorage.clear(); vi.restoreAllMocks() })
 
+const envelope = { items: sample, total: sample.length, page: 1, pageSize: 20 }
+
 describe('CatalogPage', () => {
   it('loads and renders all products from the API', async () => {
-    const spy = vi.spyOn(api, 'getProducts').mockResolvedValue(sample)
+    const spy = vi.spyOn(api, 'getProducts').mockResolvedValue(envelope)
     renderPage()
     await waitFor(() => expect(screen.getAllByTestId('api-card')).toHaveLength(2))
-    expect(spy).toHaveBeenCalledWith({})
+    expect(spy).toHaveBeenCalledWith({}, expect.objectContaining({ pageSize: 100 }))
     expect(screen.getByText('PizzaShackAPI')).toBeInTheDocument()
   })
 
   it('re-queries the API when the user types a search', async () => {
-    const spy = vi.spyOn(api, 'getProducts').mockResolvedValue(sample)
+    const spy = vi.spyOn(api, 'getProducts').mockResolvedValue(envelope)
     renderPage()
     await waitFor(() => expect(screen.getAllByTestId('api-card')).toHaveLength(2))
     await userEvent.type(screen.getByLabelText('Rechercher'), 'pizza')
-    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ search: 'pizza' })))
+    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ search: 'pizza' }), expect.any(Object)))
   })
 
   it('shows an error message when loading fails', async () => {
@@ -46,15 +48,15 @@ describe('CatalogPage', () => {
   })
 
   it('re-queries with the chosen sort', async () => {
-    const spy = vi.spyOn(api, 'getProducts').mockResolvedValue(sample)
+    const spy = vi.spyOn(api, 'getProducts').mockResolvedValue(envelope)
     renderPage()
     await waitFor(() => expect(screen.getAllByTestId('api-card').length).toBeGreaterThan(0))
     await userEvent.selectOptions(screen.getByLabelText('Trier'), 'alpha')
-    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ sort: 'alpha' })))
+    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ sort: 'alpha' }), expect.any(Object)))
   })
 
   it('toggles to list view', async () => {
-    vi.spyOn(api, 'getProducts').mockResolvedValue(sample)
+    vi.spyOn(api, 'getProducts').mockResolvedValue(envelope)
     const { container } = renderPage()
     await waitFor(() => expect(screen.getAllByTestId('api-card').length).toBeGreaterThan(0))
     await userEvent.click(screen.getByLabelText('Vue liste'))
@@ -62,7 +64,7 @@ describe('CatalogPage', () => {
   })
 
   it('redirects to /login when an anonymous user clicks Subscribe', async () => {
-    vi.spyOn(api, 'getProducts').mockResolvedValue(sample)
+    vi.spyOn(api, 'getProducts').mockResolvedValue(envelope)
     render(
       <MemoryRouter initialEntries={['/']}>
         <ThemeProvider><AuthProvider>
@@ -79,10 +81,10 @@ describe('CatalogPage', () => {
   })
 
   it('filters by tag when a tag is clicked', async () => {
-    const spy = vi.spyOn(api, 'getProducts').mockResolvedValue(sample)
+    const spy = vi.spyOn(api, 'getProducts').mockResolvedValue(envelope)
     renderPage()
     await waitFor(() => expect(screen.getAllByTestId('api-card').length).toBeGreaterThan(0))
     await userEvent.click(screen.getByRole('button', { name: 'pizza' }))
-    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ tag: 'pizza' })))
+    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.objectContaining({ tag: 'pizza' }), expect.any(Object)))
   })
 })

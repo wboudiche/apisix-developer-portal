@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"apisix-portal/internal/db"
+	"apisix-portal/internal/paging"
 )
 
 func testRepo(t *testing.T) (context.Context, *Repo, int64) {
@@ -42,9 +43,9 @@ func TestCreateAndListByOwner(t *testing.T) {
 	if a.ID == 0 || a.OwnerID != uid {
 		t.Fatalf("bad app: %+v", a)
 	}
-	list, err := repo.ListByOwner(ctx, uid)
-	if err != nil || len(list) != 1 {
-		t.Fatalf("ListByOwner: %v len=%d", err, len(list))
+	list, total, err := repo.ListByOwner(ctx, uid, paging.Params{Page: 1, Size: 20})
+	if err != nil || len(list) != 1 || total != 1 {
+		t.Fatalf("ListByOwner: %v len=%d total=%d", err, len(list), total)
 	}
 }
 

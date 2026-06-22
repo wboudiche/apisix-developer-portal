@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"apisix-portal/internal/db"
+	"apisix-portal/internal/paging"
 )
 
 func testRepo(t *testing.T) (context.Context, *Repo) {
@@ -28,7 +29,7 @@ func testRepo(t *testing.T) (context.Context, *Repo) {
 
 func TestListReturnsThreeSeededPlans(t *testing.T) {
 	ctx, repo := testRepo(t)
-	all, err := repo.List(ctx)
+	all, _, err := repo.List(ctx, paging.Params{Page: 1, Size: 20})
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -48,7 +49,7 @@ func TestListReturnsThreeSeededPlans(t *testing.T) {
 
 func TestGetByIDFound(t *testing.T) {
 	ctx, repo := testRepo(t)
-	all, _ := repo.List(ctx)
+	all, _, _ := repo.List(ctx, paging.Params{Page: 1, Size: 20})
 	p, err := repo.GetByID(ctx, all[0].ID)
 	if err != nil || p.ID != all[0].ID {
 		t.Fatalf("GetByID: %v %+v", err, p)

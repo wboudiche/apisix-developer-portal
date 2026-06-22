@@ -11,7 +11,7 @@ beforeEach(() => {
   localStorage.clear()
   vi.restoreAllMocks()
   // AuthShell fetches catalog stats on mount; neutralize it for page tests.
-  vi.spyOn(api, 'getProducts').mockResolvedValue([])
+  vi.spyOn(api, 'getProducts').mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 })
 })
 
 function renderLogin() {

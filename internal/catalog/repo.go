@@ -7,6 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"apisix-portal/internal/paging"
 )
 
 // ErrNotFound is returned by GetBySlug when the product does not exist.
@@ -25,11 +27,11 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 const baseSelect = `SELECT id, name, slug, category, version, context_path, description, tags, icon, rating
 	FROM api_products WHERE published = true`
 
-// List returns published products, optionally filtered/sorted by the Query fields.
-func (r *Repo) List(ctx context.Context, q Query) ([]Product, error) {
-	sql := baseSelect
+// filterClause builds the shared WHERE tail (after "published = true") and its
+// args, so the count and page queries always apply the same filters.
+func filterClause(q Query) (string, []any) {
+	sql := ""
 	args := []any{}
-
 	if q.Category != "" {
 		args = append(args, q.Category)
 		sql += fmt.Sprintf(" AND category = $%d", len(args))
@@ -43,20 +45,40 @@ func (r *Repo) List(ctx context.Context, q Query) ([]Product, error) {
 		n := len(args)
 		sql += fmt.Sprintf(" AND (name ILIKE $%d OR description ILIKE $%d)", n, n)
 	}
+	return sql, args
+}
 
+// List returns one page of published products plus the total matching the same
+// filters.
+func (r *Repo) List(ctx context.Context, q Query, p paging.Params) ([]Product, int, error) {
+	filter, args := filterClause(q)
+
+	var total int
+	if err := r.pool.QueryRow(ctx,
+		`SELECT count(*) FROM api_products WHERE published = true`+filter, args...,
+	).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	sql := baseSelect + filter
 	if q.Sort == "alpha" {
 		sql += " ORDER BY name ASC"
 	} else {
 		sql += " ORDER BY rating DESC, name ASC"
 	}
+	args = append(args, p.Limit(), p.Offset())
+	sql += fmt.Sprintf(" LIMIT $%d OFFSET $%d", len(args)-1, len(args))
 
 	rows, err := r.pool.Query(ctx, sql, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
-
-	return scanProducts(rows)
+	items, err := scanProducts(rows)
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
 }
 
 // GetBySlug returns the product with the given slug, or ErrNotFound.

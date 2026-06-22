@@ -1,10 +1,14 @@
 package admin
 
-import "context"
+import (
+	"context"
+
+	"apisix-portal/internal/paging"
+)
 
 // PlanStore is the persistence surface the plan service needs (satisfied by *PlanRepo).
 type PlanStore interface {
-	ListPlans(ctx context.Context) ([]Plan, error)
+	ListPlans(ctx context.Context, p paging.Params) ([]Plan, int, error)
 	GetPlan(ctx context.Context, id int64) (Plan, error)
 	CreatePlan(ctx context.Context, p Plan) (Plan, error)
 	UpdatePlan(ctx context.Context, p Plan) (Plan, error)
@@ -28,7 +32,9 @@ func NewPlanService(store PlanStore, prov PlanProvisioner) *PlanService {
 	return &PlanService{store: store, prov: prov}
 }
 
-func (s *PlanService) List(ctx context.Context) ([]Plan, error) { return s.store.ListPlans(ctx) }
+func (s *PlanService) List(ctx context.Context, p paging.Params) ([]Plan, int, error) {
+	return s.store.ListPlans(ctx, p)
+}
 
 func (s *PlanService) Create(ctx context.Context, p Plan) (Plan, error) {
 	return s.store.CreatePlan(ctx, p)

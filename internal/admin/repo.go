@@ -7,6 +7,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"apisix-portal/internal/paging"
 )
 
 // ErrNotFound is returned when a product id does not exist.
@@ -31,21 +33,27 @@ func scanProduct(row pgx.Row) (Product, error) {
 	return p, err
 }
 
-func (r *Repo) ListAll(ctx context.Context) ([]Product, error) {
-	rows, err := r.pool.Query(ctx, `SELECT `+productCols+` FROM api_products ORDER BY name ASC`)
+func (r *Repo) ListAll(ctx context.Context, p paging.Params) ([]Product, int, error) {
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM api_products`).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+productCols+` FROM api_products ORDER BY name ASC LIMIT $1 OFFSET $2`,
+		p.Limit(), p.Offset())
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 	var out []Product
 	for rows.Next() {
-		p, err := scanProduct(rows)
+		pr, err := scanProduct(rows)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
-		out = append(out, p)
+		out = append(out, pr)
 	}
-	return out, rows.Err()
+	return out, total, rows.Err()
 }
 
 func (r *Repo) Get(ctx context.Context, id int64) (Product, error) {

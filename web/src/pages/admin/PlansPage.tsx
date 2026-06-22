@@ -6,6 +6,7 @@ import { AdminShell } from './AdminShell'
 import { Composer } from './Composer'
 import { planRate, planPreview } from './meta'
 import { Toast, useToast } from '../../components/Toast'
+import { Pagination } from '../../components/Pagination'
 import { ConfirmModal, type ModalSpec } from '../../components/ConfirmModal'
 
 const TIERS = ['Free', 'Silver', 'Gold']
@@ -17,6 +18,9 @@ function PlusIcon() {
 export function PlansPage() {
   const { token } = useAuth()
   const [plans, setPlans] = useState<Plan[]>([])
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const pageSize = 20
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Plan | null>(null)
   const [name, setName] = useState('')
@@ -31,10 +35,10 @@ export function PlansPage() {
   const reload = useCallback(() => {
     if (!token) return
     const seq = ++reqSeq.current
-    adminGetPlans(token)
-      .then(l => { if (seq === reqSeq.current) setPlans(l) })
+    adminGetPlans(token, { page, pageSize })
+      .then(r => { if (seq === reqSeq.current) { setPlans(r.items); setTotal(r.total) } })
       .catch(() => { if (seq === reqSeq.current) setErr('Impossible de charger les plans.') })
-  }, [token])
+  }, [token, page])
   useEffect(reload, [reload])
 
   function openCreate() { setEditing(null); setName(''); setLimit(100); setWindowS(60); setOpen(true) }
@@ -136,6 +140,7 @@ export function PlansPage() {
           </div>
         ))}
       </div>
+      <Pagination page={page} pageSize={pageSize} total={total} onPage={setPage} />
 
       <Toast msg={toast?.msg ?? null} kind={toast?.kind} />
       <ConfirmModal spec={modal} onClose={() => setModal(null)} />

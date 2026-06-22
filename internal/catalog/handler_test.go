@@ -1,22 +1,32 @@
 package catalog
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"apisix-portal/internal/paging"
 )
 
 // fakeLister implements the Lister interface without a database.
-type fakeLister struct{ items []Product }
-
-func (f fakeLister) List(_ contextStub, q Query) ([]Product, error) {
-	if q.Category == "Finance" {
-		return f.items[:1], nil
-	}
-	return f.items, nil
+type fakeLister struct {
+	items []Product
+	err   error
 }
-func (f fakeLister) GetBySlug(_ contextStub, slug string) (Product, error) {
+
+func (f fakeLister) List(_ context.Context, q Query, p paging.Params) ([]Product, int, error) {
+	if f.err != nil {
+		return nil, 0, f.err
+	}
+	if q.Category == "Finance" {
+		items := f.items[:1]
+		return items, len(items), nil
+	}
+	return f.items, len(f.items), nil
+}
+func (f fakeLister) GetBySlug(_ context.Context, slug string) (Product, error) {
 	for _, p := range f.items {
 		if p.Slug == slug {
 			return p, nil
@@ -26,7 +36,8 @@ func (f fakeLister) GetBySlug(_ contextStub, slug string) (Product, error) {
 }
 
 func TestProductsEndpointReturnsJSON(t *testing.T) {
-	h := NewHandler(fakeLister{items: []Product{{Name: "A", Slug: "a"}, {Name: "B", Slug: "b"}}})
+	f := fakeLister{items: []Product{{Name: "A", Slug: "a"}, {Name: "B", Slug: "b"}}}
+	h := NewHandler(f)
 	req := httptest.NewRequest(http.MethodGet, "/api/products", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -34,24 +45,28 @@ func TestProductsEndpointReturnsJSON(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
-	var got []Product
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+	var got paging.Page[Product]
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(got) != 2 {
-		t.Fatalf("got %d products, want 2", len(got))
+	if got.Total != len(f.items) || got.Page != 1 || got.PageSize != 20 {
+		t.Fatalf("envelope meta wrong: %+v", got)
+	}
+	if len(got.Items) != len(f.items) {
+		t.Fatalf("got %d items, want %d", len(got.Items), len(f.items))
 	}
 }
 
 func TestProductsEndpointFiltersByCategory(t *testing.T) {
-	h := NewHandler(fakeLister{items: []Product{{Slug: "a"}, {Slug: "b"}}})
+	f := fakeLister{items: []Product{{Slug: "a"}, {Slug: "b"}}}
+	h := NewHandler(f)
 	req := httptest.NewRequest(http.MethodGet, "/api/products?category=Finance", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
-	var got []Product
-	_ = json.Unmarshal(rec.Body.Bytes(), &got)
-	if len(got) != 1 {
-		t.Fatalf("got %d, want 1 filtered", len(got))
+	var got paging.Page[Product]
+	_ = json.NewDecoder(rec.Body).Decode(&got)
+	if len(got.Items) != 1 {
+		t.Fatalf("got %d, want 1 filtered", len(got.Items))
 	}
 }
 

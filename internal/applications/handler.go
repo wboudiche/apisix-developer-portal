@@ -11,11 +11,12 @@ import (
 	"apisix-portal/internal/auth"
 	"apisix-portal/internal/events"
 	"apisix-portal/internal/httpx"
+	"apisix-portal/internal/paging"
 )
 
 type Store interface {
 	Create(ctx context.Context, ownerID int64, name, description string) (Application, error)
-	ListByOwner(ctx context.Context, ownerID int64) ([]Application, error)
+	ListByOwner(ctx context.Context, ownerID int64, p paging.Params) ([]Application, int, error)
 }
 
 // EventLogger records the app-created activity event (satisfied by
@@ -63,13 +64,11 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
-	apps, err := h.store.ListByOwner(r.Context(), auth.UserID(r.Context()))
+	p := paging.Parse(r.URL.Query())
+	apps, total, err := h.store.ListByOwner(r.Context(), auth.UserID(r.Context()), p)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to list applications")
 		return
 	}
-	if apps == nil {
-		apps = []Application{}
-	}
-	httpx.JSON(w, http.StatusOK, apps)
+	httpx.JSON(w, http.StatusOK, paging.New(apps, total, p))
 }

@@ -30,9 +30,9 @@ beforeEach(() => {
   localStorage.setItem('token', 'jwt')
   localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'Dev', role: 'developer' }))
   vi.restoreAllMocks()
-  vi.spyOn(api, 'getApplications').mockResolvedValue(apps)
+  vi.spyOn(api, 'getApplications').mockResolvedValue({ items: apps, total: apps.length, page: 1, pageSize: 20 })
   vi.spyOn(api, 'getApplicationDetail').mockResolvedValue(detail)
-  vi.spyOn(api, 'getPlans').mockResolvedValue(plans)
+  vi.spyOn(api, 'getPlans').mockResolvedValue({ items: plans, total: plans.length, page: 1, pageSize: 20 })
   Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } })
 })
 
@@ -57,7 +57,7 @@ describe('ApplicationsIndex', () => {
     await waitFor(() => expect(screen.getByText('Boutique Mobile', { selector: 'h1, h1 *' })).toBeInTheDocument())
   })
   it('shows the create form when no apps exist', async () => {
-    vi.spyOn(api, 'getApplications').mockResolvedValue([])
+    vi.spyOn(api, 'getApplications').mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 })
     renderAt('/applications')
     expect(await screen.findByText(/Créez votre première application/)).toBeInTheDocument()
   })

@@ -11,11 +11,12 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"apisix-portal/internal/httpx"
+	"apisix-portal/internal/paging"
 )
 
 // ProductService is the surface the handler needs (satisfied by *Service).
 type ProductService interface {
-	List(ctx context.Context) ([]Product, error)
+	List(ctx context.Context, p paging.Params) ([]Product, int, error)
 	Get(ctx context.Context, id int64) (Product, error)
 	Create(ctx context.Context, p Product) (Product, error)
 	Update(ctx context.Context, p Product) (Product, error)
@@ -41,16 +42,14 @@ func NewHandler(svc ProductService, allowPrivate bool) *Handler {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.ServeHTTP(w, r) }
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
-	items, err := h.svc.List(r.Context())
+	p := paging.Parse(r.URL.Query())
+	items, total, err := h.svc.List(r.Context(), p)
 	if err != nil {
 		log.Printf("admin list products: %v", err)
 		httpx.Error(w, http.StatusInternalServerError, "failed to list products")
 		return
 	}
-	if items == nil {
-		items = []Product{}
-	}
-	httpx.JSON(w, http.StatusOK, items)
+	httpx.JSON(w, http.StatusOK, paging.New(items, total, p))
 }
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {

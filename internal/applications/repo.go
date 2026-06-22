@@ -6,6 +6,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"apisix-portal/internal/paging"
 )
 
 var ErrNotFound = errors.New("application not found")
@@ -24,22 +26,29 @@ func (r *Repo) Create(ctx context.Context, ownerID int64, name, description stri
 	return a, err
 }
 
-func (r *Repo) ListByOwner(ctx context.Context, ownerID int64) ([]Application, error) {
+func (r *Repo) ListByOwner(ctx context.Context, ownerID int64, p paging.Params) ([]Application, int, error) {
+	var total int
+	if err := r.pool.QueryRow(ctx,
+		`SELECT count(*) FROM applications WHERE owner_id=$1`, ownerID).Scan(&total); err != nil {
+		return nil, 0, err
+	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,owner_id,name,description,created_at FROM applications WHERE owner_id=$1 ORDER BY created_at DESC`, ownerID)
+		`SELECT id,owner_id,name,description,created_at FROM applications
+		 WHERE owner_id=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+		ownerID, p.Limit(), p.Offset())
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 	var out []Application
 	for rows.Next() {
 		var a Application
 		if err := rows.Scan(&a.ID, &a.OwnerID, &a.Name, &a.Description, &a.CreatedAt); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		out = append(out, a)
 	}
-	return out, rows.Err()
+	return out, total, rows.Err()
 }
 
 func (r *Repo) Get(ctx context.Context, id, ownerID int64) (Application, error) {

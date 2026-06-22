@@ -34,9 +34,9 @@ export function AuthShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     let alive = true
     getProducts({})
-      .then(ps => {
+      .then(r => {
         if (!alive) return
-        setStats({ apis: ps.length, categories: new Set(ps.map(p => p.category)).size })
+        setStats({ apis: r.total, categories: new Set(r.items.map(p => p.category)).size })
       })
       .catch(() => { /* keep blueprint fallback */ })
     return () => { alive = false }

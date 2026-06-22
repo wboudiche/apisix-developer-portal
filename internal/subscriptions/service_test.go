@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"apisix-portal/internal/apisix"
+	"apisix-portal/internal/paging"
 )
 
 // routeFailGateway wraps a Fake but makes EnsureRoute fail, simulating APISIX
@@ -183,14 +184,14 @@ func (m *memStore) SubscriptionStatus(_ context.Context, appID, productID int64)
 	return "", nil
 }
 
-func (m *memStore) AdminSubscriptions(_ context.Context, statusFilter string) ([]AdminSubscriptionView, error) {
+func (m *memStore) AdminSubscriptions(_ context.Context, statusFilter string, _ paging.Params) ([]AdminSubscriptionView, int, error) {
 	out := []AdminSubscriptionView{}
 	for _, r := range m.records {
 		if statusFilter == "" || r.Status == statusFilter {
 			out = append(out, AdminSubscriptionView{ID: r.ID, Status: r.Status})
 		}
 	}
-	return out, nil
+	return out, len(out), nil
 }
 
 func TestSubscribeIsPendingAndDoesNotProvision(t *testing.T) {

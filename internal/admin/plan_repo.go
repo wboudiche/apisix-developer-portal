@@ -6,6 +6,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"apisix-portal/internal/paging"
 )
 
 // Plan-specific sentinels (product sentinels live in repo.go).
@@ -28,21 +30,27 @@ func scanPlan(row pgx.Row) (Plan, error) {
 	return p, err
 }
 
-func (r *PlanRepo) ListPlans(ctx context.Context) ([]Plan, error) {
-	rows, err := r.pool.Query(ctx, `SELECT `+planCols+` FROM plans ORDER BY rate_limit_count ASC`)
+func (r *PlanRepo) ListPlans(ctx context.Context, p paging.Params) ([]Plan, int, error) {
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM plans`).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+planCols+` FROM plans ORDER BY rate_limit_count ASC LIMIT $1 OFFSET $2`,
+		p.Limit(), p.Offset())
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 	var out []Plan
 	for rows.Next() {
-		p, err := scanPlan(rows)
+		pl, err := scanPlan(rows)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
-		out = append(out, p)
+		out = append(out, pl)
 	}
-	return out, rows.Err()
+	return out, total, rows.Err()
 }
 
 func (r *PlanRepo) GetPlan(ctx context.Context, id int64) (Plan, error) {

@@ -31,11 +31,11 @@ export function AdminShell({ active, title, description, action, counts, childre
     if (!token) return
     let alive = true
     if (!provided.current.products)
-      adminGetProducts(token).then(l => { if (alive) setFetched(f => ({ ...f, products: l.length })) }).catch(() => {})
+      adminGetProducts(token).then(r => { if (alive) setFetched(f => ({ ...f, products: r.total })) }).catch(() => {})
     if (!provided.current.plans)
-      adminGetPlans(token).then(l => { if (alive) setFetched(f => ({ ...f, plans: l.length })) }).catch(() => {})
+      adminGetPlans(token).then(r => { if (alive) setFetched(f => ({ ...f, plans: r.total })) }).catch(() => {})
     if (!provided.current.pending)
-      adminGetSubscriptions(token, 'pending').then(l => { if (alive) setFetched(f => ({ ...f, pending: l.length })) }).catch(() => {})
+      adminGetSubscriptions(token, 'pending').then(r => { if (alive) setFetched(f => ({ ...f, pending: r.total })) }).catch(() => {})
     return () => { alive = false }
   }, [token])
 

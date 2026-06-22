@@ -11,11 +11,12 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"apisix-portal/internal/httpx"
+	"apisix-portal/internal/paging"
 )
 
 // PlanAdminService is the surface the plan handler needs (satisfied by *PlanService).
 type PlanAdminService interface {
-	List(ctx context.Context) ([]Plan, error)
+	List(ctx context.Context, p paging.Params) ([]Plan, int, error)
 	Create(ctx context.Context, p Plan) (Plan, error)
 	Update(ctx context.Context, p Plan) (Plan, error)
 	Delete(ctx context.Context, id int64) error
@@ -38,16 +39,14 @@ func NewPlanHandler(svc PlanAdminService) *PlanHandler {
 func (h *PlanHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.ServeHTTP(w, r) }
 
 func (h *PlanHandler) list(w http.ResponseWriter, r *http.Request) {
-	items, err := h.svc.List(r.Context())
+	p := paging.Parse(r.URL.Query())
+	items, total, err := h.svc.List(r.Context(), p)
 	if err != nil {
 		log.Printf("admin list plans: %v", err)
 		httpx.Error(w, http.StatusInternalServerError, "failed to list plans")
 		return
 	}
-	if items == nil {
-		items = []Plan{}
-	}
-	httpx.JSON(w, http.StatusOK, items)
+	httpx.JSON(w, http.StatusOK, paging.New(items, total, p))
 }
 
 func (h *PlanHandler) create(w http.ResponseWriter, r *http.Request) {
