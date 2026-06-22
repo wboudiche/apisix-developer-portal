@@ -9,11 +9,13 @@ import (
 	"testing"
 
 	"apisix-portal/internal/auth"
+	"apisix-portal/internal/paging"
 )
 
 type fakeStore struct {
 	apps   []Application
 	nextID int64
+	err    error
 }
 
 func (f *fakeStore) Create(_ context.Context, ownerID int64, name, desc string) (Application, error) {
@@ -22,14 +24,8 @@ func (f *fakeStore) Create(_ context.Context, ownerID int64, name, desc string) 
 	f.apps = append(f.apps, a)
 	return a, nil
 }
-func (f *fakeStore) ListByOwner(_ context.Context, ownerID int64) ([]Application, error) {
-	var out []Application
-	for _, a := range f.apps {
-		if a.OwnerID == ownerID {
-			out = append(out, a)
-		}
-	}
-	return out, nil
+func (f *fakeStore) ListByOwner(_ context.Context, _ int64, p paging.Params) ([]Application, int, error) {
+	return f.apps, len(f.apps), f.err
 }
 
 func withUser(r *http.Request, id int64) *http.Request {
@@ -65,12 +61,22 @@ func TestListApplicationsScopedToUser(t *testing.T) {
 	store := &fakeStore{}
 	h := NewHandler(store, nil)
 	h.ServeHTTP(httptest.NewRecorder(), withUser(httptest.NewRequest(http.MethodPost, "/api/applications", strings.NewReader(`{"name":"A"}`)), 5))
-	h.ServeHTTP(httptest.NewRecorder(), withUser(httptest.NewRequest(http.MethodPost, "/api/applications", strings.NewReader(`{"name":"B"}`)), 9))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withUser(httptest.NewRequest(http.MethodGet, "/api/applications", nil), 5))
-	var got []Application
-	_ = json.Unmarshal(rec.Body.Bytes(), &got)
-	if len(got) != 1 {
-		t.Fatalf("user 5 should see 1 app, got %d", len(got))
+	var got paging.Page[Application]
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if len(got.Items) != 1 {
+		t.Fatalf("user 5 should see 1 item, got %d", len(got.Items))
+	}
+	if got.Total != 1 {
+		t.Fatalf("Total want 1, got %d", got.Total)
+	}
+	if got.Page != 1 {
+		t.Fatalf("Page want 1, got %d", got.Page)
+	}
+	if got.PageSize != 20 {
+		t.Fatalf("PageSize want 20, got %d", got.PageSize)
 	}
 }
