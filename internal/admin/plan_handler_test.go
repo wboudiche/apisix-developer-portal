@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"apisix-portal/internal/paging"
 )
 
 type fakePlanService struct {
@@ -16,12 +18,12 @@ type fakePlanService struct {
 	deleteErr error
 }
 
-func (f *fakePlanService) List(_ context.Context) ([]Plan, error) {
+func (f *fakePlanService) List(_ context.Context, _ paging.Params) ([]Plan, int, error) {
 	out := []Plan{}
 	for _, p := range f.plans {
 		out = append(out, p)
 	}
-	return out, nil
+	return out, len(out), nil
 }
 func (f *fakePlanService) Create(_ context.Context, p Plan) (Plan, error) {
 	if f.createErr != nil {
@@ -75,9 +77,21 @@ func TestPlanList(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
-	var got []Plan
+	var got paging.Page[Plan]
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
-		t.Fatalf("body not a JSON array: %v", err)
+		t.Fatalf("body not a paging envelope: %v", err)
+	}
+	if got.Total != 1 {
+		t.Fatalf("Total = %d, want 1", got.Total)
+	}
+	if got.Page != 1 {
+		t.Fatalf("Page = %d, want 1", got.Page)
+	}
+	if got.PageSize != paging.DefaultPageSize {
+		t.Fatalf("PageSize = %d, want %d", got.PageSize, paging.DefaultPageSize)
+	}
+	if len(got.Items) != 1 {
+		t.Fatalf("len(Items) = %d, want 1", len(got.Items))
 	}
 }
 
