@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test'
-import { expectPaginationLifecycle } from './helpers'
+import { expectPaginationLifecycle, goto } from './helpers'
 
 // Public catalogue grid — no auth required.
 test.describe('Catalog pagination', () => {
   test('grid pages through products and shows the right total', async ({ page }) => {
-    await page.goto('/')
+    await goto(page, '/')
 
     const cards = page.locator('[data-testid="api-card"]')
     const total = await expectPaginationLifecycle(page, cards, '/api/products')

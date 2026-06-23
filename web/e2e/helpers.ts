@@ -1,6 +1,14 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 import { PAGE_SIZE } from './seed-data'
 
+// Navigate without waiting for the `load` event. The app's base.css @imports
+// Google Fonts over the network, so `load` (the Playwright default) hangs on
+// that external request under load even though the page has already rendered.
+// `domcontentloaded` is enough — every assertion below auto-waits for its target.
+export function goto(page: Page, path: string) {
+  return page.goto(path, { waitUntil: 'domcontentloaded' })
+}
+
 // Locators for the shared <Pagination> prev/next component, which renders
 // "Préc."  /  "Page X · N au total"  /  "Suiv.".
 export function pager(page: Page) {

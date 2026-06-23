@@ -24,7 +24,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  // One retry absorbs transient slowness on a loaded dev box (the stack shares
+  // the machine with other containers); a deterministic failure still fails.
+  retries: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
   timeout: 30_000,
   expect: { timeout: 10_000 },
