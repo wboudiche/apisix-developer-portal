@@ -1,10 +1,14 @@
 package admin
 
 import (
+	"context"
 	"errors"
+	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"sigs.k8s.io/yaml"
 )
@@ -162,4 +166,80 @@ func specSlugify(s string) string {
 		}
 	}
 	return strings.Trim(b.String(), "-")
+}
+
+// ErrUnsafeURL is returned when an import URL uses a disallowed scheme or
+// resolves to a private/internal address.
+var ErrUnsafeURL = errors.New("admin: url is not allowed")
+
+const maxSpecBytes = 2 << 20 // 2 MiB
+
+// fetchSpec GETs rawURL and returns up to maxSpecBytes of its body. It only
+// allows http/https and, unless allowPrivate is set, rejects hosts that resolve
+// to loopback/link-local/private/unspecified ranges (SSRF guard, mirroring
+// ValidUpstream). Redirects are disabled so a public URL cannot bounce to an
+// internal one.
+func fetchSpec(ctx context.Context, rawURL string, allowPrivate bool) ([]byte, error) {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return nil, ErrUnsafeURL
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return nil, ErrUnsafeURL
+	}
+	if !hostAllowed(u.Hostname(), allowPrivate) {
+		return nil, ErrUnsafeURL
+	}
+
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse // do not follow redirects
+		},
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, ErrUnsafeURL
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, ErrBadSpec
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, ErrBadSpec
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxSpecBytes))
+	if err != nil {
+		return nil, ErrBadSpec
+	}
+	return body, nil
+}
+
+// hostAllowed mirrors the SSRF policy in ValidUpstream: literal private IPs,
+// "localhost", and hostnames resolving to any private address are blocked
+// unless allowPrivate is set.
+func hostAllowed(host string, allowPrivate bool) bool {
+	if host == "" {
+		return false
+	}
+	if allowPrivate {
+		return true
+	}
+	if strings.EqualFold(host, "localhost") {
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return !isPrivateIP(ip)
+	}
+	ips, err := lookupIP(host)
+	if err != nil || len(ips) == 0 {
+		return false
+	}
+	for _, ip := range ips {
+		if isPrivateIP(ip) {
+			return false
+		}
+	}
+	return true
 }
