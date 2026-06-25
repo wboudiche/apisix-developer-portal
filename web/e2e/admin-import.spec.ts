@@ -107,23 +107,39 @@ test.describe('Admin OpenAPI import', () => {
     await expect(page.getByLabel('Catégorie')).toHaveValue('Inventory')
   })
 
-  test('rejects an unparseable spec with an inline error and opens no composer', async ({ page }) => {
-    await goto(page, '/admin/products')
+  // Each bad input must come back 422 and surface the backend message inline,
+  // with no Composer opened and nothing persisted. Covers: malformed JSON syntax
+  // (unbalanced braces), broken YAML syntax (bad indentation), well-formed-but-
+  // not-a-spec, and a valid document missing the required info.title.
+  const BAD_INPUTS: { label: string; name: string; mimeType: string; body: string }[] = [
+    { label: 'malformed JSON syntax', name: 'broken.json', mimeType: 'application/json', body: '{"openapi": "3.0.0", "info": {' },
+    { label: 'malformed YAML syntax', name: 'broken.yaml', mimeType: 'application/yaml', body: 'openapi: 3.0.0\ninfo: [unbalanced' },
+    { label: 'well-formed but not a spec', name: 'not-a-spec.json', mimeType: 'application/json', body: '{"hello":"world"}' },
+    { label: 'valid spec missing info.title', name: 'no-title.json', mimeType: 'application/json', body: '{"openapi":"3.0.0","info":{"version":"1.0.0"}}' },
+  ]
 
-    await page.getByRole('button', { name: 'Importer une API' }).click()
-    const dialog = page.getByRole('dialog', { name: 'Importer une API' })
-    await expect(dialog).toBeVisible()
+  for (const bad of BAD_INPUTS) {
+    test(`rejects ${bad.label} with an inline error and opens no composer`, async ({ page }) => {
+      await goto(page, '/admin/products')
 
-    await dialog.getByLabel('Fichier de spécification').setInputFiles({
-      name: 'not-a-spec.json',
-      mimeType: 'application/json',
-      buffer: Buffer.from('this is not a spec at all'),
+      await page.getByRole('button', { name: 'Importer une API' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Importer une API' })
+      await expect(dialog).toBeVisible()
+
+      await dialog.getByLabel('Fichier de spécification').setInputFiles({
+        name: bad.name, mimeType: bad.mimeType, buffer: Buffer.from(bad.body),
+      })
+      const [res] = await Promise.all([
+        page.waitForResponse(r =>
+          r.url().includes('/api/admin/products/import') && r.request().method() === 'POST'),
+        dialog.getByRole('button', { name: 'Importer', exact: true }).click(),
+      ])
+      expect(res.status()).toBe(422)
+
+      // The modal stays open and surfaces the backend's parse message inline; the
+      // Composer is never opened (nothing persisted).
+      await expect(dialog.getByRole('alert')).toHaveText(/parsed|OpenAPI|Swagger/i)
+      await expect(page.getByText('Créer un produit')).toHaveCount(0)
     })
-    await dialog.getByRole('button', { name: 'Importer', exact: true }).click()
-
-    // The modal stays open and surfaces the backend's 422 message inline; the
-    // Composer is never opened.
-    await expect(dialog.getByRole('alert')).toBeVisible()
-    await expect(page.getByText('Créer un produit')).toHaveCount(0)
-  })
+  }
 })
