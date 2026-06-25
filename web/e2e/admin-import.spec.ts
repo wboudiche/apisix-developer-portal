@@ -20,6 +20,19 @@ tags:
   - name: Pets
 `
 
+// A Swagger 2.0 spec, intentionally JSON so the run also covers the JSON decode
+// path and the 2.0 mapping (host + basePath + schemes -> Context path + Upstream)
+// through the real binary. host -> Upstream host:port (https default 443),
+// basePath -> Context path, tags[0] -> Catégorie.
+const SWAGGER2_SPEC = JSON.stringify({
+  swagger: '2.0',
+  info: { title: 'Legacy Inventory API', version: '1.3.0' },
+  host: 'inventory.example.com',
+  basePath: '/v1',
+  schemes: ['https'],
+  tags: [{ name: 'Inventory' }],
+})
+
 test.describe('Admin OpenAPI import', () => {
   test('imports a spec file, pre-fills the composer, and creates the product', async ({ page }) => {
     await goto(page, '/admin/products')
@@ -64,6 +77,34 @@ test.describe('Admin OpenAPI import', () => {
       page.getByRole('button', { name: 'Créer le produit' }).click(),
     ])
     expect(createRes.status()).toBe(201)
+  })
+
+  test('imports a Swagger 2.0 (JSON) spec and pre-fills the composer', async ({ page }) => {
+    await goto(page, '/admin/products')
+
+    await page.getByRole('button', { name: 'Importer une API' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Importer une API' })
+    await expect(dialog).toBeVisible()
+
+    await dialog.getByLabel('Fichier de spécification').setInputFiles({
+      name: 'inventory.swagger.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(SWAGGER2_SPEC),
+    })
+    const [importRes] = await Promise.all([
+      page.waitForResponse(r =>
+        r.url().includes('/api/admin/products/import') && r.request().method() === 'POST'),
+      dialog.getByRole('button', { name: 'Importer', exact: true }).click(),
+    ])
+    expect(importRes.status()).toBe(200)
+
+    // host + basePath + schemes from the 2.0 spec map into the form.
+    await expect(page.getByText('Créer un produit')).toBeVisible()
+    await expect(page.getByLabel('Nom')).toHaveValue('Legacy Inventory API')
+    await expect(page.getByLabel('Version')).toHaveValue('1.3.0')
+    await expect(page.getByLabel('Context path')).toHaveValue('/v1')
+    await expect(page.getByLabel(/Upstream/)).toHaveValue('inventory.example.com:443')
+    await expect(page.getByLabel('Catégorie')).toHaveValue('Inventory')
   })
 
   test('rejects an unparseable spec with an inline error and opens no composer', async ({ page }) => {
