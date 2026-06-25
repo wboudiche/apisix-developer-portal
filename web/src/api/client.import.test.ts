@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { it, expect, vi, afterEach } from 'vitest'
 import { adminImportProduct, ApiError } from './client'
 
 afterEach(() => vi.restoreAllMocks())
