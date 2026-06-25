@@ -108,4 +108,23 @@ describe('ProductsPage', () => {
     expect(await screen.findByText('Suppression impossible : abonnements actifs.')).toBeInTheDocument()
     expect(screen.getByText('CurrencyConverterAPI')).toBeInTheDocument()
   })
+
+  it('import opens the Composer pre-filled from the returned draft', async () => {
+    vi.spyOn(api, 'adminImportProduct').mockResolvedValue({
+      name: 'Imported API', slug: 'imported', category: 'Finance', version: '2.5.0',
+      contextPath: '/v2', description: 'desc', tags: ['Finance'], icon: '', upstreamUrl: 'api.example.com:443', published: false,
+    })
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getByRole('button', { name: /Importer une API/i }))
+    await userEvent.click(screen.getByRole('tab', { name: /URL/i }))
+    await userEvent.type(screen.getByPlaceholderText(/https/i), 'https://api.example.com/openapi.json')
+    await userEvent.click(screen.getByRole('button', { name: /^Importer$/i }))
+
+    // Composer is now open, pre-filled as a create
+    expect(await screen.findByText('Créer un produit')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nom')).toHaveValue('Imported API')
+    expect(screen.getByLabelText('Version')).toHaveValue('2.5.0')
+    expect(screen.getByLabelText('Context path')).toHaveValue('/v2')
+  })
 })

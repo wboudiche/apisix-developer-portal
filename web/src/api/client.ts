@@ -176,6 +176,10 @@ export async function adminUpdateProduct(token: string, id: number, p: AdminProd
 export async function adminDeleteProduct(token: string, id: number): Promise<void> {
   return sendAuthed('DELETE', `/api/admin/products/${id}`, token)
 }
+export async function adminImportProduct(token: string, src: { spec: string } | { url: string }): Promise<AdminProduct> {
+  const url = '/api/admin/products/import'
+  return parse<AdminProduct>(await fetch(url, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(src) }), url)
+}
 
 // --- Admin: plans ---
 export async function adminGetPlans(token: string, page?: PageOpts): Promise<Paginated<Plan>> {

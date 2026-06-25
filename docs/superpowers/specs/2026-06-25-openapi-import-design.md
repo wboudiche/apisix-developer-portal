@@ -1,7 +1,7 @@
 # Import API products from an OpenAPI / Swagger spec — Design
 
 **Date:** 2026-06-25
-**Status:** Approved, ready for planning
+**Status:** Implemented (2026-06-25, branch `feat/openapi-import`)
 **Surface:** Admin → Products (`internal/admin`, `web/src/pages/admin/ProductsPage.tsx`)
 
 ## Problem
