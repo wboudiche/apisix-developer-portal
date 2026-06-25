@@ -216,9 +216,10 @@ func fetchSpec(ctx context.Context, rawURL string, allowPrivate bool) ([]byte, e
 	return body, nil
 }
 
-// hostAllowed mirrors the SSRF policy in ValidUpstream: literal private IPs,
-// "localhost", and hostnames resolving to any private address are blocked
-// unless allowPrivate is set.
+// hostAllowed mirrors the SSRF policy in ValidUpstream: "localhost", literal
+// private IPs, single-label hostnames (no dot — internal/docker names), and
+// hostnames that resolve to any private address are blocked unless allowPrivate
+// is set.
 func hostAllowed(host string, allowPrivate bool) bool {
 	if host == "" {
 		return false
@@ -231,6 +232,10 @@ func hostAllowed(host string, allowPrivate bool) bool {
 	}
 	if ip := net.ParseIP(host); ip != nil {
 		return !isPrivateIP(ip)
+	}
+	// A hostname with no dot is an internal/docker name → block.
+	if !strings.Contains(host, ".") {
+		return false
 	}
 	ips, err := lookupIP(host)
 	if err != nil || len(ips) == 0 {

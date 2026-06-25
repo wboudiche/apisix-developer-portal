@@ -48,8 +48,21 @@ func TestFetchSpec_CapsBodySize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fetchSpec error: %v", err)
 	}
-	if len(body) > maxSpecBytes {
-		t.Fatalf("body not capped: %d bytes", len(body))
+	if len(body) != maxSpecBytes {
+		t.Fatalf("body not capped to exact maxSpecBytes: got %d bytes, want %d", len(body), maxSpecBytes)
+	}
+}
+
+func TestFetchSpec_DoesNotFollowRedirect(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://10.0.0.1/internal", http.StatusFound)
+	}))
+	defer srv.Close()
+	// allowPrivate=true so the httptest 127.0.0.1 host is permitted; we are
+	// testing that the 302 redirect is NOT followed (10.0.0.1 is never reached).
+	_, err := fetchSpec(context.Background(), srv.URL, true)
+	if err == nil {
+		t.Fatal("expected error: redirect should not be followed (302 is not 200 → ErrBadSpec)")
 	}
 }
 
