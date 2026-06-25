@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -33,6 +34,7 @@ func NewHandler(svc ProductService, allowPrivate bool) *Handler {
 	h := &Handler{svc: svc, router: chi.NewRouter(), allowPrivate: allowPrivate}
 	h.router.Get("/api/admin/products", h.list)
 	h.router.Post("/api/admin/products", h.create)
+	h.router.Post("/api/admin/products/import", h.importSpec)
 	h.router.Get("/api/admin/products/{id}", h.get)
 	h.router.Put("/api/admin/products/{id}", h.update)
 	h.router.Delete("/api/admin/products/{id}", h.delete)
@@ -90,6 +92,43 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, created)
+}
+
+// importSpec parses an OpenAPI/Swagger spec (from a pasted body or a fetched
+// URL) into a draft product and returns it WITHOUT persisting. The admin then
+// reviews it in the form and POSTs it to /api/admin/products as usual.
+func (h *Handler) importSpec(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Spec string `json:"spec"`
+		URL  string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	body.Spec = strings.TrimSpace(body.Spec)
+	body.URL = strings.TrimSpace(body.URL)
+	if (body.Spec == "") == (body.URL == "") {
+		httpx.Error(w, http.StatusBadRequest, "provide exactly one of spec or url")
+		return
+	}
+
+	data := []byte(body.Spec)
+	if body.URL != "" {
+		fetched, err := fetchSpec(r.Context(), body.URL, h.allowPrivate)
+		if err != nil {
+			httpx.Error(w, http.StatusUnprocessableEntity, "could not fetch spec from url")
+			return
+		}
+		data = fetched
+	}
+
+	draft, err := parseSpec(data)
+	if err != nil {
+		httpx.Error(w, http.StatusUnprocessableEntity, "spec could not be parsed (need OpenAPI 3.x or Swagger 2.0 with a title)")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, draft)
 }
 
 func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
