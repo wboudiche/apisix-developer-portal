@@ -1,4 +1,6 @@
 import { Buffer } from 'node:buffer'
+import * as http from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { expect, test } from '@playwright/test'
 import { ADMIN_STATE } from './seed-data'
 import { goto } from './helpers'
@@ -142,4 +144,70 @@ test.describe('Admin OpenAPI import', () => {
       await expect(page.getByText('Créer un produit')).toHaveCount(0)
     })
   }
+
+  // The URL tab makes the Go backend fetch the spec server-side. The e2e stack
+  // runs with UPSTREAM_ALLOW_PRIVATE=1, so a loopback test server is reachable
+  // and passes the SSRF guard (the guard's private-range rejection is covered by
+  // the Go unit tests, which can't set allowPrivate).
+  test.describe('from a URL', () => {
+    let server: http.Server
+    let baseUrl: string
+
+    test.beforeAll(async () => {
+      server = http.createServer((_req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/yaml' })
+        res.end(VALID_SPEC)
+      })
+      await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+      baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+    })
+
+    test.afterAll(async () => {
+      await new Promise<void>(resolve => server.close(() => resolve()))
+    })
+
+    test('fetches a spec from a URL and pre-fills the composer', async ({ page }) => {
+      await goto(page, '/admin/products')
+
+      await page.getByRole('button', { name: 'Importer une API' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Importer une API' })
+      await expect(dialog).toBeVisible()
+
+      await dialog.getByRole('tab', { name: 'URL' }).click()
+      await dialog.getByLabel('URL de la spécification').fill(`${baseUrl}/openapi.yaml`)
+      const [res] = await Promise.all([
+        page.waitForResponse(r =>
+          r.url().includes('/api/admin/products/import') && r.request().method() === 'POST'),
+        dialog.getByRole('button', { name: 'Importer', exact: true }).click(),
+      ])
+      expect(res.status()).toBe(200)
+
+      await expect(page.getByText('Créer un produit')).toBeVisible()
+      await expect(page.getByLabel('Nom')).toHaveValue('Petstore Import API')
+      await expect(page.getByLabel('Version')).toHaveValue('2.0.0')
+      await expect(page.getByLabel('Context path')).toHaveValue('/api/v3')
+      await expect(page.getByLabel(/Upstream/)).toHaveValue('petstore.example.com:443')
+    })
+
+    test('rejects an unreachable URL with an inline error and opens no composer', async ({ page }) => {
+      await goto(page, '/admin/products')
+
+      await page.getByRole('button', { name: 'Importer une API' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Importer une API' })
+      await expect(dialog).toBeVisible()
+
+      await dialog.getByRole('tab', { name: 'URL' }).click()
+      // Port 1 on loopback refuses the connection, so the server-side fetch fails.
+      await dialog.getByLabel('URL de la spécification').fill('http://127.0.0.1:1/openapi.yaml')
+      const [res] = await Promise.all([
+        page.waitForResponse(r =>
+          r.url().includes('/api/admin/products/import') && r.request().method() === 'POST'),
+        dialog.getByRole('button', { name: 'Importer', exact: true }).click(),
+      ])
+      expect(res.status()).toBe(422)
+
+      await expect(dialog.getByRole('alert')).toBeVisible()
+      await expect(page.getByText('Créer un produit')).toHaveCount(0)
+    })
+  })
 })
