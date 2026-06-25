@@ -65,13 +65,16 @@ export function ImportModal({ open, onClose, onImported }: {
         </div>
 
         <div className="tabs" role="tablist" aria-label="Source de la spécification">
-          <button role="tab" aria-selected={tab === 'file'} className={`tab ${tab === 'file' ? 'on' : ''}`}
+          <button id="imp-tab-file" role="tab" aria-selected={tab === 'file'} aria-controls="imp-tabpanel"
+            className={`tab ${tab === 'file' ? 'on' : ''}`}
             onClick={() => { setTab('file'); setErr('') }}>Fichier</button>
-          <button role="tab" aria-selected={tab === 'url'} className={`tab ${tab === 'url' ? 'on' : ''}`}
+          <button id="imp-tab-url" role="tab" aria-selected={tab === 'url'} aria-controls="imp-tabpanel"
+            className={`tab ${tab === 'url' ? 'on' : ''}`}
             onClick={() => { setTab('url'); setErr('') }}>URL</button>
         </div>
 
         <div className="composer-body">
+          <div role="tabpanel" id="imp-tabpanel" aria-labelledby={tab === 'file' ? 'imp-tab-file' : 'imp-tab-url'}>
           {tab === 'file' ? (
             <div className="field">
               <label htmlFor="imp-file">Fichier de spécification</label>
@@ -85,6 +88,7 @@ export function ImportModal({ open, onClose, onImported }: {
                 autoComplete="off" value={url} onChange={e => setUrl(e.target.value)} />
             </div>
           )}
+          </div>
 
           {err && <p className="autherr" role="alert">{err}</p>}
 
