@@ -8,6 +8,7 @@ import { catMeta, slugify } from './meta'
 import { Toast, useToast } from '../../components/Toast'
 import { Pagination } from '../../components/Pagination'
 import { ConfirmModal, type ModalSpec } from '../../components/ConfirmModal'
+import { ImportModal } from './ImportModal'
 
 interface FormState {
   name: string; slug: string; category: string; contextPath: string
@@ -31,6 +32,7 @@ export function ProductsPage() {
   const [form, setForm] = useState<FormState>(EMPTY)
   const [slugTouched, setSlugTouched] = useState(false)
   const [modal, setModal] = useState<ModalSpec | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
   const [err, setErr] = useState('')
   const { toast, notify } = useToast()
 
@@ -53,6 +55,18 @@ export function ProductsPage() {
   function set<K extends keyof FormState>(k: K, v: FormState[K]) { setForm(f => ({ ...f, [k]: v })) }
 
   function openCreate() { setEditing(null); setForm(EMPTY); setSlugTouched(false); setOpen(true) }
+
+  function onImported(draft: AdminProduct) {
+    setEditing(null)
+    setForm({
+      name: draft.name, slug: draft.slug, category: draft.category,
+      contextPath: draft.contextPath, upstreamUrl: draft.upstreamUrl,
+      version: draft.version, published: false,
+    })
+    setSlugTouched(true)
+    setOpen(true)
+  }
+
   function openEdit(p: AdminProduct) {
     setEditing(p)
     setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, version: p.version, published: p.published })
@@ -120,9 +134,12 @@ export function ProductsPage() {
       description="Les produits exposent vos services en amont (upstream) à travers la passerelle APISIX, avec un contexte de routage et une version publiables au catalogue développeur."
       counts={{ products: products.length }}
       action={
-        <button className="btn btn-primary" onClick={() => open ? setOpen(false) : openCreate()}>
-          <PlusIcon />Nouveau produit
-        </button>
+        <>
+          <button className="btn btn-ghost" onClick={() => setImportOpen(true)}>Importer une API</button>
+          <button className="btn btn-primary" onClick={() => open ? setOpen(false) : openCreate()}>
+            <PlusIcon />Nouveau produit
+          </button>
+        </>
       }
     >
       {err && <p className="autherr" role="alert">{err}</p>}
@@ -236,6 +253,7 @@ export function ProductsPage() {
 
       <Toast msg={toast?.msg ?? null} kind={toast?.kind} />
       <ConfirmModal spec={modal} onClose={() => setModal(null)} />
+      <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onImported={onImported} />
     </AdminShell>
   )
 }
