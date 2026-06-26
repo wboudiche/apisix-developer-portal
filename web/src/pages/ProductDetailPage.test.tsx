@@ -9,8 +9,8 @@ import type { Product } from '../api/types'
 
 // Mock Scalar so the page test doesn't pull the real renderer.
 vi.mock('@scalar/api-reference-react', () => ({
-  ApiReferenceReact: ({ configuration }: { configuration: { content: string } }) => (
-    <div data-testid="scalar" data-content={configuration.content} />
+  ApiReferenceReact: ({ configuration }: { configuration: { content: string; servers?: { url: string }[] } }) => (
+    <div data-testid="scalar" data-content={configuration.content} data-server={configuration.servers?.[0]?.url ?? ''} />
   ),
 }))
 
@@ -48,4 +48,22 @@ it('shows a placeholder when the product has no spec', async () => {
   renderAt('orders')
   expect(await screen.findByText(/Documentation bientôt disponible/i)).toBeInTheDocument()
   expect(screen.queryByTestId('scalar')).not.toBeInTheDocument()
+})
+
+it('routes try-it through the proxy for a subscribed user (single app)', async () => {
+  localStorage.setItem('token', 'jwt')
+  localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'D', role: 'developer' }))
+  vi.spyOn(api, 'getProductSpec').mockResolvedValue('{"openapi":"3.0.0"}')
+  vi.spyOn(api, 'getTryContext').mockResolvedValue({ apps: [{ id: 3, name: 'App A' }] })
+  renderAt('orders')
+  await waitFor(() => expect(screen.getByTestId('scalar')).toHaveAttribute('data-server', '/api/try/orders/3'))
+})
+
+it('shows a subscribe banner when the user has no approved app', async () => {
+  localStorage.setItem('token', 'jwt')
+  localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'D', role: 'developer' }))
+  vi.spyOn(api, 'getProductSpec').mockResolvedValue('{"openapi":"3.0.0"}')
+  vi.spyOn(api, 'getTryContext').mockResolvedValue({ apps: [] })
+  renderAt('orders')
+  expect(await screen.findByText(/Abonnez-vous pour essayer/i)).toBeInTheDocument()
 })

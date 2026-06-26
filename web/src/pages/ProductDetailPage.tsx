@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { getProduct, getProductSpec } from '../api/client'
-import type { Product } from '../api/types'
+import { getProduct, getProductSpec, getTryContext } from '../api/client'
+import type { Product, TryApp } from '../api/types'
 import { useAuth } from '../auth/AuthProvider'
 import { TopBar } from '../components/TopBar'
 import { SubscribeModal } from '../components/SubscribeModal'
@@ -12,13 +12,15 @@ const ScalarDocs = lazy(() => import('../components/ScalarDocs').then(m => ({ de
 
 export function ProductDetailPage() {
   const { slug = '' } = useParams()
-  const { user } = useAuth()
+  const { user, token } = useAuth()
   const nav = useNavigate()
   const [product, setProduct] = useState<Product | null>(null)
   const [spec, setSpec] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [err, setErr] = useState('')
   const [subOpen, setSubOpen] = useState(false)
+  const [apps, setApps] = useState<TryApp[]>([])
+  const [appId, setAppId] = useState<number | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -29,6 +31,15 @@ export function ProductDetailPage() {
       .finally(() => { if (alive) setLoaded(true) })
     return () => { alive = false }
   }, [slug])
+
+  useEffect(() => {
+    if (!token) return
+    getTryContext(token, slug)
+      .then(r => { setApps(r.apps); setAppId(r.apps[0]?.id ?? null) })
+      .catch(() => { setApps([]); setAppId(null) })
+  }, [token, slug])
+
+  const serverUrl = appId != null ? `/api/try/${slug}/${appId}` : undefined
 
   return (
     <>
@@ -49,9 +60,21 @@ export function ProductDetailPage() {
               <button className="btn btn-primary" onClick={() => user ? setSubOpen(true) : nav('/login')}>S'abonner</button>
             </header>
 
+            {token && apps.length > 1 && (
+              <div className="try-picker">
+                <label htmlFor="app-picker">Essayer avec :</label>
+                <select id="app-picker" value={appId ?? ''} onChange={e => setAppId(Number(e.target.value))}>
+                  {apps.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+            )}
+            {token && apps.length === 0 && (
+              <div className="try-banner">Abonnez-vous pour essayer les requêtes via la passerelle.</div>
+            )}
+
             {loaded && spec && (
               <Suspense fallback={<p className="docs-loading">Chargement de la documentation…</p>}>
-                <ScalarDocs spec={spec} />
+                <ScalarDocs spec={spec} serverUrl={serverUrl} />
               </Suspense>
             )}
             {loaded && !spec && (
