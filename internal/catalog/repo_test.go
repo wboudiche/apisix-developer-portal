@@ -118,10 +118,17 @@ func TestGetBySlugNotFound(t *testing.T) {
 
 func TestGetSpecBySlugPublishedOnly(t *testing.T) {
 	ctx, repo := testPool(t)
-	_, _ = repo.pool.Exec(ctx,
+	// Clean up first so a re-run on a persistent dev DB doesn't hit the unique
+	// slug constraint, and tear down afterwards.
+	del := func() { _, _ = repo.pool.Exec(ctx, `DELETE FROM api_products WHERE slug IN ('spec-pub','spec-priv')`) }
+	del()
+	t.Cleanup(del)
+	if _, err := repo.pool.Exec(ctx,
 		`INSERT INTO api_products(name,slug,category,context_path,published,openapi_spec)
 		 VALUES('SpecPub','spec-pub','C','/sp',true,'{"openapi":"3.0.0"}'),
-		        ('SpecPriv','spec-priv','C','/spr',false,'{"openapi":"3.0.0"}')`)
+		        ('SpecPriv','spec-priv','C','/spr',false,'{"openapi":"3.0.0"}')`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
 
 	if s, err := repo.GetSpecBySlug(ctx, "spec-pub"); err != nil || s == "" {
 		t.Fatalf("published: %v %q", err, s)
