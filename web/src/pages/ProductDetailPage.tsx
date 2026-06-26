@@ -21,6 +21,7 @@ export function ProductDetailPage() {
   const [subOpen, setSubOpen] = useState(false)
   const [apps, setApps] = useState<TryApp[]>([])
   const [appId, setAppId] = useState<number | null>(null)
+  const [tryLoaded, setTryLoaded] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -34,9 +35,13 @@ export function ProductDetailPage() {
 
   useEffect(() => {
     if (!token) return
+    let alive = true
+    setTryLoaded(false)
     getTryContext(token, slug)
-      .then(r => { setApps(r.apps); setAppId(r.apps[0]?.id ?? null) })
-      .catch(() => { setApps([]); setAppId(null) })
+      .then(r => { if (alive) { setApps(r.apps); setAppId(r.apps[0]?.id ?? null) } })
+      .catch(() => { if (alive) { setApps([]); setAppId(null) } })
+      .finally(() => { if (alive) setTryLoaded(true) })
+    return () => { alive = false }
   }, [token, slug])
 
   const serverUrl = appId != null ? `/api/try/${slug}/${appId}` : undefined
@@ -68,7 +73,7 @@ export function ProductDetailPage() {
                 </select>
               </div>
             )}
-            {token && apps.length === 0 && (
+            {token && tryLoaded && apps.length === 0 && (
               <div className="try-banner">Abonnez-vous pour essayer les requêtes via la passerelle.</div>
             )}
 
