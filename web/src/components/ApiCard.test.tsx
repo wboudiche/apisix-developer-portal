@@ -70,6 +70,6 @@ describe('ApiCard', () => {
   it('links the card title to the product detail page', () => {
     const p = { id: 1, name: 'Orders API', slug: 'orders', category: 'Data', version: '1.0.0', contextPath: '/orders', description: '', tags: [], icon: '', rating: 4 }
     render(<MemoryRouter><ApiCard p={p} onSubscribe={() => {}} /></MemoryRouter>)
-    expect(screen.getByRole('link', { name: /Orders API/ })).toHaveAttribute('href', '/apis/orders')
+    expect(screen.getByRole('link', { name: /Orders API/ })).toHaveAttribute('href', '/catalog/orders')
   })
 })

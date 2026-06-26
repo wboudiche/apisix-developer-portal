@@ -14,7 +14,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<CatalogPage />} />
-      <Route path="/apis/:slug" element={<ProductDetailPage />} />
+      <Route path="/catalog/:slug" element={<ProductDetailPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/applications" element={<ApplicationsIndex />} />

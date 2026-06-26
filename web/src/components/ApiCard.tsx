@@ -39,7 +39,7 @@ export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Produ
       </div>
       <div className="cbody">
         <div className="crow1">
-          <Link className="cname" to={`/apis/${p.slug}`}>{p.name}</Link>
+          <Link className="cname" to={`/catalog/${p.slug}`}>{p.name}</Link>
           <Stars rating={p.rating} />
         </div>
         <p className="cdesc">{p.description}</p>

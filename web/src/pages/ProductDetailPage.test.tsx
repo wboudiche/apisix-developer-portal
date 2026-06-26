@@ -27,9 +27,9 @@ afterEach(() => vi.restoreAllMocks())
 
 function renderAt(slug: string) {
   return render(
-    <MemoryRouter initialEntries={[`/apis/${slug}`]}>
+    <MemoryRouter initialEntries={[`/catalog/${slug}`]}>
       <ThemeProvider><AuthProvider>
-        <Routes><Route path="/apis/:slug" element={<ProductDetailPage />} /></Routes>
+        <Routes><Route path="/catalog/:slug" element={<ProductDetailPage />} /></Routes>
       </AuthProvider></ThemeProvider>
     </MemoryRouter>
   )
