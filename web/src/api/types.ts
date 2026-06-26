@@ -96,6 +96,7 @@ export type AppEventKind =
   | 'approved'
   | 'rejected'
   | 'unsubscribed'
+  | 'key_rotated'
 
 export interface AppEvent {
   kind: AppEventKind

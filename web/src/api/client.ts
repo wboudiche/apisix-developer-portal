@@ -148,6 +148,11 @@ export async function subscribe(token: string, appId: number, productId: number,
   }), url)
 }
 
+export async function rotateKey(token: string, appId: number): Promise<{ apiKey: string }> {
+  const url = `/api/applications/${appId}/credentials/rotate`
+  return parse<{ apiKey: string }>(await fetch(url, { method: 'POST', headers: authHeaders(token) }), url)
+}
+
 export async function unsubscribe(token: string, appId: number, productId: number): Promise<void> {
   const url = `/api/applications/${appId}/subscriptions/${productId}`
   const res = await fetch(url, { method: 'DELETE', headers: authHeaders(token) })

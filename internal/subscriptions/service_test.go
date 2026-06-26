@@ -194,6 +194,34 @@ func (m *memStore) AdminSubscriptions(_ context.Context, statusFilter string, _ 
 	return out, len(out), nil
 }
 
+func (m *memStore) GetCredential(_ context.Context, appID int64) (Credential, error) {
+	if c, ok := m.creds[appID]; ok {
+		return c, nil
+	}
+	return Credential{}, ErrNotFound
+}
+
+func (m *memStore) ActivePlanForApp(_ context.Context, appID int64) (PlanInfo, error) {
+	for _, r := range m.records {
+		if r.AppID == appID && r.Status == StatusActive {
+			if p, ok := m.plans[r.PlanID]; ok {
+				return p, nil
+			}
+		}
+	}
+	return PlanInfo{}, ErrNoActiveSubscription
+}
+
+func (m *memStore) UpdateCredentialKey(_ context.Context, appID int64, newKey string) error {
+	c, ok := m.creds[appID]
+	if !ok {
+		return ErrNotFound
+	}
+	c.APIKey = newKey
+	m.creds[appID] = c
+	return nil
+}
+
 func TestSubscribeIsPendingAndDoesNotProvision(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
@@ -514,5 +542,59 @@ func TestRejectAlreadyRejectedReturnsInvalidTransition(t *testing.T) {
 	}
 	if err := svc.Reject(ctx, rec.ID); err != ErrInvalidTransition {
 		t.Fatalf("second Reject: want ErrInvalidTransition, got %v", err)
+	}
+}
+
+func TestRotateKey_HappyPath(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	store.creds[1] = Credential{ApplicationID: 1, APIKey: "old", ConsumerUsername: "app_1"}
+	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 1, ProductID: 3, PlanID: 2, Status: StatusActive}
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "newkey123" }, nil)
+
+	got, err := svc.RotateKey(ctx, 1)
+	if err != nil || got != "newkey123" {
+		t.Fatalf("RotateKey = %q, %v", got, err)
+	}
+	if store.creds[1].APIKey != "newkey123" {
+		t.Errorf("DB not updated with new key: %q", store.creds[1].APIKey)
+	}
+	if k := gw.Consumers["app_1"].APIKey; k != "newkey123" {
+		t.Errorf("gateway consumer key = %q, want newkey123", k)
+	}
+}
+
+func TestRotateKey_NoCredential(t *testing.T) {
+	ctx := context.Background()
+	svc := NewService(newMemStore(), apisix.NewFake(), func() string { return "x" }, nil)
+	if _, err := svc.RotateKey(ctx, 1); !errors.Is(err, ErrNoCredential) {
+		t.Fatalf("want ErrNoCredential, got %v", err)
+	}
+}
+
+func TestRotateKey_NoActiveSubscription(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	store.creds[1] = Credential{ApplicationID: 1, APIKey: "old", ConsumerUsername: "app_1"}
+	svc := NewService(store, apisix.NewFake(), func() string { return "x" }, nil)
+	if _, err := svc.RotateKey(ctx, 1); !errors.Is(err, ErrNoActiveSubscription) {
+		t.Fatalf("want ErrNoActiveSubscription, got %v", err)
+	}
+}
+
+func TestRotateKey_GatewayFailureKeepsOldKey(t *testing.T) {
+	ctx := context.Background()
+	gw := apisix.NewFake()
+	gw.FailEnsureConsumer = true
+	store := newMemStore()
+	store.creds[1] = Credential{ApplicationID: 1, APIKey: "old", ConsumerUsername: "app_1"}
+	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 1, ProductID: 3, PlanID: 2, Status: StatusActive}
+	svc := NewService(store, gw, func() string { return "newkey123" }, nil)
+	if _, err := svc.RotateKey(ctx, 1); err == nil {
+		t.Fatal("expected gateway error")
+	}
+	if store.creds[1].APIKey != "old" {
+		t.Errorf("DB key must NOT change on gateway failure, got %q", store.creds[1].APIKey)
 	}
 }

@@ -2,6 +2,7 @@ package apisix
 
 import (
 	"context"
+	"errors"
 	"sync"
 )
 
@@ -17,9 +18,10 @@ type FakeRoute struct {
 
 // Fake is an in-memory Gateway for unit tests.
 type Fake struct {
-	mu        sync.Mutex
-	Consumers map[string]FakeConsumer
-	Routes    map[string]FakeRoute
+	mu                 sync.Mutex
+	Consumers          map[string]FakeConsumer
+	Routes             map[string]FakeRoute
+	FailEnsureConsumer bool
 }
 
 func NewFake() *Fake {
@@ -29,6 +31,9 @@ func NewFake() *Fake {
 func (f *Fake) EnsureConsumer(_ context.Context, username, apiKey string, limit RateLimit) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.FailEnsureConsumer {
+		return errors.New("fake: ensure consumer failed")
+	}
 	f.Consumers[username] = FakeConsumer{APIKey: apiKey, Limit: limit}
 	return nil
 }

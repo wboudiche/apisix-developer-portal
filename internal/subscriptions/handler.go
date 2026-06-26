@@ -58,6 +58,7 @@ func NewHandler(svc *Service, reader Reader, eventReader EventReader, owns Owner
 	h.router.Get("/api/applications/{appID}/usage", h.usageHandler)
 	h.router.Post("/api/applications/{appID}/subscriptions", h.subscribe)
 	h.router.Delete("/api/applications/{appID}/subscriptions/{productID}", h.unsubscribe)
+	h.router.Post("/api/applications/{appID}/credentials/rotate", h.rotateKey)
 	return h
 }
 
@@ -166,6 +167,24 @@ func (h *Handler) detail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	httpx.JSON(w, http.StatusOK, out)
+}
+
+func (h *Handler) rotateKey(w http.ResponseWriter, r *http.Request) {
+	appID, ok := h.authorize(w, r)
+	if !ok {
+		return
+	}
+	newKey, err := h.svc.RotateKey(r.Context(), appID)
+	if errors.Is(err, ErrNoCredential) || errors.Is(err, ErrNoActiveSubscription) {
+		httpx.Error(w, http.StatusConflict, "no key to rotate — subscribe and get approved first")
+		return
+	}
+	if err != nil {
+		log.Printf("rotate key failed (app=%d): %v", appID, err)
+		httpx.Error(w, http.StatusInternalServerError, "rotation failed")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"apiKey": newKey})
 }
 
 // usageHandler serves GET /api/applications/{id}/usage?range=24h|7d|30d — the
