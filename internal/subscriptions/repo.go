@@ -265,4 +265,33 @@ func (r *Repo) AdminSubscriptions(ctx context.Context, statusFilter string, p pa
 	return out, total, rows.Err()
 }
 
+// AppRef is an application id+name the developer can use for Try-it.
+type AppRef struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+// ApprovedAppsForProduct returns the user's applications that hold an ACTIVE
+// subscription to the product.
+func (r *Repo) ApprovedAppsForProduct(ctx context.Context, userID, productID int64) ([]AppRef, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT a.id, a.name FROM applications a
+		   JOIN subscriptions s ON s.application_id = a.id
+		 WHERE a.owner_id=$1 AND s.api_product_id=$2 AND s.status='active'
+		 ORDER BY a.created_at`, userID, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AppRef
+	for rows.Next() {
+		var a AppRef
+		if err := rows.Scan(&a.ID, &a.Name); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
 var _ Reader = (*Repo)(nil)

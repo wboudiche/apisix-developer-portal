@@ -100,6 +100,19 @@ func (r *Repo) GetBySlug(ctx context.Context, slug string) (Product, error) {
 	return products[0], nil
 }
 
+// ProductBySlug returns the id and context path of a PUBLISHED product, or
+// ErrNotFound. Lighter than GetBySlug — used by the try-it proxy.
+func (r *Repo) ProductBySlug(ctx context.Context, slug string) (int64, string, error) {
+	var id int64
+	var ctxPath string
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, context_path FROM api_products WHERE slug=$1 AND published=true`, slug).Scan(&id, &ctxPath)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, "", ErrNotFound
+	}
+	return id, ctxPath, err
+}
+
 // GetSpecBySlug returns the raw OpenAPI spec for a published product, or
 // ErrNotFound when the product is missing, unpublished, or has no spec.
 func (r *Repo) GetSpecBySlug(ctx context.Context, slug string) (string, error) {
