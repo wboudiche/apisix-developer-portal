@@ -1,0 +1,16 @@
+.apidetail{max-width:1120px;margin:0 auto;padding:26px 28px 80px}
+.apidetail .crumbs{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-bottom:18px}
+.apidetail .crumbs a:hover{color:var(--fg)}
+.apidetail .apihead{display:flex;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-bottom:24px}
+.apidetail .apihead .glyph{width:54px;height:54px;border-radius:13px;flex:none;display:grid;place-items:center;color:#fff}
+.apidetail .apihead .htext{min-width:0;flex:1}
+.apidetail .apihead h1{font-family:var(--font-display);font-size:28px;font-weight:800;letter-spacing:-.02em}
+.apidetail .apihead .sub{font-size:13px;color:var(--muted);margin-top:4px}
+.apidetail .apihead .cat{color:var(--accent);font-weight:600}
+.apidetail .apihead .desc{font-size:14px;color:var(--ink-soft,var(--fg));margin-top:10px;max-width:70ch}
+.apidetail .apihead .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.apidetail .apihead .tag{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.apidetail .docs-empty{border:1px dashed var(--border-2);border-radius:14px;padding:40px;text-align:center;color:var(--muted)}
+.apidetail .docs-empty h3{font-family:var(--font-display);font-size:18px;color:var(--fg);margin-bottom:6px}
+.apidetail .docs-loading{color:var(--muted);padding:24px}
+.scalar-wrap{border:1px solid var(--border-2);border-radius:14px;overflow:hidden}
