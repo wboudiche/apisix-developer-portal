@@ -134,12 +134,12 @@ export function ProductsPage() {
       description="Les produits exposent vos services en amont (upstream) à travers la passerelle APISIX, avec un contexte de routage et une version publiables au catalogue développeur."
       counts={{ products: products.length }}
       action={
-        <>
+        <div className="phead-actions">
           <button className="btn btn-ghost" onClick={() => setImportOpen(true)}>Importer une API</button>
           <button className="btn btn-primary" onClick={() => open ? setOpen(false) : openCreate()}>
             <PlusIcon />Nouveau produit
           </button>
-        </>
+        </div>
       }
     >
       {err && <p className="autherr" role="alert">{err}</p>}
