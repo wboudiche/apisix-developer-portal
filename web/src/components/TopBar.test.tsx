@@ -24,6 +24,44 @@ beforeEach(() => {
   vi.restoreAllMocks()
 })
 
+function renderAt(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <ThemeProvider>
+        <AuthProvider>
+          <TopBar search="" onSearch={vi.fn()} />
+        </AuthProvider>
+      </ThemeProvider>
+    </MemoryRouter>
+  )
+}
+
+function loginAs(role: 'developer' | 'admin') {
+  localStorage.setItem('token', 'jwt')
+  localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'A', role }))
+}
+
+describe('TopBar active nav tab', () => {
+  it('marks only the APIs tab active on the catalog route', () => {
+    renderAt('/')
+    expect(screen.getByRole('link', { name: /APIs/ })).toHaveClass('active')
+  })
+
+  it('marks Applications active and APIs inactive on /applications', () => {
+    loginAs('developer')
+    renderAt('/applications')
+    expect(screen.getByRole('link', { name: /Applications/ })).toHaveClass('active')
+    expect(screen.getByRole('link', { name: /APIs/ })).not.toHaveClass('active')
+  })
+
+  it('marks Admin active and APIs inactive across /admin/* routes', () => {
+    loginAs('admin')
+    renderAt('/admin/plans')
+    expect(screen.getByRole('link', { name: /Admin/ })).toHaveClass('active')
+    expect(screen.getByRole('link', { name: /APIs/ })).not.toHaveClass('active')
+  })
+})
+
 describe('TopBar', () => {
   it('search input has accessible name "Rechercher"', () => {
     renderTopBar()

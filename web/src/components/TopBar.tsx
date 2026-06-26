@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { useTheme } from '../theme/ThemeProvider'
 import { useAuth } from '../auth/AuthProvider'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import type { User } from '../api/types'
 
 // ── Nav-tab icons ──────────────────────────────────────────────────────────────
@@ -111,6 +111,10 @@ export function TopBar({
 }) {
   const { theme, toggle } = useTheme()
   const { user, logout } = useAuth()
+  const { pathname } = useLocation()
+  // Route-derived active tab. Admin spans several sub-routes (/admin/products,
+  // /admin/plans, /admin/approvals), so match the whole section, not one path.
+  const tab = (active: boolean) => (active ? 'active' : undefined)
   const searchRef = useRef<HTMLInputElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -187,9 +191,9 @@ export function TopBar({
       </Link>
 
       <nav className="nav-tabs">
-        <Link className="active" to="/"><IconGrid />APIs</Link>
-        {user && <Link to="/applications"><IconDoc />Applications</Link>}
-        {user?.role === 'admin' && <Link to="/admin/products"><IconShield />Admin</Link>}
+        <Link className={tab(pathname === '/')} to="/"><IconGrid />APIs</Link>
+        {user && <Link className={tab(pathname.startsWith('/applications'))} to="/applications"><IconDoc />Applications</Link>}
+        {user?.role === 'admin' && <Link className={tab(pathname.startsWith('/admin'))} to="/admin/products"><IconShield />Admin</Link>}
       </nav>
 
       <div className="search">
