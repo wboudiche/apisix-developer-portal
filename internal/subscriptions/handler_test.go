@@ -2,6 +2,7 @@ package subscriptions
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -171,5 +172,52 @@ func TestAppDetailRejectsNonOwner(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status=%d want 403", rec.Code)
+	}
+}
+
+func newSeededTestHandler() (*Handler, *apisix.Fake) {
+	store := newMemStore()
+	// Seed app 1 with a credential and an active subscription so RotateKey succeeds.
+	store.creds[1] = Credential{ApplicationID: 1, APIKey: "old-key", ConsumerUsername: "app_1"}
+	store.nextID = 1
+	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 1, ProductID: 3, PlanID: 2, Status: StatusActive}
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "rotated-key" }, nil)
+	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
+	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "old-key", ConsumerUsername: "app_1"}}
+	return NewHandler(svc, reader, fakeEvents{}, owns), gw
+}
+
+func TestRotateKeyEndpoint(t *testing.T) {
+	h, gw := newSeededTestHandler()
+	req := httptest.NewRequest(http.MethodPost, "/api/applications/1/credentials/rotate", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 5))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		APIKey string `json:"apiKey"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if out.APIKey != "rotated-key" {
+		t.Errorf("expected apiKey=%q, got %q", "rotated-key", out.APIKey)
+	}
+	if c, ok := gw.Consumers["app_1"]; !ok || c.APIKey != "rotated-key" {
+		t.Errorf("gateway consumer key = %q, want rotated-key", gw.Consumers["app_1"].APIKey)
+	}
+}
+
+func TestRotateKeyEndpoint_NonOwner403(t *testing.T) {
+	h, _ := newSeededTestHandler()
+	req := httptest.NewRequest(http.MethodPost, "/api/applications/1/credentials/rotate", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 9))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden && rec.Code != http.StatusNotFound {
+		t.Fatalf("non-owner status=%d (want 403/404)", rec.Code)
 	}
 }
