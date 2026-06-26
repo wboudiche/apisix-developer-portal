@@ -33,6 +33,13 @@ var ErrAlreadySubscribed = errors.New("already subscribed")
 // subscription's current state (e.g. approving a rejected subscription).
 var ErrInvalidTransition = errors.New("invalid status transition")
 
+// ErrNoCredential is returned by RotateKey when the application has no credential.
+var ErrNoCredential = errors.New("subscriptions: application has no credential")
+
+// ErrNoActiveSubscription is returned by RotateKey when the application has no
+// active subscription (so no rate limit can be derived for the refreshed consumer).
+var ErrNoActiveSubscription = errors.New("subscriptions: application has no active subscription")
+
 // ProductInfo is what the service needs to provision a product's gateway route.
 type ProductInfo struct {
 	ID          int64
@@ -78,6 +85,13 @@ type Store interface {
 	// AdminSubscriptions lists subscriptions for the admin queue. An empty
 	// statusFilter returns all; otherwise only rows with that status.
 	AdminSubscriptions(ctx context.Context, statusFilter string, p paging.Params) ([]AdminSubscriptionView, int, error)
+	// GetCredential returns the application's gateway credential or ErrNotFound.
+	GetCredential(ctx context.Context, appID int64) (Credential, error)
+	// ActivePlanForApp returns the plan for the application's most-recent active
+	// subscription, or ErrNoActiveSubscription when none exists.
+	ActivePlanForApp(ctx context.Context, appID int64) (PlanInfo, error)
+	// UpdateCredentialKey replaces the stored API key for the application's credential.
+	UpdateCredentialKey(ctx context.Context, appID int64, newKey string) error
 }
 
 func consumerName(appID int64) string { return fmt.Sprintf("app_%d", appID) }
@@ -293,4 +307,33 @@ func (s *Service) Reject(ctx context.Context, subID int64) error {
 // AdminSubscriptions lists subscriptions for the admin queue (see Store).
 func (s *Service) AdminSubscriptions(ctx context.Context, statusFilter string, p paging.Params) ([]AdminSubscriptionView, int, error) {
 	return s.store.AdminSubscriptions(ctx, statusFilter, p)
+}
+
+// RotateKey issues a fresh key-auth key for the application, installs it on the
+// APISIX consumer (the old key 401s immediately), then persists it. The gateway
+// call precedes the DB write so a gateway failure leaves the old, still-live key
+// in the DB. The consumer's rate limit is preserved from the app's most-recent
+// active subscription plan. Returns the new key.
+func (s *Service) RotateKey(ctx context.Context, appID int64) (string, error) {
+	cred, err := s.store.GetCredential(ctx, appID)
+	if errors.Is(err, ErrNotFound) {
+		return "", ErrNoCredential
+	}
+	if err != nil {
+		return "", err
+	}
+	plan, err := s.store.ActivePlanForApp(ctx, appID)
+	if err != nil {
+		return "", err // ErrNoActiveSubscription bubbles to a 409 at the handler
+	}
+	newKey := s.genKey()
+	if err := s.gw.EnsureConsumer(ctx, cred.ConsumerUsername, newKey,
+		apisix.RateLimit{Count: plan.Count, WindowSeconds: plan.WindowSeconds}); err != nil {
+		return "", err
+	}
+	if err := s.store.UpdateCredentialKey(ctx, appID, newKey); err != nil {
+		return "", err
+	}
+	s.logEvent(ctx, appID, events.KindKeyRotated, nil, nil)
+	return newKey, nil
 }

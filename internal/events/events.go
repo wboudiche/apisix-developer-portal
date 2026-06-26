@@ -19,6 +19,7 @@ const (
 	KindApproved     = "approved"
 	KindRejected     = "rejected"
 	KindUnsubscribed = "unsubscribed"
+	KindKeyRotated   = "key_rotated"
 )
 
 // View is one feed entry as returned in the application detail response. The

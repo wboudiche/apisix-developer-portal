@@ -171,6 +171,41 @@ func (r *Repo) GetCredential(ctx context.Context, appID int64) (Credential, erro
 	return c, nil
 }
 
+// ActivePlanForApp returns the plan of the application's most-recent active
+// subscription, or ErrNoActiveSubscription when none exists.
+func (r *Repo) ActivePlanForApp(ctx context.Context, appID int64) (PlanInfo, error) {
+	var p PlanInfo
+	err := r.pool.QueryRow(ctx,
+		`SELECT pl.id, pl.request_count, pl.window_seconds
+		   FROM subscriptions s
+		   JOIN plans pl ON pl.id = s.plan_id
+		  WHERE s.application_id=$1 AND s.status='active'
+		  ORDER BY s.created_at DESC
+		  LIMIT 1`, appID,
+	).Scan(&p.ID, &p.Count, &p.WindowSeconds)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return PlanInfo{}, ErrNoActiveSubscription
+	}
+	return p, err
+}
+
+// UpdateCredentialKey replaces the stored API key for the application's credential.
+func (r *Repo) UpdateCredentialKey(ctx context.Context, appID int64, newKey string) error {
+	encKey, err := r.cipher.Encrypt(newKey)
+	if err != nil {
+		return err
+	}
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE credentials SET api_key=$2 WHERE application_id=$1`, appID, encKey)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // SubscriptionsForApp returns the application's subscriptions for display,
 // including pending/rejected ones so the developer can see their status.
 func (r *Repo) SubscriptionsForApp(ctx context.Context, appID int64) ([]SubscriptionView, error) {
