@@ -2,6 +2,7 @@ package subscriptions
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -80,6 +81,49 @@ func TestGenerateKeyIs32Hex(t *testing.T) {
 		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
 			t.Fatalf("non-hex char %q in %q", c, k)
 		}
+	}
+}
+
+func TestActivePlanForApp(t *testing.T) {
+	ctx, repo, appID := testRepo(t)
+	// Seed a product, a plan, and an ACTIVE subscription for appID.
+	var planID, prodID int64
+	_ = repo.pool.QueryRow(ctx, `INSERT INTO plans(name,rate_limit_count,rate_limit_window_s) VALUES($1,$2,$3) RETURNING id`,
+		"RotPlan-"+t.Name(), 123, 60).Scan(&planID)
+	_ = repo.pool.QueryRow(ctx, `INSERT INTO api_products(name,slug,category,context_path,published) VALUES($1,$2,'C','/rp',true) RETURNING id`,
+		"RotProd-"+t.Name(), "rotprod-"+t.Name()).Scan(&prodID)
+	_, _ = repo.pool.Exec(ctx, `INSERT INTO subscriptions(application_id,api_product_id,plan_id,status) VALUES($1,$2,$3,'active')`, appID, prodID, planID)
+	t.Cleanup(func() {
+		_, _ = repo.pool.Exec(ctx, `DELETE FROM subscriptions WHERE application_id=$1`, appID)
+		_, _ = repo.pool.Exec(ctx, `DELETE FROM api_products WHERE id=$1`, prodID)
+		_, _ = repo.pool.Exec(ctx, `DELETE FROM plans WHERE id=$1`, planID)
+	})
+
+	p, err := repo.ActivePlanForApp(ctx, appID)
+	if err != nil || p.Count != 123 || p.WindowSeconds != 60 {
+		t.Fatalf("ActivePlanForApp = %+v, %v", p, err)
+	}
+}
+
+func TestActivePlanForApp_NoneActive(t *testing.T) {
+	ctx, repo, appID := testRepo(t)
+	if _, err := repo.ActivePlanForApp(ctx, appID); !errors.Is(err, ErrNoActiveSubscription) {
+		t.Fatalf("want ErrNoActiveSubscription, got %v", err)
+	}
+}
+
+func TestUpdateCredentialKey(t *testing.T) {
+	ctx, repo, appID := testRepo(t)
+	// Create a credential, then rotate it.
+	if _, err := repo.GetOrCreateCredential(ctx, appID, func() string { return "first" }); err != nil {
+		t.Fatalf("seed credential: %v", err)
+	}
+	if err := repo.UpdateCredentialKey(ctx, appID, "second"); err != nil {
+		t.Fatalf("UpdateCredentialKey: %v", err)
+	}
+	got, err := repo.GetCredential(ctx, appID)
+	if err != nil || got.APIKey != "second" {
+		t.Fatalf("after update GetCredential = %q, %v (want decrypted 'second')", got.APIKey, err)
 	}
 }
 
