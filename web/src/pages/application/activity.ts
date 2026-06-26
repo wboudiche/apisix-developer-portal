@@ -45,6 +45,8 @@ export function describe(e: AppEvent, now: Date = new Date()): FeedItem {
       return { icon: 'alert', lead: 'Abonnement refusé', rest: p ? ` · ${p}` : '', when }
     case 'unsubscribed':
       return { icon: 'rotate', lead: 'Désabonnement', rest: p ? ` de ${p}` : '', when }
+    case 'key_rotated':
+      return { icon: 'rotate', lead: 'Clé régénérée', rest: '', when }
     default:
       return { icon: 'plus', lead: 'Activité', rest: '', when }
   }

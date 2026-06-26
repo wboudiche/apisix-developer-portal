@@ -34,4 +34,9 @@ describe('describe', () => {
     expect(describeEvent({ ...base, kind: 'approved', productName: 'Orders API' }, NOW)).toMatchObject({ icon: 'check', lead: 'Abonnement activé', rest: ' · Orders API' })
     expect(describeEvent({ ...base, kind: 'rejected', productName: 'Orders API' }, NOW)).toMatchObject({ icon: 'alert', lead: 'Abonnement refusé', rest: ' · Orders API' })
   })
+  it('describes a key_rotated event', () => {
+    const item = describeEvent({ kind: 'key_rotated', productName: '', planName: '', createdAt: '2026-06-27T10:00:00Z' }, new Date('2026-06-27T10:01:00Z'))
+    expect(item.lead).toMatch(/Clé régénérée/)
+    expect(item.icon).toBe('rotate')
+  })
 })
