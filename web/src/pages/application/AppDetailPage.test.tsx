@@ -9,8 +9,8 @@ import * as api from '../../api/client'
 import type { Application, AppDetail, Plan } from '../../api/types'
 
 const apps: Application[] = [
-  { id: 1, ownerId: 1, name: 'Boutique Mobile', description: 'desc', createdAt: '2026-03-12T00:00:00Z' },
-  { id: 2, ownerId: 1, name: 'Analytics interne', description: '', createdAt: '2026-04-02T00:00:00Z' },
+  { id: 1, ownerId: 1, name: 'Boutique Mobile', description: 'desc', createdAt: '2026-03-12T00:00:00Z', subscriptionCount: 2, hasKey: true },
+  { id: 2, ownerId: 1, name: 'Analytics interne', description: '', createdAt: '2026-04-02T00:00:00Z', subscriptionCount: 0, hasKey: false },
 ]
 const detail: AppDetail = {
   apiKey: 'ax_live_k1', consumerUsername: 'app_1',
@@ -52,10 +52,33 @@ function renderAt(path: string) {
 }
 
 describe('ApplicationsIndex', () => {
-  it('redirects to the first application', async () => {
+  it('lists all applications with links to their detail', async () => {
     renderAt('/applications')
-    await waitFor(() => expect(screen.getByText('Boutique Mobile', { selector: 'h1, h1 *' })).toBeInTheDocument())
+    const first = await screen.findByRole('link', { name: /Boutique Mobile/ })
+    expect(first).toHaveAttribute('href', '/applications/1')
+    const second = screen.getByRole('link', { name: /Analytics interne/ })
+    expect(second).toHaveAttribute('href', '/applications/2')
+    // It is a list, not a redirect: it does NOT jump into the first app's detail.
+    expect(screen.queryByText("Changer d'application")).not.toBeInTheDocument()
   })
+
+  it('shows per-app subscription count and key status', async () => {
+    renderAt('/applications')
+    const first = await screen.findByRole('link', { name: /Boutique Mobile/ })
+    expect(within(first).getByText('2 abonnements')).toBeInTheDocument()
+    expect(within(first).getByText('clé active')).toBeInTheDocument()
+    const second = screen.getByRole('link', { name: /Analytics interne/ })
+    expect(within(second).getByText('0 abonnement')).toBeInTheDocument()
+    expect(within(second).getByText('clé —')).toBeInTheDocument()
+  })
+
+  it('opens an application detail when its card is clicked', async () => {
+    renderAt('/applications')
+    const first = await screen.findByRole('link', { name: /Boutique Mobile/ })
+    await userEvent.click(first)
+    await waitFor(() => expect(screen.getByText("Changer d'application")).toBeInTheDocument())
+  })
+
   it('shows the create form when no apps exist', async () => {
     vi.spyOn(api, 'getApplications').mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 })
     renderAt('/applications')
@@ -101,9 +124,10 @@ describe('AppDetailPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
     await waitFor(() => expect(api.createApplication).toHaveBeenCalledWith('jwt', 'Nouvelle', ''))
   })
-  it('unknown app id redirects to /applications', async () => {
+  it('unknown app id redirects to the /applications list', async () => {
     renderAt('/applications/999')
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: /Boutique Mobile/ })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('link', { name: /Boutique Mobile/ })).toBeInTheDocument())
+    expect(screen.getByRole('heading', { level: 1, name: 'Applications' })).toBeInTheDocument()
   })
   it('a slow stale detail response never overwrites the current app', async () => {
     // app 1's detail hangs; app 2's resolves immediately

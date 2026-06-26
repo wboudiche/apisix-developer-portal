@@ -221,3 +221,25 @@
   .appdetail .tblwrap{overflow-x:auto}
   .appdetail .tbl{min-width:620px}
 }
+
+/* Applications index (list view) */
+.appdetail .applist-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+.appdetail .applist-title{font-family:var(--font-display);font-size:26px;font-weight:800;letter-spacing:-.02em}
+.appdetail .applist-sub{font-size:14px;color:var(--muted);margin-top:4px;max-width:560px}
+.appdetail .applist-create{display:flex;gap:10px;margin-bottom:18px}
+.appdetail .applist-create input{flex:1;height:40px;padding:0 12px;border:1px solid var(--border-2);border-radius:10px;background:var(--bg);color:var(--fg)}
+.appdetail .applist{display:flex;flex-direction:column;gap:12px}
+.appdetail .app-card{display:flex;align-items:center;gap:16px;padding:16px 18px;border:1px solid var(--border-2);border-radius:14px;background:var(--surface);text-decoration:none;color:inherit;transition:border-color .15s,box-shadow .15s,transform .05s}
+.appdetail .app-card:hover{border-color:var(--accent);box-shadow:0 1px 0 var(--accent-soft),0 8px 24px -16px rgba(0,0,0,.4)}
+.appdetail .app-card .mg{width:46px;height:46px;border-radius:11px;flex:none;display:grid;place-items:center;color:#fff;font-family:var(--font-display);font-weight:700;font-size:17px}
+.appdetail .app-card .ac-main{min-width:0;flex:1}
+.appdetail .app-card .ac-top{display:flex;align-items:baseline;gap:10px}
+.appdetail .app-card .ac-top b{font-size:16px;font-weight:700}
+.appdetail .app-card .ac-ref{font-size:12px;color:var(--faint)}
+.appdetail .app-card .ac-desc{font-size:13px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:560px}
+.appdetail .app-card .ac-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:7px}
+.appdetail .app-card .ac-sep{color:var(--faint)}
+.appdetail .app-card .ac-key{color:var(--faint)}
+.appdetail .app-card .ac-key.on{color:var(--success,#16a34a)}
+.appdetail .app-card .ac-go{flex:none;font-size:13px;font-weight:600;color:var(--accent);opacity:0;transition:opacity .15s}
+.appdetail .app-card:hover .ac-go{opacity:1}

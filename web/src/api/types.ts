@@ -43,6 +43,10 @@ export interface Application {
   name: string
   description: string
   createdAt: string
+  // Populated by the list endpoint (GET /api/applications) so the index can show
+  // per-app status without an extra fetch. Absent on create responses.
+  subscriptionCount?: number
+  hasKey?: boolean
 }
 
 export interface Credential {

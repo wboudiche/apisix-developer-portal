@@ -33,8 +33,11 @@ func (r *Repo) ListByOwner(ctx context.Context, ownerID int64, p paging.Params) 
 		return nil, 0, err
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id,owner_id,name,description,created_at FROM applications
-		 WHERE owner_id=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+		`SELECT a.id, a.owner_id, a.name, a.description, a.created_at,
+		        (SELECT count(*) FROM subscriptions s WHERE s.application_id = a.id) AS sub_count,
+		        EXISTS(SELECT 1 FROM credentials c WHERE c.application_id = a.id) AS has_key
+		 FROM applications a
+		 WHERE a.owner_id=$1 ORDER BY a.created_at DESC LIMIT $2 OFFSET $3`,
 		ownerID, p.Limit(), p.Offset())
 	if err != nil {
 		return nil, 0, err
@@ -43,7 +46,7 @@ func (r *Repo) ListByOwner(ctx context.Context, ownerID int64, p paging.Params) 
 	var out []Application
 	for rows.Next() {
 		var a Application
-		if err := rows.Scan(&a.ID, &a.OwnerID, &a.Name, &a.Description, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.OwnerID, &a.Name, &a.Description, &a.CreatedAt, &a.SubscriptionCount, &a.HasKey); err != nil {
 			return nil, 0, err
 		}
 		out = append(out, a)
