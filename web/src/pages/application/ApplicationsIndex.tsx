@@ -87,8 +87,6 @@ export function ApplicationsIndex() {
                     <div className="ac-meta">
                       <span>{subs} abonnement{subs > 1 ? 's' : ''}</span>
                       <span className="ac-sep">·</span>
-                      <span className={`ac-key ${a.hasKey ? 'on' : ''}`}>clé {a.hasKey ? 'active' : '—'}</span>
-                      <span className="ac-sep">·</span>
                       <span>Créée le <span className="mono">{frDate(a.createdAt)}</span></span>
                     </div>
                   </div>

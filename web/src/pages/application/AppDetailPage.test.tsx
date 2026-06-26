@@ -9,8 +9,8 @@ import * as api from '../../api/client'
 import type { Application, AppDetail, Plan } from '../../api/types'
 
 const apps: Application[] = [
-  { id: 1, ownerId: 1, name: 'Boutique Mobile', description: 'desc', createdAt: '2026-03-12T00:00:00Z', subscriptionCount: 2, hasKey: true },
-  { id: 2, ownerId: 1, name: 'Analytics interne', description: '', createdAt: '2026-04-02T00:00:00Z', subscriptionCount: 0, hasKey: false },
+  { id: 1, ownerId: 1, name: 'Boutique Mobile', description: 'desc', createdAt: '2026-03-12T00:00:00Z', subscriptionCount: 2 },
+  { id: 2, ownerId: 1, name: 'Analytics interne', description: '', createdAt: '2026-04-02T00:00:00Z', subscriptionCount: 0 },
 ]
 const detail: AppDetail = {
   apiKey: 'ax_live_k1', consumerUsername: 'app_1',
@@ -62,14 +62,12 @@ describe('ApplicationsIndex', () => {
     expect(screen.queryByText("Changer d'application")).not.toBeInTheDocument()
   })
 
-  it('shows per-app subscription count and key status', async () => {
+  it('shows per-app subscription count', async () => {
     renderAt('/applications')
     const first = await screen.findByRole('link', { name: /Boutique Mobile/ })
     expect(within(first).getByText('2 abonnements')).toBeInTheDocument()
-    expect(within(first).getByText('clé active')).toBeInTheDocument()
     const second = screen.getByRole('link', { name: /Analytics interne/ })
     expect(within(second).getByText('0 abonnement')).toBeInTheDocument()
-    expect(within(second).getByText('clé —')).toBeInTheDocument()
   })
 
   it('opens an application detail when its card is clicked', async () => {
