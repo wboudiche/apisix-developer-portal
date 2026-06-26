@@ -155,3 +155,37 @@ func TestUpdateContextPathTakenReturns409(t *testing.T) {
 		t.Fatalf("status = %d, want 409", rec.Code)
 	}
 }
+
+func TestCreateProductStoresSpec(t *testing.T) {
+	svc := &fakeService{products: map[int64]Product{}}
+	h := NewHandler(svc, true)
+	spec := `{"openapi":"3.0.0","info":{"title":"X","version":"1.0.0"}}`
+	body, _ := json.Marshal(Product{
+		Name: "X", Slug: "x", Category: "C", ContextPath: "/x", OpenAPISpec: spec,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/products", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var got Product
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if got.OpenAPISpec != spec {
+		t.Errorf("spec not passed through: %q", got.OpenAPISpec)
+	}
+}
+
+func TestCreateProductRejectsBrokenSpec(t *testing.T) {
+	svc := &fakeService{products: map[int64]Product{}}
+	h := NewHandler(svc, true)
+	body, _ := json.Marshal(Product{
+		Name: "X", Slug: "x", Category: "C", ContextPath: "/x", OpenAPISpec: "this is not a spec",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/products", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}

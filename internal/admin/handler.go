@@ -128,6 +128,7 @@ func (h *Handler) importSpec(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusUnprocessableEntity, "spec could not be parsed (need OpenAPI 3.x or Swagger 2.0 with a title)")
 		return
 	}
+	draft.OpenAPISpec = string(data)
 	httpx.JSON(w, http.StatusOK, draft)
 }
 
@@ -205,6 +206,12 @@ func (h *Handler) decodeProduct(w http.ResponseWriter, r *http.Request) (Product
 	if msg := p.validate(h.allowPrivate); msg != "" {
 		httpx.Error(w, http.StatusBadRequest, msg)
 		return Product{}, false
+	}
+	if p.OpenAPISpec != "" {
+		if _, err := parseSpec([]byte(p.OpenAPISpec)); err != nil {
+			httpx.Error(w, http.StatusBadRequest, "openapiSpec is not a valid OpenAPI 3.x / Swagger 2.0 document")
+			return Product{}, false
+		}
 	}
 	return p, true
 }

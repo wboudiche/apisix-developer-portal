@@ -20,6 +20,10 @@ type Product struct {
 	Icon        string   `json:"icon"`
 	UpstreamURL string   `json:"upstreamUrl"`
 	Published   bool     `json:"published"`
+	// OpenAPISpec is the raw OpenAPI/Swagger document (JSON or YAML) backing the
+	// product's docs + Try-it. Empty = no docs. omitempty so list/update
+	// responses (which don't re-select it) don't echo an empty string.
+	OpenAPISpec string `json:"openapiSpec,omitempty"`
 }
 
 // validate returns "" when the product is valid, otherwise a human-readable reason.

@@ -80,3 +80,26 @@ func TestImport_UnsafeURL_422(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestImport_ReturnsRawSpec(t *testing.T) {
+	h := newImportHandler(false)
+	spec := `{"openapi":"3.0.0","info":{"title":"Imported API","version":"3.0.0"}}`
+	body := `{"spec": ` + strconvQuote(spec) + `}`
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/products/import", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var p Product
+	_ = json.Unmarshal(rec.Body.Bytes(), &p)
+	if p.OpenAPISpec != spec {
+		t.Errorf("openapiSpec = %q, want raw spec", p.OpenAPISpec)
+	}
+}
+
+// strconvQuote JSON-quotes a string for embedding in the request body.
+func strconvQuote(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
+}

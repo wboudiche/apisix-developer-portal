@@ -76,6 +76,7 @@ export interface AdminProduct {
   icon: string
   upstreamUrl: string
   published: boolean
+  openapiSpec?: string
 }
 
 export interface AdminSubscription {

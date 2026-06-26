@@ -12,9 +12,9 @@ import { ImportModal } from './ImportModal'
 
 interface FormState {
   name: string; slug: string; category: string; contextPath: string
-  upstreamUrl: string; version: string; published: boolean
+  upstreamUrl: string; version: string; published: boolean; openapiSpec: string
 }
-const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', upstreamUrl: '', version: '1.0.0', published: true }
+const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', upstreamUrl: '', version: '1.0.0', published: true, openapiSpec: '' }
 
 function PlusIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M12 5v14M5 12h14" strokeLinecap="round" /></svg>
@@ -61,7 +61,7 @@ export function ProductsPage() {
     setForm({
       name: draft.name, slug: draft.slug, category: draft.category,
       contextPath: draft.contextPath, upstreamUrl: draft.upstreamUrl,
-      version: draft.version, published: false,
+      version: draft.version, published: false, openapiSpec: draft.openapiSpec ?? '',
     })
     setSlugTouched(true)
     setOpen(true)
@@ -69,7 +69,7 @@ export function ProductsPage() {
 
   function openEdit(p: AdminProduct) {
     setEditing(p)
-    setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, version: p.version, published: p.published })
+    setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, version: p.version, published: p.published, openapiSpec: '' })
     setSlugTouched(true)
     setOpen(true)
   }
@@ -86,6 +86,7 @@ export function ProductsPage() {
       upstreamUrl: form.upstreamUrl.trim(),
       version: form.version.trim() || '1.0.0',
       published: form.published,
+      openapiSpec: form.openapiSpec,
     }
     try {
       if (editing?.id != null) {
@@ -195,6 +196,14 @@ export function ProductsPage() {
             <label htmlFor="f-ver">Version</label>
             <input id="f-ver" className="ipt mono" autoComplete="off"
               value={form.version} onChange={e => set('version', e.target.value)} />
+          </div>
+          <div className="field" style={{ gridColumn: '1 / -1' }}>
+            <label htmlFor="f-spec">Spécification OpenAPI <span className="opt">optionnel</span></label>
+            <input id="f-spec-file" type="file" accept=".json,.yaml,.yml"
+              onChange={async e => { const f = e.target.files?.[0]; if (f) set('openapiSpec', await f.text()) }} />
+            <textarea id="f-spec" className="ipt mono" rows={4} placeholder="Collez une spec OpenAPI 3.x / Swagger 2.0…"
+              value={form.openapiSpec} onChange={e => set('openapiSpec', e.target.value)} />
+            <div className="help">{editing ? 'Laissez vide pour conserver la spécification existante.' : 'Alimente la documentation et le « Essayer » du produit.'}</div>
           </div>
         </div>
       </Composer>

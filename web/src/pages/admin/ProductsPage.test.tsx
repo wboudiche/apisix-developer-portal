@@ -127,4 +127,24 @@ describe('ProductsPage', () => {
     expect(screen.getByLabelText('Version')).toHaveValue('2.5.0')
     expect(screen.getByLabelText('Context path')).toHaveValue('/v2')
   })
+
+  it('persists the imported spec in the create payload', async () => {
+    const create = vi.spyOn(api, 'adminCreateProduct').mockResolvedValue({} as AdminProduct)
+    vi.spyOn(api, 'adminImportProduct').mockResolvedValue({
+      name: 'Imported API', slug: 'imported', category: 'Finance', version: '2.5.0',
+      contextPath: '/v2', description: '', tags: [], icon: '', upstreamUrl: '', published: false,
+      openapiSpec: '{"openapi":"3.0.0","info":{"title":"Imported API","version":"2.5.0"}}',
+    })
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getByRole('button', { name: /Importer une API/i }))
+    await userEvent.click(screen.getByRole('tab', { name: /URL/i }))
+    await userEvent.type(screen.getByPlaceholderText(/https/i), 'https://x/openapi.json')
+    await userEvent.click(screen.getByRole('button', { name: /^Importer$/i }))
+    await screen.findByText('Créer un produit')
+    await userEvent.click(screen.getByRole('button', { name: /Créer le produit/i }))
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    const payload = create.mock.calls[0][1]
+    expect(payload.openapiSpec).toContain('"openapi":"3.0.0"')
+  })
 })

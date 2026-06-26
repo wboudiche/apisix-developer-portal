@@ -100,6 +100,21 @@ func (r *Repo) GetBySlug(ctx context.Context, slug string) (Product, error) {
 	return products[0], nil
 }
 
+// GetSpecBySlug returns the raw OpenAPI spec for a published product, or
+// ErrNotFound when the product is missing, unpublished, or has no spec.
+func (r *Repo) GetSpecBySlug(ctx context.Context, slug string) (string, error) {
+	var spec string
+	err := r.pool.QueryRow(ctx,
+		`SELECT openapi_spec FROM api_products WHERE slug=$1 AND published=true`, slug).Scan(&spec)
+	if errors.Is(err, pgx.ErrNoRows) || spec == "" {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return spec, nil
+}
+
 // scanProducts collects all rows into a slice of Product.
 func scanProducts(rows pgx.Rows) ([]Product, error) {
 	var products []Product
