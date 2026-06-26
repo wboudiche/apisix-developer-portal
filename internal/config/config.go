@@ -18,6 +18,7 @@ type Config struct {
 	Addr             string
 	JWTSecret        string
 	APISIXAdminURL   string
+	APISIXGatewayURL string // base URL of the APISIX data-plane (gateway), used by the try-it proxy
 	APISIXAdminKey   string
 	AdminEmail       string
 	Env              string
@@ -40,6 +41,7 @@ func Load() Config {
 		Addr:             get("PORTAL_ADDR", ":8080"),
 		JWTSecret:        get("JWT_SECRET", DevJWTSecret),
 		APISIXAdminURL:   get("APISIX_ADMIN_URL", "http://localhost:19180"),
+		APISIXGatewayURL: get("APISIX_GATEWAY_URL", "http://localhost:9080"),
 		APISIXAdminKey:   get("APISIX_ADMIN_KEY", DevAPISIXAdminKey),
 		AdminEmail:       get("ADMIN_EMAIL", "admin@portal.local"),
 		Env:              get("PORTAL_ENV", ""),

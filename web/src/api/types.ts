@@ -140,3 +140,5 @@ export interface Paginated<T> {
   page: number
   pageSize: number
 }
+
+export type TryApp = { id: number; name: string }

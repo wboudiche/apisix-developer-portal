@@ -20,6 +20,7 @@ import (
 	"apisix-portal/internal/metrics"
 	"apisix-portal/internal/plans"
 	"apisix-portal/internal/subscriptions"
+	"apisix-portal/internal/tryit"
 )
 
 // New builds the portal's HTTP handler: all API routes wired to the given
@@ -29,7 +30,8 @@ import (
 func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.Gateway) http.Handler {
 	tok := auth.NewTokenizer(cfg.JWTSecret)
 
-	catalogH := catalog.NewHandler(catalog.NewRepo(pool))
+	catRepo := catalog.NewRepo(pool)
+	catalogH := catalog.NewHandler(catRepo)
 	authRepo := auth.NewRepo(pool)
 	ipLimiter := httpx.NewRateLimiter(10, 0.5)    // per client IP, all /api/auth/ endpoints
 	loginLimiter := httpx.NewRateLimiter(10, 0.5) // per account (email), login only
@@ -93,6 +95,10 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	mux.Handle("/api/admin/plans/", requireAdmin(planAdminH))
 	mux.Handle("/api/admin/subscriptions", requireAdmin(subAdminH))
 	mux.Handle("/api/admin/subscriptions/", requireAdmin(subAdminH))
+	tryProducts := tryitProductsAdapter{repo: catRepo}
+	tryAccess := tryitAccessAdapter{apps: appsRepo, subs: subRepo}
+	tryH := tryit.NewHandler(tryProducts, tryAccess, cfg.APISIXGatewayURL)
+	mux.Handle("/api/try/", requireAuth(tryH))
 
 	return httpx.SecurityHeaders(httpx.MaxBodyBytes(1 << 20)(logRequests(mux)))
 }

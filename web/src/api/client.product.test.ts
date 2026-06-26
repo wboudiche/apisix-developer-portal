@@ -23,3 +23,12 @@ it('getProductSpec returns null on 404 (no docs)', async () => {
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"error":"spec not found"}', { status: 404 }))
   expect(await getProductSpec('orders')).toBeNull()
 })
+
+it('getTryContext fetches approved apps', async () => {
+  const { getTryContext } = await import('./client')
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    new Response(JSON.stringify({ apps: [{ id: 3, name: 'App A' }] }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+  )
+  const out = await getTryContext('jwt', 'orders')
+  expect(out.apps[0].name).toBe('App A')
+})

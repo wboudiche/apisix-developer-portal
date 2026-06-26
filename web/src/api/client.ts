@@ -1,6 +1,6 @@
 import type {
   Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail,
-  AdminProduct, AdminSubscription, Usage, UsageRange, Paginated,
+  AdminProduct, AdminSubscription, Usage, UsageRange, Paginated, TryApp,
 } from './types'
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. 409 when
@@ -168,6 +168,11 @@ async function sendAuthed(method: string, url: string, token: string, body?: unk
     handle401(res.status, url)
     throw new ApiError((b as { error?: string }).error || `request failed (${res.status})`, res.status)
   }
+}
+
+export async function getTryContext(token: string, slug: string): Promise<{ apps: TryApp[] }> {
+  const url = `/api/try/${encodeURIComponent(slug)}/context`
+  return parse<{ apps: TryApp[] }>(await fetch(url, { headers: authHeaders(token) }), url)
 }
 
 // --- Admin: products ---
