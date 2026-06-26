@@ -206,5 +206,11 @@ func (h *Handler) decodeProduct(w http.ResponseWriter, r *http.Request) (Product
 		httpx.Error(w, http.StatusBadRequest, msg)
 		return Product{}, false
 	}
+	if p.OpenAPISpec != "" {
+		if _, err := parseSpec([]byte(p.OpenAPISpec)); err != nil {
+			httpx.Error(w, http.StatusBadRequest, "openapiSpec is not a valid OpenAPI 3.x / Swagger 2.0 document")
+			return Product{}, false
+		}
+	}
 	return p, true
 }
