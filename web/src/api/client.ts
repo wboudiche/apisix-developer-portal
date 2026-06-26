@@ -77,6 +77,18 @@ export async function getProducts(q: ProductQuery, page?: PageOpts): Promise<Pag
   return parse<Paginated<Product>>(res, url)
 }
 
+export async function getProduct(slug: string): Promise<Product> {
+  const url = `/api/products/${encodeURIComponent(slug)}`
+  return parse<Product>(await fetch(url), url)
+}
+
+export async function getProductSpec(slug: string): Promise<string | null> {
+  const res = await fetch(`/api/products/${encodeURIComponent(slug)}/spec`)
+  if (res.status === 404) return null
+  if (!res.ok) throw new ApiError(`spec fetch failed (${res.status})`, res.status)
+  return res.text()
+}
+
 function postJSON(url: string, body: unknown): Promise<Response> {
   return fetch(url, {
     method: 'POST',
