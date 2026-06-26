@@ -26,6 +26,10 @@ var stripHeaders = map[string]bool{
 	"Keep-Alive": true, "Proxy-Authenticate": true, "Proxy-Authorization": true,
 	"Te": true, "Trailer": true, "Transfer-Encoding": true, "Upgrade": true,
 	"Content-Length": true,
+	// Defense in depth: never let an apikey cross the proxy in either direction.
+	// The key is injected server-side; a gateway that echoes it back must not
+	// leak it to the browser.
+	"Apikey": true,
 }
 
 type Handler struct {
@@ -53,6 +57,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.S
 
 func (h *Handler) context(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserID(r.Context())
+	if userID == 0 {
+		httpx.Error(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
 	id, _, err := h.products.ProductBySlug(r.Context(), chi.URLParam(r, "slug"))
 	if errors.Is(err, ErrNotFound) {
 		httpx.Error(w, http.StatusNotFound, "product not found")
@@ -75,6 +83,10 @@ func (h *Handler) context(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) proxy(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserID(r.Context())
+	if userID == 0 {
+		httpx.Error(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
 	slug := chi.URLParam(r, "slug")
 	appID, err := strconv.ParseInt(chi.URLParam(r, "appId"), 10, 64)
 	if err != nil {
