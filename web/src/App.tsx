@@ -8,11 +8,13 @@ import { AdminGuard } from './admin/AdminGuard'
 import { ProductsPage } from './pages/admin/ProductsPage'
 import { PlansPage } from './pages/admin/PlansPage'
 import { ApprovalsPage } from './pages/admin/ApprovalsPage'
+import { ProductDetailPage } from './pages/ProductDetailPage'
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<CatalogPage />} />
+      <Route path="/catalog/:slug" element={<ProductDetailPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/applications" element={<ApplicationsIndex />} />
