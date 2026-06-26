@@ -157,3 +157,14 @@ func TestValidatePassesProdWithRealSecrets(t *testing.T) {
 		t.Fatalf("prod with real secrets must pass: %v", err)
 	}
 }
+
+func TestGatewayURLDefaultAndOverride(t *testing.T) {
+	os.Unsetenv("APISIX_GATEWAY_URL")
+	if got := Load().APISIXGatewayURL; got != "http://localhost:9080" {
+		t.Errorf("default = %q, want http://localhost:9080", got)
+	}
+	t.Setenv("APISIX_GATEWAY_URL", "http://gw:9080")
+	if got := Load().APISIXGatewayURL; got != "http://gw:9080" {
+		t.Errorf("override = %q", got)
+	}
+}
