@@ -14,6 +14,7 @@ import (
 type fakeLister struct {
 	items []Product
 	err   error
+	specs map[string]string
 }
 
 func (f fakeLister) List(_ context.Context, q Query, p paging.Params) ([]Product, int, error) {
@@ -33,6 +34,13 @@ func (f fakeLister) GetBySlug(_ context.Context, slug string) (Product, error) {
 		}
 	}
 	return Product{}, ErrNotFound
+}
+func (f fakeLister) GetSpecBySlug(_ context.Context, slug string) (string, error) {
+	s, ok := f.specs[slug]
+	if !ok {
+		return "", ErrNotFound
+	}
+	return s, nil
 }
 
 func TestProductsEndpointReturnsJSON(t *testing.T) {
@@ -91,5 +99,25 @@ func TestProductBySlugNotFound(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+func TestGetSpecBySlug(t *testing.T) {
+	f := fakeLister{specs: map[string]string{"orders": `{"openapi":"3.0.0"}`}}
+	h := NewHandler(f)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/products/orders/spec", nil))
+	if rec.Code != http.StatusOK || rec.Body.String() != `{"openapi":"3.0.0"}` {
+		t.Fatalf("got %d %q", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("content-type=%q", ct)
+	}
+
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, httptest.NewRequest(http.MethodGet, "/api/products/missing/spec", nil))
+	if rec2.Code != http.StatusNotFound {
+		t.Fatalf("missing slug: status=%d", rec2.Code)
 	}
 }

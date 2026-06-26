@@ -115,3 +115,21 @@ func TestGetBySlugNotFound(t *testing.T) {
 		t.Fatalf("want ErrNotFound, got %v", err)
 	}
 }
+
+func TestGetSpecBySlugPublishedOnly(t *testing.T) {
+	ctx, repo := testPool(t)
+	_, _ = repo.pool.Exec(ctx,
+		`INSERT INTO api_products(name,slug,category,context_path,published,openapi_spec)
+		 VALUES('SpecPub','spec-pub','C','/sp',true,'{"openapi":"3.0.0"}'),
+		        ('SpecPriv','spec-priv','C','/spr',false,'{"openapi":"3.0.0"}')`)
+
+	if s, err := repo.GetSpecBySlug(ctx, "spec-pub"); err != nil || s == "" {
+		t.Fatalf("published: %v %q", err, s)
+	}
+	if _, err := repo.GetSpecBySlug(ctx, "spec-priv"); err != ErrNotFound {
+		t.Fatalf("unpublished: want ErrNotFound, got %v", err)
+	}
+	if _, err := repo.GetSpecBySlug(ctx, "nope"); err != ErrNotFound {
+		t.Fatalf("missing: want ErrNotFound, got %v", err)
+	}
+}
