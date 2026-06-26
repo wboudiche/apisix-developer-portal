@@ -3,7 +3,6 @@ package tryit
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -95,4 +94,3 @@ func TestProxyUnknownProduct404(t *testing.T) {
 	if rec.Code != http.StatusNotFound { t.Fatalf("status=%d", rec.Code) }
 }
 
-var _ = io.Discard
