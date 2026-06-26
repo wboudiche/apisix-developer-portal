@@ -176,7 +176,7 @@ func (r *Repo) GetCredential(ctx context.Context, appID int64) (Credential, erro
 func (r *Repo) ActivePlanForApp(ctx context.Context, appID int64) (PlanInfo, error) {
 	var p PlanInfo
 	err := r.pool.QueryRow(ctx,
-		`SELECT pl.id, pl.request_count, pl.window_seconds
+		`SELECT pl.id, pl.rate_limit_count, pl.rate_limit_window_s
 		   FROM subscriptions s
 		   JOIN plans pl ON pl.id = s.plan_id
 		  WHERE s.application_id=$1 AND s.status='active'
