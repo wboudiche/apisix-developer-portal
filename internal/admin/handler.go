@@ -128,6 +128,7 @@ func (h *Handler) importSpec(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusUnprocessableEntity, "spec could not be parsed (need OpenAPI 3.x or Swagger 2.0 with a title)")
 		return
 	}
+	draft.OpenAPISpec = string(data)
 	httpx.JSON(w, http.StatusOK, draft)
 }
 
