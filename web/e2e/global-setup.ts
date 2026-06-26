@@ -24,6 +24,21 @@ const N_PRODUCTS = 25
 const N_PLANS = 22
 const N_SUBS = 22
 
+// Minimal valid OpenAPI 3.0 spec used to seed the first product so the
+// Scalar docs renderer has content to display in the api-docs e2e spec.
+const E2E_SPEC = JSON.stringify({
+  openapi: '3.0.0',
+  info: { title: 'E2E Spec API', version: '1.0.0' },
+  paths: {
+    '/ping': {
+      get: {
+        summary: 'Ping endpoint',
+        responses: { '200': { description: 'ok' } },
+      },
+    },
+  },
+})
+
 interface Auth { token: string; user: { role: string } }
 
 export default async function globalSetup(_config: FullConfig): Promise<void> {
@@ -54,6 +69,9 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
       icon: '',
       upstreamUrl: '', // optional; left blank so no upstream/SSRF validation applies
       published: true,
+      // The first product carries a valid OpenAPI spec so the Scalar docs
+      // renderer has content; all others have an empty spec (no-docs branch).
+      openapiSpec: i === 0 ? E2E_SPEC : '',
     }, [201, 409])
   }
   for (let i = 0; i < N_PLANS; i++) {
