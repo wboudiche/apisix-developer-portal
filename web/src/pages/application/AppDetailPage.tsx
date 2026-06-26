@@ -170,7 +170,17 @@ export function AppDetailPage() {
         {detail && app && (
           <>
             {tab === 'overview' && <OverviewTab detail={detail} token={token} appId={appId} notify={notify} />}
-            {tab === 'creds' && <CredentialsTab apiKey={detail.apiKey} notify={notify} openModal={setModal} />}
+            {tab === 'creds' && (
+              <CredentialsTab
+                apiKey={detail.apiKey}
+                appId={appId}
+                token={token}
+                lastRotatedAt={detail.events.find(e => e.kind === 'key_rotated')?.createdAt}
+                notify={notify}
+                openModal={setModal}
+                onRotated={reloadDetail}
+              />
+            )}
             {tab === 'subs' && <SubscriptionsTab subs={subs} plans={plans} onResiliate={onResiliate} />}
             {tab === 'usage' && <UsageTab token={token} appId={appId} />}
             {tab === 'settings' && <SettingsTab app={app} notify={notify} openModal={setModal} />}

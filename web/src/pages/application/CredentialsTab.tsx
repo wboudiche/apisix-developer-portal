@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { maskKey, copyText } from './helpers'
-import { DEMO_SANDBOX_KEY, DEMO_ROTATION, demoRotatedKey } from './demo'
+import { formatRelative } from './activity'
+import { rotateKey } from '../../api/client'
 import type { ModalSpec } from '../../components/ConfirmModal'
 
 function EyeIcon() {
@@ -25,86 +26,62 @@ function RotateIcon() {
   )
 }
 
-function KeyCard({ kind, label, tag, fullKey, revealed, onToggle, rotatedAt, onCopy, onRotate, testId }: {
-  kind: 'prod' | 'sbx'
-  label: string
-  tag: string
-  fullKey: string
-  revealed: boolean
-  onToggle: () => void
-  rotatedAt: string
-  onCopy: () => void
-  onRotate: () => void
-  testId: string
-}) {
-  return (
-    <div className={`keycard ${kind}`}>
-      <div className="kh">
-        <span className="env">{label} <span className="envtag">{tag}</span></span>
-      </div>
-      <div className="kb">
-        <div className="keyrow">
-          <code data-testid={testId}>{revealed ? fullKey : maskKey(fullKey)}</code>
-          <button className="iconbtn" aria-label="Afficher / masquer" aria-pressed={revealed} onClick={onToggle}><EyeIcon /></button>
-          <button className="iconbtn" aria-label="Copier" onClick={onCopy}><CopyIcon /></button>
-        </div>
-        <div className="keymeta">
-          <span>Dernière rotation · <span className="mono">{rotatedAt}</span></span>
-          <button className="rotate" onClick={onRotate}><RotateIcon />Régénérer</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export function CredentialsTab({ apiKey, notify, openModal }: {
+export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, openModal, onRotated }: {
   apiKey: string
+  appId: number
+  token: string
+  lastRotatedAt?: string
   notify: (msg: string) => void
   openModal: (spec: ModalSpec) => void
+  onRotated: () => void
 }) {
-  const [prodRevealed, setProdRevealed] = useState(false)
-  const [sbxRevealed, setSbxRevealed] = useState(false)
-  // DEMO: sandbox environments don't exist server-side yet (see demo.ts).
-  const [sbxKey, setSbxKey] = useState(DEMO_SANDBOX_KEY)
+  const [shownKey, setShownKey] = useState(apiKey)
+  const [revealed, setRevealed] = useState(false)
+  // Keep the displayed key in sync when the prop changes (parent refetch / app switch).
+  useEffect(() => { setShownKey(apiKey) }, [apiKey])
 
-  function copy(key: string) {
-    void copyText(key).then(() => notify('Clé copiée dans le presse-papiers'))
+  function copy() {
+    void copyText(shownKey).then(() => notify('Clé copiée dans le presse-papiers'))
+  }
+
+  function onRotate() {
+    openModal({
+      title: 'Régénérer la clé production ?',
+      body: 'L’ancienne clé sera révoquée immédiatement dans APISIX (consumer key-auth). Les requêtes qui l’utilisent recevront un 401 — pensez à redéployer.',
+      confirmLabel: 'Régénérer la clé',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          const { apiKey: nk } = await rotateKey(token, appId)
+          setShownKey(nk)
+          setRevealed(true)        // reveal the fresh key once
+          notify('Nouvelle clé générée')
+          onRotated()              // refresh the detail (events / timestamp)
+        } catch (e) {
+          notify(e instanceof Error ? e.message : 'Échec de la rotation.')
+        }
+      },
+    })
   }
 
   return (
     <section className="panel">
       <p className="section-title">Clés API · key-auth</p>
       <div className="keygrid">
-        <KeyCard
-          kind="prod" label="Production" tag="live" testId="key-prod"
-          fullKey={apiKey} revealed={prodRevealed} onToggle={() => setProdRevealed(r => !r)}
-          rotatedAt={DEMO_ROTATION.prod}
-          onCopy={() => copy(apiKey)}
-          onRotate={() => openModal({
-            title: 'Régénérer la clé production ?',
-            body: 'L’ancienne clé serait révoquée immédiatement dans APISIX (consumer key-auth). La rotation de clé arrive bientôt côté portail.',
-            confirmLabel: 'Régénérer la clé',
-            // Real credential: no backend rotation endpoint yet — never fake it visually.
-            onConfirm: () => notify('Rotation des clés à venir'),
-          })}
-        />
-        <KeyCard
-          kind="sbx" label="Sandbox" tag="test" testId="key-sbx"
-          fullKey={sbxKey} revealed={sbxRevealed} onToggle={() => setSbxRevealed(r => !r)}
-          rotatedAt={DEMO_ROTATION.sbx}
-          onCopy={() => copy(sbxKey)}
-          onRotate={() => openModal({
-            title: 'Régénérer la clé sandbox ?',
-            body: 'L’ancienne clé sera révoquée immédiatement dans APISIX (consumer key-auth). Les requêtes qui l’utilisent recevront un 401 — pensez à redéployer.',
-            confirmLabel: 'Régénérer la clé',
-            onConfirm: () => {
-              const nk = demoRotatedKey('ax_test_')
-              setSbxKey(nk)
-              setSbxRevealed(true)   // blueprint reveals the fresh key once
-              notify('Nouvelle clé sandbox générée')
-            },
-          })}
-        />
+        <div className="keycard prod">
+          <div className="kh"><span className="env">Production <span className="envtag">live</span></span></div>
+          <div className="kb">
+            <div className="keyrow">
+              <code data-testid="key-prod">{revealed ? shownKey : maskKey(shownKey)}</code>
+              <button className="iconbtn" aria-label="Afficher / masquer" aria-pressed={revealed} onClick={() => setRevealed(r => !r)}><EyeIcon /></button>
+              <button className="iconbtn" aria-label="Copier" onClick={copy}><CopyIcon /></button>
+            </div>
+            <div className="keymeta">
+              <span>Dernière rotation · <span className="mono">{lastRotatedAt ? formatRelative(lastRotatedAt) : '—'}</span></span>
+              <button className="rotate" onClick={onRotate}><RotateIcon />Régénérer</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="dcard" style={{ marginTop: 20 }}>
