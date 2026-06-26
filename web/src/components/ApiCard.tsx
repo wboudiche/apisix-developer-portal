@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { Product } from '../api/types'
 import { ApiIcon, categoryTint } from './apiIcons'
 
@@ -38,7 +39,7 @@ export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Produ
       </div>
       <div className="cbody">
         <div className="crow1">
-          <span className="cname">{p.name}</span>
+          <Link className="cname" to={`/apis/${p.slug}`}>{p.name}</Link>
           <Stars rating={p.rating} />
         </div>
         <p className="cdesc">{p.description}</p>
