@@ -1,6 +1,6 @@
 import type {
   Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail,
-  AdminProduct, AdminSubscription, Usage, UsageRange, Paginated, TryApp,
+  AdminProduct, AdminSubscription, Usage, UsageRange, Paginated, TryApp, Quota,
 } from './types'
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. 409 when
@@ -139,6 +139,11 @@ export async function getApplicationDetail(token: string, appId: number): Promis
 export async function getUsage(token: string, appId: number, range: UsageRange): Promise<Usage> {
   const url = `/api/applications/${appId}/usage?range=${range}`
   return parse<Usage>(await fetch(url, { headers: authHeaders(token) }), url)
+}
+
+export async function getQuota(token: string, appId: number): Promise<Quota> {
+  const url = `/api/applications/${appId}/quota`
+  return parse<Quota>(await fetch(url, { headers: authHeaders(token) }), url)
 }
 
 export async function subscribe(token: string, appId: number, productId: number, planId: number): Promise<Credential> {

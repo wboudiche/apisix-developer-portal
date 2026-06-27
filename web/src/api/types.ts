@@ -143,3 +143,11 @@ export interface Paginated<T> {
 }
 
 export type TryApp = { id: number; name: string }
+
+export interface Quota {
+  hasQuota: boolean
+  used?: number
+  limit?: number
+  windowSeconds?: number
+  available?: boolean
+}
