@@ -12,12 +12,15 @@ import (
 	"apisix-portal/internal/apisix"
 	"apisix-portal/internal/auth"
 	"apisix-portal/internal/events"
+	"apisix-portal/internal/metrics"
 )
 
 type fakeReader struct {
-	cred Credential
-	has  bool
-	subs []SubscriptionView
+	cred     Credential
+	has      bool
+	subs     []SubscriptionView
+	plan     PlanInfo
+	planErr  error
 }
 
 func (f fakeReader) GetCredential(_ context.Context, _ int64) (Credential, error) {
@@ -28,6 +31,28 @@ func (f fakeReader) GetCredential(_ context.Context, _ int64) (Credential, error
 }
 func (f fakeReader) SubscriptionsForApp(_ context.Context, _ int64) ([]SubscriptionView, error) {
 	return f.subs, nil
+}
+func (f fakeReader) ActivePlanForApp(_ context.Context, _ int64) (PlanInfo, error) {
+	if f.planErr != nil {
+		return PlanInfo{}, f.planErr
+	}
+	return f.plan, nil
+}
+
+// fakeUsageReader implements UsageReader for handler tests.
+type fakeUsageReader struct {
+	used    int64
+	usedErr error
+}
+
+func (f fakeUsageReader) Usage(_ context.Context, _ string, _ metrics.Range) (metrics.Usage, error) {
+	return metrics.Usage{}, nil
+}
+func (f fakeUsageReader) RequestsInWindow(_ context.Context, _ string, _ int) (int64, error) {
+	if f.usedErr != nil {
+		return 0, f.usedErr
+	}
+	return f.used, nil
 }
 
 // fakeEvents returns a fixed feed so the detail endpoint's activity wiring is
@@ -214,6 +239,98 @@ func TestRotateKeyEndpoint(t *testing.T) {
 func TestRotateKeyEndpoint_NonOwner403(t *testing.T) {
 	h, _ := newSeededTestHandler()
 	req := httptest.NewRequest(http.MethodPost, "/api/applications/1/credentials/rotate", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 9))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden && rec.Code != http.StatusNotFound {
+		t.Fatalf("non-owner status=%d (want 403/404)", rec.Code)
+	}
+}
+
+func TestQuotaHappyPath(t *testing.T) {
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "key-xyz" }, nil)
+	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
+	reader := fakeReader{
+		has:  true,
+		cred: Credential{ApplicationID: 1, APIKey: "key-xyz", ConsumerUsername: "app_1"},
+		subs: []SubscriptionView{{ProductID: 3, ProductName: "PizzaShackAPI", PlanID: 2, PlanName: "Silver"}},
+		plan: PlanInfo{Count: 1000, WindowSeconds: 60},
+	}
+	h := NewHandler(svc, reader, fakeEvents{}, owns)
+	h.SetUsageReader(fakeUsageReader{used: 612})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/applications/1/quota", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 5))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
+	}
+	var q Quota
+	_ = json.Unmarshal(rec.Body.Bytes(), &q)
+	if !q.HasQuota || !q.Available || q.Used != 612 || q.Limit != 1000 || q.WindowSeconds != 60 {
+		t.Fatalf("quota = %+v", q)
+	}
+}
+
+func TestQuotaNoActiveSubscription(t *testing.T) {
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "key-xyz" }, nil)
+	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
+	reader := fakeReader{
+		has:     true,
+		cred:    Credential{ApplicationID: 1, APIKey: "key-xyz", ConsumerUsername: "app_1"},
+		planErr: ErrNoActiveSubscription,
+	}
+	h := NewHandler(svc, reader, fakeEvents{}, owns)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/applications/1/quota", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 5))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
+	}
+	var q Quota
+	_ = json.Unmarshal(rec.Body.Bytes(), &q)
+	if q.HasQuota {
+		t.Fatalf("expected hasQuota=false, got %+v", q)
+	}
+}
+
+func TestQuotaMetricsUnavailable(t *testing.T) {
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, func() string { return "key-xyz" }, nil)
+	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
+	reader := fakeReader{
+		has:  true,
+		cred: Credential{ApplicationID: 1, APIKey: "key-xyz", ConsumerUsername: "app_1"},
+		plan: PlanInfo{Count: 1000, WindowSeconds: 60},
+	}
+	// Do NOT set a usage reader — h.usage stays nil
+	h := NewHandler(svc, reader, fakeEvents{}, owns)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/applications/1/quota", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 5))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
+	}
+	var q Quota
+	_ = json.Unmarshal(rec.Body.Bytes(), &q)
+	if !q.HasQuota || q.Available || q.Limit != 1000 || q.WindowSeconds != 60 {
+		t.Fatalf("expected hasQuota=true, available=false, limit=1000, windowSeconds=60; got %+v", q)
+	}
+}
+
+func TestQuotaNonOwner403(t *testing.T) {
+	h, _ := newTestHandler()
+	req := httptest.NewRequest(http.MethodGet, "/api/applications/1/quota", nil)
 	req = req.WithContext(auth.WithUserID(req.Context(), 9))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)

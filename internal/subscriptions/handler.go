@@ -23,6 +23,7 @@ type OwnerCheck func(ctx context.Context, appID, userID int64) (bool, error)
 type Reader interface {
 	GetCredential(ctx context.Context, appID int64) (Credential, error)
 	SubscriptionsForApp(ctx context.Context, appID int64) ([]SubscriptionView, error)
+	ActivePlanForApp(ctx context.Context, appID int64) (PlanInfo, error)
 }
 
 // EventReader returns an application's recent activity (satisfied by
@@ -35,6 +36,17 @@ type EventReader interface {
 // (satisfied by *metrics.Service). nil disables the usage endpoint.
 type UsageReader interface {
 	Usage(ctx context.Context, consumer string, r metrics.Range) (metrics.Usage, error)
+	RequestsInWindow(ctx context.Context, consumer string, windowSeconds int) (int64, error)
+}
+
+// Quota is the per-app rate-limit usage snapshot returned by GET
+// /api/applications/{id}/quota.
+type Quota struct {
+	HasQuota      bool  `json:"hasQuota"`
+	Used          int64 `json:"used"`
+	Limit         int   `json:"limit"`
+	WindowSeconds int   `json:"windowSeconds"`
+	Available     bool  `json:"available"`
 }
 
 // feedLimit caps how many activity rows the Overview feed loads.
@@ -56,6 +68,7 @@ func NewHandler(svc *Service, reader Reader, eventReader EventReader, owns Owner
 	h := &Handler{svc: svc, reader: reader, events: eventReader, owns: owns, router: chi.NewRouter()}
 	h.router.Get("/api/applications/{appID}", h.detail)
 	h.router.Get("/api/applications/{appID}/usage", h.usageHandler)
+	h.router.Get("/api/applications/{appID}/quota", h.quotaHandler)
 	h.router.Post("/api/applications/{appID}/subscriptions", h.subscribe)
 	h.router.Delete("/api/applications/{appID}/subscriptions/{productID}", h.unsubscribe)
 	h.router.Post("/api/applications/{appID}/credentials/rotate", h.rotateKey)
@@ -185,6 +198,47 @@ func (h *Handler) rotateKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]string{"apiKey": newKey})
+}
+
+// quotaHandler serves GET /api/applications/{id}/quota — the per-app rate-limit
+// usage snapshot, including the active plan's limit and approximate used count.
+func (h *Handler) quotaHandler(w http.ResponseWriter, r *http.Request) {
+	appID, ok := h.authorize(w, r)
+	if !ok {
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+
+	cred, err := h.reader.GetCredential(r.Context(), appID)
+	if errors.Is(err, ErrNotFound) {
+		httpx.JSON(w, http.StatusOK, Quota{HasQuota: false})
+		return
+	}
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load credential")
+		return
+	}
+	plan, err := h.reader.ActivePlanForApp(r.Context(), appID)
+	if errors.Is(err, ErrNoActiveSubscription) {
+		httpx.JSON(w, http.StatusOK, Quota{HasQuota: false})
+		return
+	}
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load plan")
+		return
+	}
+
+	q := Quota{HasQuota: true, Limit: plan.Count, WindowSeconds: plan.WindowSeconds}
+	if h.usage != nil {
+		used, err := h.usage.RequestsInWindow(r.Context(), cred.ConsumerUsername, plan.WindowSeconds)
+		if err != nil {
+			log.Printf("quota used for app %d (consumer %s): %v", appID, cred.ConsumerUsername, err)
+		} else {
+			q.Used = used
+			q.Available = true
+		}
+	}
+	httpx.JSON(w, http.StatusOK, q)
 }
 
 // usageHandler serves GET /api/applications/{id}/usage?range=24h|7d|30d — the
