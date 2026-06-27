@@ -26,6 +26,9 @@ func (f *fakeUsage) Usage(_ context.Context, consumer string, r metrics.Range) (
 	f.gotRange = r.Key
 	return f.usage, f.err
 }
+func (f *fakeUsage) RequestsInWindow(_ context.Context, _ string, _ int) (int64, error) {
+	return 0, f.err
+}
 
 func newUsageHandler(reader Reader, usage UsageReader) *Handler {
 	store := newMemStore()

@@ -7,6 +7,42 @@ import (
 	"time"
 )
 
+type recordingQuerier struct {
+	scalar    float64
+	lastQuery string
+}
+
+func (r *recordingQuerier) Scalar(_ context.Context, query string) (float64, error) {
+	r.lastQuery = query
+	return r.scalar, nil
+}
+func (r *recordingQuerier) Range(_ context.Context, _ string, _, _ time.Time, _ time.Duration) ([]Sample, error) {
+	return nil, nil
+}
+
+func TestRequestsInWindow(t *testing.T) {
+	q := &recordingQuerier{scalar: 41.6}
+	s := NewService(q)
+	got, err := s.RequestsInWindow(context.Background(), "app_7", 60)
+	if err != nil {
+		t.Fatalf("RequestsInWindow: %v", err)
+	}
+	if got != 42 { // 41.6 rounds to 42
+		t.Errorf("got %d, want 42", got)
+	}
+	want := `sum(increase(apisix_http_status{consumer="app_7"}[60s]))`
+	if q.lastQuery != want {
+		t.Errorf("query = %q, want %q", q.lastQuery, want)
+	}
+}
+
+func TestRequestsInWindow_RejectsBadConsumer(t *testing.T) {
+	s := NewService(&recordingQuerier{})
+	if _, err := s.RequestsInWindow(context.Background(), `app"7`, 60); err == nil {
+		t.Fatal("expected error for malformed consumer")
+	}
+}
+
 // fakeQuerier scripts Prometheus responses by inspecting the PromQL, and counts
 // calls so cache behavior is observable.
 type fakeQuerier struct {
