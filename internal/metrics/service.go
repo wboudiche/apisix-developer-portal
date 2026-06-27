@@ -70,6 +70,25 @@ func NewService(q Querier) *Service {
 	return &Service{q: q, ttl: defaultTTL, now: time.Now, cache: map[string]cacheEntry{}}
 }
 
+// RequestsInWindow returns the approximate number of requests by the consumer
+// over the last windowSeconds, from Prometheus. Used by the per-app rate-limit
+// meter; it is an approximation of the gateway's limit-count counter, not the
+// exact value.
+func (s *Service) RequestsInWindow(ctx context.Context, consumer string, windowSeconds int) (int64, error) {
+	if !consumerRe.MatchString(consumer) {
+		return 0, fmt.Errorf("invalid consumer %q", consumer)
+	}
+	sel := fmt.Sprintf(`consumer="%s"`, consumer)
+	v, err := s.q.Scalar(ctx, countQuery(sel, time.Duration(windowSeconds)*time.Second))
+	if err != nil {
+		return 0, err
+	}
+	if v < 0 {
+		v = 0
+	}
+	return int64(v + 0.5), nil
+}
+
 // Usage returns the cards + chart for one consumer over the given range.
 func (s *Service) Usage(ctx context.Context, consumer string, r Range) (Usage, error) {
 	if !consumerRe.MatchString(consumer) {
