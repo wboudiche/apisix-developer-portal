@@ -16,11 +16,11 @@ import (
 )
 
 type fakeReader struct {
-	cred     Credential
-	has      bool
-	subs     []SubscriptionView
-	plan     PlanInfo
-	planErr  error
+	cred    Credential
+	has     bool
+	subs    []SubscriptionView
+	plan    PlanInfo
+	planErr error
 }
 
 func (f fakeReader) GetCredential(_ context.Context, _ int64) (Credential, error) {
