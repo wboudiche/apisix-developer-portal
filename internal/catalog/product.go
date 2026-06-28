@@ -12,6 +12,7 @@ type Product struct {
 	Tags        []string `json:"tags"`
 	Icon        string   `json:"icon"`
 	Rating      float64  `json:"rating"`
+	RatingCount int      `json:"ratingCount"`
 }
 
 // Query holds catalog filter/search/sort parameters.
