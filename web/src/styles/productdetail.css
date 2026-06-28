@@ -14,3 +14,19 @@
 .apidetail .docs-empty h3{font-family:var(--font-display);font-size:18px;color:var(--fg);margin-bottom:6px}
 .apidetail .docs-loading{color:var(--muted);padding:24px}
 .scalar-wrap{border:1px solid var(--border-2);border-radius:14px;overflow:hidden}
+.apidetail .reviews{margin-top:28px;border-top:1px solid var(--border-2);padding-top:22px}
+.apidetail .rv-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
+.apidetail .rv-head h3{font-family:var(--font-display);font-size:18px;font-weight:700}
+.apidetail .rv-summary{font-size:13px;color:var(--muted)}
+.apidetail .rv-stars{color:var(--accent);letter-spacing:1px}
+.apidetail .rv-form{display:flex;flex-direction:column;gap:10px;background:var(--surface);border:1px solid var(--border-2);border-radius:12px;padding:14px;margin-bottom:18px}
+.apidetail .rv-pick{display:flex;gap:4px}
+.apidetail .rv-star{font-size:22px;line-height:1;color:var(--border-2);background:none;border:none;cursor:pointer}
+.apidetail .rv-star.on{color:var(--accent)}
+.apidetail .rv-form textarea{min-height:64px;padding:10px 12px;border:1px solid var(--border-2);border-radius:10px;background:var(--bg);color:var(--fg);font:inherit;resize:vertical}
+.apidetail .rv-note{font-size:13px;color:var(--muted);margin-bottom:16px}
+.apidetail .rv-list{display:flex;flex-direction:column;gap:14px;list-style:none}
+.apidetail .rv-item{border:1px solid var(--border-2);border-radius:12px;padding:12px 14px}
+.apidetail .rv-meta{display:flex;align-items:center;gap:8px;font-size:13px}
+.apidetail .rv-when{color:var(--faint);font-size:12px}
+.apidetail .rv-comment{font-size:14px;color:var(--ink-soft,var(--fg));margin-top:6px}

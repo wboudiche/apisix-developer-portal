@@ -15,6 +15,7 @@ const product: Product = {
   tags: ['pizza', 'food'],
   icon: 'pizza',
   rating: 4.5,
+  ratingCount: 3,
 }
 
 describe('ApiCard', () => {
@@ -68,8 +69,14 @@ describe('ApiCard', () => {
   })
 
   it('links the card title to the product detail page', () => {
-    const p = { id: 1, name: 'Orders API', slug: 'orders', category: 'Data', version: '1.0.0', contextPath: '/orders', description: '', tags: [], icon: '', rating: 4 }
+    const p = { id: 1, name: 'Orders API', slug: 'orders', category: 'Data', version: '1.0.0', contextPath: '/orders', description: '', tags: [], icon: '', rating: 4, ratingCount: 0 }
     render(<MemoryRouter><ApiCard p={p} onSubscribe={() => {}} /></MemoryRouter>)
     expect(screen.getByRole('link', { name: /Orders API/ })).toHaveAttribute('href', '/catalog/orders')
+  })
+
+  it('shows "Pas encore noté" when ratingCount is 0', () => {
+    const p = { id: 1, name: 'X', slug: 'x', category: 'C', version: '1', contextPath: '/x', description: '', tags: [], icon: '', rating: 0, ratingCount: 0 }
+    render(<MemoryRouter><ApiCard p={p} onSubscribe={() => {}} /></MemoryRouter>)
+    expect(screen.getByText(/Pas encore noté/i)).toBeInTheDocument()
   })
 })

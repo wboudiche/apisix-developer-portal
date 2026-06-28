@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { TopBar } from '../components/TopBar'
 import { SubscribeModal } from '../components/SubscribeModal'
 import { ApiIcon, categoryDotColor } from '../components/apiIcons'
+import { Reviews } from '../components/Reviews'
 import '../styles/productdetail.css'
 
 const ScalarDocs = lazy(() => import('../components/ScalarDocs').then(m => ({ default: m.ScalarDocs })))
@@ -58,7 +59,7 @@ export function ProductDetailPage() {
               <span className="glyph" style={{ background: categoryDotColor(product.category) }}><ApiIcon name={product.icon} /></span>
               <div className="htext">
                 <h1>{product.name}</h1>
-                <p className="sub"><span className="cat">{product.category}</span> · v{product.version} · ★ {product.rating}</p>
+                <p className="sub"><span className="cat">{product.category}</span> · v{product.version} · {product.ratingCount > 0 ? <>★ {product.rating.toFixed(1)} ({product.ratingCount})</> : 'Pas encore noté'}</p>
                 {product.description && <p className="desc">{product.description}</p>}
                 <div className="tags">{product.tags.map(t => <span key={t} className="tag">{t}</span>)}</div>
               </div>
@@ -86,6 +87,7 @@ export function ProductDetailPage() {
               <div className="docs-empty"><h3>Documentation bientôt disponible</h3>
                 <p>Aucune spécification OpenAPI n'est encore attachée à cette API.</p></div>
             )}
+            <Reviews slug={slug} token={token} />
           </>
         )}
       </div>

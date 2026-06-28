@@ -9,8 +9,8 @@ import * as api from '../api/client'
 import type { Product } from '../api/types'
 
 const sample: Product[] = [
-  { id: 1, name: 'PizzaShackAPI', slug: 'pizzashackapi', category: 'Engineering', version: '1.0.0', contextPath: '/pizzashack', description: 'demo', tags: ['pizza'], icon: 'pi', rating: 4.5 },
-  { id: 2, name: 'CurrencyConverterAPI', slug: 'currencyconverterapi', category: 'Finance', version: '1.0.0', contextPath: '/currencyconv', description: 'fx', tags: ['devises'], icon: 'cu', rating: 5 },
+  { id: 1, name: 'PizzaShackAPI', slug: 'pizzashackapi', category: 'Engineering', version: '1.0.0', contextPath: '/pizzashack', description: 'demo', tags: ['pizza'], icon: 'pi', rating: 4.5, ratingCount: 0 },
+  { id: 2, name: 'CurrencyConverterAPI', slug: 'currencyconverterapi', category: 'Finance', version: '1.0.0', contextPath: '/currencyconv', description: 'fx', tags: ['devises'], icon: 'cu', rating: 5, ratingCount: 0 },
 ]
 
 function renderPage() {

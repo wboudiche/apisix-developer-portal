@@ -116,6 +116,23 @@ func TestGetBySlugNotFound(t *testing.T) {
 	}
 }
 
+func TestListExposesRatingCount(t *testing.T) {
+	ctx, repo := testPool(t)
+	// A freshly migrated DB has rating_count defaulted to 0 on seeded products.
+	products, _, err := repo.List(ctx, Query{}, paging.Params{Page: 1, Size: 50})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(products) == 0 {
+		t.Skip("no published products seeded")
+	}
+	for _, p := range products {
+		if p.RatingCount < 0 {
+			t.Fatalf("RatingCount negative for %s", p.Slug)
+		}
+	}
+}
+
 func TestGetSpecBySlugPublishedOnly(t *testing.T) {
 	ctx, repo := testPool(t)
 	// Clean up first so a re-run on a persistent dev DB doesn't hit the unique

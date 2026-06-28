@@ -6,7 +6,7 @@ import { AuthProvider } from '../auth/AuthProvider'
 import * as api from '../api/client'
 import type { Product } from '../api/types'
 
-const product: Product = { id: 3, name: 'PizzaShackAPI', slug: 'pizzashackapi', category: 'Engineering', version: '1.0.0', contextPath: '/pizzashack', description: 'demo', tags: [], icon: 'pi', rating: 4.5 }
+const product: Product = { id: 3, name: 'PizzaShackAPI', slug: 'pizzashackapi', category: 'Engineering', version: '1.0.0', contextPath: '/pizzashack', description: 'demo', tags: [], icon: 'pi', rating: 4.5, ratingCount: 0 }
 
 beforeEach(() => {
   localStorage.clear()

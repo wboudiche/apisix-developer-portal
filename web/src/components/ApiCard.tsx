@@ -40,7 +40,9 @@ export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Produ
       <div className="cbody">
         <div className="crow1">
           <Link className="cname" to={`/catalog/${p.slug}`}>{p.name}</Link>
-          <Stars rating={p.rating} />
+          {p.ratingCount > 0
+            ? <span className="ratewrap"><Stars rating={p.rating} /> <span className="ratecount">({p.ratingCount})</span></span>
+            : <span className="ratecount norate">Pas encore noté</span>}
         </div>
         <p className="cdesc">{p.description}</p>
         <div className="cmeta">

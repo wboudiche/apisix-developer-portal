@@ -16,7 +16,7 @@ vi.mock('@scalar/api-reference-react', () => ({
 
 const product: Product = {
   id: 1, name: 'Orders API', slug: 'orders', category: 'Data', version: '2.1.0',
-  contextPath: '/orders', description: 'Gère les commandes.', tags: ['data'], icon: '', rating: 4,
+  contextPath: '/orders', description: 'Gère les commandes.', tags: ['data'], icon: '', rating: 4, ratingCount: 0,
 }
 
 beforeEach(() => {
