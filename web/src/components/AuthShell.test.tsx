@@ -6,7 +6,7 @@ import type { Product } from '../api/types'
 
 const product = (id: number, category: string): Product => ({
   id, name: `P${id}`, slug: `p${id}`, category, version: '1.0.0',
-  contextPath: `/p${id}`, description: '', tags: [], icon: 'globe', rating: 4,
+  contextPath: `/p${id}`, description: '', tags: [], icon: 'globe', rating: 4, ratingCount: 0,
 })
 
 beforeEach(() => vi.restoreAllMocks())

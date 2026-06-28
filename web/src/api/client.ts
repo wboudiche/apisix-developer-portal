@@ -1,6 +1,7 @@
 import type {
   Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail,
   AdminProduct, AdminSubscription, Usage, UsageRange, Paginated, TryApp, Quota,
+  RatingsView,
 } from './types'
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. 409 when
@@ -80,6 +81,16 @@ export async function getProducts(q: ProductQuery, page?: PageOpts): Promise<Pag
 export async function getProduct(slug: string): Promise<Product> {
   const url = `/api/products/${encodeURIComponent(slug)}`
   return parse<Product>(await fetch(url), url)
+}
+
+export async function getRatings(slug: string, token?: string): Promise<RatingsView> {
+  const url = `/api/ratings/${encodeURIComponent(slug)}`
+  const headers = token ? authHeaders(token) : undefined
+  return parse<RatingsView>(await fetch(url, headers ? { headers } : undefined), url)
+}
+export async function submitRating(token: string, slug: string, body: { stars: number; comment: string }): Promise<RatingsView> {
+  const url = `/api/ratings/${encodeURIComponent(slug)}`
+  return parse<RatingsView>(await fetch(url, { method: 'PUT', headers: authHeaders(token), body: JSON.stringify(body) }), url)
 }
 
 export async function getProductSpec(slug: string): Promise<string | null> {

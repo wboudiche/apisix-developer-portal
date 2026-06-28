@@ -9,7 +9,11 @@ export interface Product {
   tags: string[]
   icon: string
   rating: number
+  ratingCount: number
 }
+
+export interface Review { stars: number; comment: string; author: string; createdAt: string }
+export interface RatingsView { average: number; count: number; items: Review[]; mine: Review | null; canRate: boolean }
 
 export interface User {
   id: number
