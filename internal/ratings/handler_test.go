@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"apisix-portal/internal/auth"
 )
@@ -120,5 +121,32 @@ func TestRatingsPutAnon401(t *testing.T) {
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/api/ratings/orders", strings.NewReader(`{"stars":5}`)))
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status=%d", rec.Code)
+	}
+}
+
+func TestRatingsPutAccentedCommentTruncatedByRunes(t *testing.T) {
+	tok, jwt := testTok(t)
+	store := &fakeStore{}
+	h := NewHandler(store, fakeProducts{id: 9}, fakeSubs{approved: true}, tok)
+	// 600 accented runes — each 'é' is 2 bytes in UTF-8, so this is 1200 bytes,
+	// well above the 500-byte byte-limit that the old code enforced.
+	longComment := strings.Repeat("é", 600)
+	body := `{"stars":4,"comment":"` + longComment + `"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/ratings/orders", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+jwt)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
+	}
+	if store.gotPut == nil {
+		t.Fatal("store.gotPut is nil — Upsert was not called")
+	}
+	got := store.gotPut.comment
+	if !utf8.ValidString(got) {
+		t.Errorf("comment is not valid UTF-8: %q", got)
+	}
+	if n := utf8.RuneCountInString(got); n != maxComment {
+		t.Errorf("expected %d runes, got %d", maxComment, n)
 	}
 }

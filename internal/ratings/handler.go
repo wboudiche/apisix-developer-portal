@@ -116,8 +116,8 @@ func (h *Handler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	comment := strings.TrimSpace(body.Comment)
-	if len(comment) > maxComment {
-		comment = comment[:maxComment]
+	if r := []rune(comment); len(r) > maxComment {
+		comment = string(r[:maxComment])
 	}
 	if err := h.store.Upsert(r.Context(), pid, userID, body.Stars, comment); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to save rating")
