@@ -396,7 +396,7 @@ func TestReprovisionRoute(t *testing.T) {
 	if !ok {
 		t.Fatalf("route %s not created", RouteID(7))
 	}
-	if r.Upstream != "echo:8080" || r.URI != "/seven/*" {
+	if r.Upstream != "echo:8080" || r.URI != "/seven" {
 		t.Fatalf("unexpected route: %+v", r)
 	}
 	if len(r.Allowed) != 2 {

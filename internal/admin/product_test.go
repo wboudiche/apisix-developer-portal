@@ -89,6 +89,25 @@ func TestValidUpstreamAllowsPrivateWithFlag(t *testing.T) {
 	}
 }
 
+// Imported products carry a scheme (https://host:port) so a TLS backend is
+// reached over HTTPS. ValidUpstream must accept the scheme-prefixed form while
+// still applying the SSRF host checks to the host underneath.
+func TestValidUpstreamAcceptsScheme(t *testing.T) {
+	stubResolver(t, map[string][]net.IP{
+		"api.example.com": {net.ParseIP("93.184.216.34")},
+		"evil.example":    {net.ParseIP("169.254.169.254")},
+	})
+	if !ValidUpstream("https://api.example.com:443", false) {
+		t.Fatal("scheme-prefixed public host must be allowed")
+	}
+	if ValidUpstream("https://evil.example:443", false) {
+		t.Fatal("scheme prefix must not bypass the private-address check")
+	}
+	if !ValidUpstream("http://echo:8080", true) {
+		t.Fatal("scheme-prefixed internal host must be allowed with the dev flag")
+	}
+}
+
 func TestValidContextPath(t *testing.T) {
 	ok := []string{"/orders", "/v1/orders", "/a-b_c"}
 	bad := []string{"orders", "/orders/*", "/orders ", "/", "//x", "/a;b", "/orders/"}

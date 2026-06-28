@@ -44,7 +44,7 @@ var ErrNoActiveSubscription = errors.New("subscriptions: application has no acti
 type ProductInfo struct {
 	ID          int64
 	ContextPath string
-	Upstream    string // host:port
+	Upstream    string // scheme://host:port (or bare host:port, treated as http)
 	Published   bool
 }
 
@@ -161,7 +161,7 @@ func (s *Service) reprovisionRoute(ctx context.Context, productID int64, extraCo
 	if len(allowed) == 0 {
 		return s.gw.DeleteRoute(ctx, RouteID(prod.ID))
 	}
-	return s.gw.EnsureRoute(ctx, RouteID(prod.ID), prod.ContextPath+"/*", prod.Upstream, allowed)
+	return s.gw.EnsureRoute(ctx, RouteID(prod.ID), prod.ContextPath, prod.Upstream, allowed)
 }
 
 // DeprovisionRoute removes the product's APISIX route entirely.

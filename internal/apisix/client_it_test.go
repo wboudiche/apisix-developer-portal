@@ -23,13 +23,13 @@ func TestIntegrationProvisionAndCall(t *testing.T) {
 	user := fmt.Sprintf("it_app_%d", time.Now().UnixNano())
 	key := fmt.Sprintf("itkey-%d", time.Now().UnixNano())
 	routeID := "it_route"
-	uri := "/itecho/*"
+	ctxPath := "/itecho"
 
 	if err := c.EnsureConsumer(ctx, user, key, RateLimit{Count: 3, WindowSeconds: 60}); err != nil {
 		t.Fatalf("EnsureConsumer: %v", err)
 	}
 	t.Cleanup(func() { _ = c.DeleteConsumer(ctx, user) })
-	if err := c.EnsureRoute(ctx, routeID, uri, "echo:8080", []string{user}); err != nil {
+	if err := c.EnsureRoute(ctx, routeID, ctxPath, "echo:8080", []string{user}); err != nil {
 		t.Fatalf("EnsureRoute: %v", err)
 	}
 	t.Cleanup(func() { _ = c.do(ctx, http.MethodDelete, "/apisix/admin/routes/"+routeID, nil) })

@@ -67,6 +67,12 @@ func isPrivateIP(ip net.IP) bool {
 // proxying (rebinding); the long-term fix is an operator allow-list. The dev
 // stack sets allowPrivate so docker-internal hosts (echo:8080) work.
 func ValidUpstream(s string, allowPrivate bool) bool {
+	// Accept an optional scheme prefix (https://host:port); imported products
+	// carry one so a TLS backend is reached over HTTPS. The SSRF checks below
+	// still apply to the host underneath.
+	if i := strings.Index(s, "://"); i >= 0 {
+		s = s[i+len("://"):]
+	}
 	host, port, err := net.SplitHostPort(s)
 	if err != nil || host == "" || port == "" {
 		return false

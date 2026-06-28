@@ -113,7 +113,7 @@ func serverParts(doc specDoc) (ctxPath, upstream string) {
 	return "", ""
 }
 
-// fromServerURL parses an OpenAPI server URL into (path, host:port).
+// fromServerURL parses an OpenAPI server URL into (path, scheme://host:port).
 func fromServerURL(raw string) (ctxPath, upstream string) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Host == "" {
@@ -122,19 +122,24 @@ func fromServerURL(raw string) (ctxPath, upstream string) {
 	return normalizePath(u.Path), hostPort(u.Host, u.Scheme)
 }
 
-// hostPort returns host:port, defaulting the port from the scheme when absent.
+// hostPort returns scheme://host:port, defaulting the port from the scheme when
+// absent. The scheme is carried through so a TLS backend (https:443/:8443) is
+// reached over HTTPS at proxy time rather than plaintext (see apisix.routeBody).
 func hostPort(host, scheme string) string {
 	if host == "" {
 		return ""
 	}
+	if scheme == "" {
+		scheme = "https"
+	}
 	if _, _, err := net.SplitHostPort(host); err == nil {
-		return host // already host:port
+		return scheme + "://" + host // already host:port
 	}
 	port := "443"
 	if strings.EqualFold(scheme, "http") {
 		port = "80"
 	}
-	return host + ":" + port
+	return scheme + "://" + host + ":" + port
 }
 
 // normalizePath trims a trailing slash and ensures a leading slash; "" or "/"

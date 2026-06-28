@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -71,30 +73,75 @@ func (c *Client) DeleteConsumer(ctx context.Context, username string) error {
 	return c.do(ctx, http.MethodDelete, "/apisix/admin/consumers/"+username, nil)
 }
 
-func (c *Client) EnsureRoute(ctx context.Context, routeID, uri, upstream string, allowed []string) error {
-	host, portStr, ok := strings.Cut(upstream, ":")
-	if !ok {
-		return fmt.Errorf("upstream must be host:port, got %q", upstream)
+func (c *Client) EnsureRoute(ctx context.Context, routeID, contextPath, upstreamURL string, allowed []string) error {
+	body, err := routeBody(contextPath, upstreamURL, allowed)
+	if err != nil {
+		return err
 	}
-	var port int
-	if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
-		return fmt.Errorf("bad upstream port %q: %w", portStr, err)
+	return c.do(ctx, http.MethodPut, "/apisix/admin/routes/"+routeID, body)
+}
+
+// routeBody builds the APISIX route definition for a product. It exposes both
+// the context root and its subpaths ("/headers" and "/headers/*"), reaches the
+// upstream over the scheme parsed from upstreamURL (a schemeless host:port
+// defaults to http, preserving the legacy echo demo), and strips the context
+// prefix via proxy-rewrite so /headers/get reaches the backend at /get — the
+// same routing behavior as WSO2 API Manager.
+func routeBody(contextPath, upstreamURL string, allowed []string) (map[string]any, error) {
+	scheme, node, err := parseUpstream(upstreamURL)
+	if err != nil {
+		return nil, err
 	}
 	if allowed == nil {
 		allowed = []string{}
 	}
-	body := map[string]any{
-		"uri": uri,
+	prefix := regexp.QuoteMeta(strings.TrimRight(contextPath, "/"))
+	return map[string]any{
+		"uris": []string{contextPath, contextPath + "/*"},
 		"upstream": map[string]any{
-			"type":  "roundrobin",
-			"nodes": map[string]int{fmt.Sprintf("%s:%d", host, port): 1},
+			"type":   "roundrobin",
+			"scheme": scheme,
+			"nodes":  map[string]int{node: 1},
 		},
 		"plugins": map[string]any{
 			"key-auth":             map[string]any{},
 			"consumer-restriction": map[string]any{"type": "consumer_name", "whitelist": allowed},
+			"proxy-rewrite":        map[string]any{"regex_uri": []string{"^" + prefix + "/?(.*)$", "/$1"}},
 		},
+	}, nil
+}
+
+// parseUpstream returns the upstream scheme and host:port node. It accepts a
+// full URL (https://host[:port]) or a bare host:port (treated as http for
+// backward compatibility). A missing port defaults from the scheme.
+func parseUpstream(upstreamURL string) (scheme, node string, err error) {
+	upstreamURL = strings.TrimSpace(upstreamURL)
+	scheme = "http"
+	hostPort := upstreamURL
+	if strings.Contains(upstreamURL, "://") {
+		u, perr := url.Parse(upstreamURL)
+		if perr != nil || u.Host == "" {
+			return "", "", fmt.Errorf("bad upstream url %q", upstreamURL)
+		}
+		scheme = u.Scheme
+		hostPort = u.Host
 	}
-	return c.do(ctx, http.MethodPut, "/apisix/admin/routes/"+routeID, body)
+	host, portStr, ok := strings.Cut(hostPort, ":")
+	if !ok {
+		port := "80"
+		if scheme == "https" {
+			port = "443"
+		}
+		host, portStr = hostPort, port
+	}
+	if host == "" {
+		return "", "", fmt.Errorf("upstream must include a host, got %q", upstreamURL)
+	}
+	var port int
+	if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
+		return "", "", fmt.Errorf("bad upstream port %q: %w", portStr, err)
+	}
+	return scheme, fmt.Sprintf("%s:%d", host, port), nil
 }
 
 func (c *Client) DeleteRoute(ctx context.Context, routeID string) error {

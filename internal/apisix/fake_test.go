@@ -14,7 +14,7 @@ func TestFakeRecordsConsumersAndRoutes(t *testing.T) {
 	if f.Consumers["app_1"].APIKey != "key-abc" || f.Consumers["app_1"].Limit.Count != 60 {
 		t.Fatalf("consumer not recorded: %+v", f.Consumers["app_1"])
 	}
-	if err := f.EnsureRoute(ctx, "prod_3", "/pizzashack/*", "echo:8080", []string{"app_1"}); err != nil {
+	if err := f.EnsureRoute(ctx, "prod_3", "/pizzashack", "echo:8080", []string{"app_1"}); err != nil {
 		t.Fatal(err)
 	}
 	if got := f.Routes["prod_3"].Allowed; len(got) != 1 || got[0] != "app_1" {
@@ -30,7 +30,7 @@ func TestFakeRecordsConsumersAndRoutes(t *testing.T) {
 
 func TestFakeDeleteRoute(t *testing.T) {
 	f := NewFake()
-	if err := f.EnsureRoute(context.Background(), "prod_1", "/x/*", "echo:8080", nil); err != nil {
+	if err := f.EnsureRoute(context.Background(), "prod_1", "/x", "echo:8080", nil); err != nil {
 		t.Fatalf("ensure: %v", err)
 	}
 	if err := f.DeleteRoute(context.Background(), "prod_1"); err != nil {

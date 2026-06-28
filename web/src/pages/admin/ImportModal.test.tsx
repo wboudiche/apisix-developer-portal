@@ -8,7 +8,7 @@ import type { AdminProduct } from '../../api/types'
 
 const draft: AdminProduct = {
   name: 'Imported API', slug: 'imported', category: 'Finance', version: '1.0.0',
-  contextPath: '/v1', description: '', tags: ['Finance'], icon: '', upstreamUrl: 'api.example.com:443', published: false,
+  contextPath: '/v1', description: '', tags: ['Finance'], icon: '', upstreamUrl: 'https://api.example.com:443', published: false,
 }
 
 beforeEach(() => {

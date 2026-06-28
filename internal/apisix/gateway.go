@@ -15,9 +15,12 @@ type Gateway interface {
 	EnsureConsumer(ctx context.Context, username, apiKey string, limit RateLimit) error
 	// DeleteConsumer removes a consumer.
 	DeleteConsumer(ctx context.Context, username string) error
-	// EnsureRoute creates/updates the route routeID for uri→upstream with key-auth and a
-	// consumer-restriction whitelist of the given consumer usernames.
-	EnsureRoute(ctx context.Context, routeID, uri, upstream string, allowedConsumers []string) error
+	// EnsureRoute creates/updates the route routeID exposing contextPath (and its
+	// subpaths) → upstreamURL, with key-auth and a consumer-restriction whitelist of
+	// the given consumer usernames. upstreamURL may be a scheme://host:port URL or a
+	// bare host:port (treated as http). The context prefix is stripped before the
+	// request reaches the upstream (WSO2-style).
+	EnsureRoute(ctx context.Context, routeID, contextPath, upstreamURL string, allowedConsumers []string) error
 	// DeleteRoute removes the route routeID. Deleting a missing route is a no-op.
 	DeleteRoute(ctx context.Context, routeID string) error
 }

@@ -31,7 +31,7 @@ func TestParseSpec_OpenAPI3_JSON(t *testing.T) {
 	if p.ContextPath != "/currency/v2" {
 		t.Errorf("ContextPath = %q", p.ContextPath)
 	}
-	if p.UpstreamURL != "api.example.com:8443" {
+	if p.UpstreamURL != "https://api.example.com:8443" {
 		t.Errorf("UpstreamURL = %q", p.UpstreamURL)
 	}
 	if p.Category != "Finance" {
@@ -58,7 +58,7 @@ func TestParseSpec_YAML(t *testing.T) {
 		t.Errorf("ContextPath = %q", p.ContextPath)
 	}
 	// no explicit port, https -> 443
-	if p.UpstreamURL != "weather.example.com:443" {
+	if p.UpstreamURL != "https://weather.example.com:443" {
 		t.Errorf("UpstreamURL = %q", p.UpstreamURL)
 	}
 }
@@ -78,7 +78,7 @@ func TestParseSpec_Swagger2(t *testing.T) {
 	if p.ContextPath != "/v1" {
 		t.Errorf("ContextPath = %q", p.ContextPath)
 	}
-	if p.UpstreamURL != "petstore.example.com:443" {
+	if p.UpstreamURL != "https://petstore.example.com:443" {
 		t.Errorf("UpstreamURL = %q", p.UpstreamURL)
 	}
 }

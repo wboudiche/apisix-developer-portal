@@ -43,10 +43,10 @@ func (f *Fake) DeleteConsumer(_ context.Context, username string) error {
 	delete(f.Consumers, username)
 	return nil
 }
-func (f *Fake) EnsureRoute(_ context.Context, routeID, uri, upstream string, allowed []string) error {
+func (f *Fake) EnsureRoute(_ context.Context, routeID, contextPath, upstreamURL string, allowed []string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.Routes[routeID] = FakeRoute{URI: uri, Upstream: upstream, Allowed: append([]string(nil), allowed...)}
+	f.Routes[routeID] = FakeRoute{URI: contextPath, Upstream: upstreamURL, Allowed: append([]string(nil), allowed...)}
 	return nil
 }
 
