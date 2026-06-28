@@ -19,6 +19,7 @@ import (
 	"apisix-portal/internal/httpx"
 	"apisix-portal/internal/metrics"
 	"apisix-portal/internal/plans"
+	"apisix-portal/internal/ratings"
 	"apisix-portal/internal/subscriptions"
 	"apisix-portal/internal/tryit"
 )
@@ -98,7 +99,14 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	tryProducts := tryitProductsAdapter{repo: catRepo}
 	tryAccess := tryitAccessAdapter{apps: appsRepo, subs: subRepo}
 	tryH := tryit.NewHandler(tryProducts, tryAccess, cfg.APISIXGatewayURL)
+	ratingsH := ratings.NewHandler(
+		ratings.NewRepo(pool),
+		ratingsProductsAdapter{repo: catRepo},
+		ratingsSubsAdapter{subs: subRepo},
+		tok,
+	)
 	mux.Handle("/api/try/", requireAuth(tryH))
+	mux.Handle("/api/ratings/", ratingsH)
 
 	return httpx.SecurityHeaders(httpx.MaxBodyBytes(1 << 20)(logRequests(mux)))
 }
