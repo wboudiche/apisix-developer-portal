@@ -10,6 +10,7 @@ export interface Product {
   icon: string
   rating: number
   ratingCount: number
+  authType?: string
 }
 
 export interface Review { stars: number; comment: string; author: string; createdAt: string }
@@ -83,6 +84,7 @@ export interface AdminProduct {
   published: boolean
   openapiSpec?: string
   sandboxUpstreamUrl?: string
+  authType?: string
 }
 
 export interface AdminSubscription {
@@ -118,6 +120,9 @@ export interface AppDetail {
   consumerUsername: string
   sandboxEnabled?: boolean
   sandboxGatewayUrl?: string
+  oidcClientId?: string
+  oauthEligible?: boolean
+  oidcIssuer?: string
   subscriptions: SubscriptionView[]
   events: AppEvent[]
 }
