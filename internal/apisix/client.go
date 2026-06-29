@@ -144,6 +144,80 @@ func parseUpstream(upstreamURL string) (scheme, node string, err error) {
 	return scheme, fmt.Sprintf("%s:%d", host, port), nil
 }
 
+var clientIDRe = regexp.MustCompile(`^[A-Za-z0-9._:@-]{1,200}$`)
+
+// ValidClientID guards every OIDC client id before it is embedded (as a Lua
+// table key) in a route's serverless-pre-function. Strict charset = no Lua
+// injection is possible from a client id.
+func ValidClientID(s string) bool { return clientIDRe.MatchString(s) }
+
+func (c *Client) EnsureOAuthRoute(ctx context.Context, routeID, contextPath, upstreamURL, issuer, claimName string, allowedClientIDs []string) error {
+	body, err := oauthRouteBody(contextPath, upstreamURL, issuer, claimName, allowedClientIDs)
+	if err != nil {
+		return err
+	}
+	return c.do(ctx, http.MethodPut, "/apisix/admin/routes/"+routeID, body)
+}
+
+// oauthRouteBody builds an OAuth2 product route: openid-connect validates the
+// bearer JWT against the issuer's JWKS (bearer_only); a serverless-pre-function
+// then 403s unless the token's claimName claim is in the allow-list of the
+// product's active subscribers' client ids. Same context-prefix strip as routeBody.
+func oauthRouteBody(contextPath, upstreamURL, issuer, claimName string, allowed []string) (map[string]any, error) {
+	scheme, node, err := parseUpstream(upstreamURL)
+	if err != nil {
+		return nil, err
+	}
+	if !clientIDRe.MatchString(claimName) { // claim name is config-controlled; guard it too
+		return nil, fmt.Errorf("bad oidc claim name %q", claimName)
+	}
+	var b strings.Builder
+	for _, cid := range allowed {
+		if !ValidClientID(cid) {
+			return nil, fmt.Errorf("bad client id %q", cid)
+		}
+		fmt.Fprintf(&b, "[%q]=true,", cid)
+	}
+	lua := `return function(conf, ctx)
+  local core = require("apisix.core")
+  local hdr = core.request.header(ctx, "Authorization")
+  if not hdr then return end
+  local tok = hdr:match("[Bb]earer%s+(.+)")
+  if not tok then return end
+  local payload = tok:match("^[^.]+%.([^.]+)")
+  if not payload then return 403, {message="forbidden"} end
+  payload = payload:gsub("-","+"):gsub("_","/")
+  local pad = #payload % 4
+  if pad > 0 then payload = payload .. string.rep("=", 4 - pad) end
+  local raw = ngx.decode_base64(payload)
+  if not raw then return 403, {message="forbidden"} end
+  local claims = core.json.decode(raw)
+  if not claims then return 403, {message="forbidden"} end
+  local allow = {` + b.String() + `}
+  local cid = claims["` + claimName + `"]
+  if not cid or not allow[cid] then return 403, {message="not subscribed"} end
+end`
+	prefix := regexp.QuoteMeta(strings.TrimRight(contextPath, "/"))
+	return map[string]any{
+		"uris": []string{contextPath, contextPath + "/*"},
+		"upstream": map[string]any{
+			"type": "roundrobin", "scheme": scheme, "nodes": map[string]int{node: 1},
+		},
+		"plugins": map[string]any{
+			"openid-connect": map[string]any{
+				"bearer_only": true,
+				"discovery":   strings.TrimRight(issuer, "/") + "/.well-known/openid-configuration",
+				"use_jwks":    true,
+			},
+			"serverless-pre-function": map[string]any{
+				"phase":     "access",
+				"functions": []string{lua},
+			},
+			"proxy-rewrite": map[string]any{"regex_uri": []string{"^" + prefix + "/?(.*)$", "/$1"}},
+		},
+	}, nil
+}
+
 func (c *Client) DeleteRoute(ctx context.Context, routeID string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+"/apisix/admin/routes/"+routeID, nil)
 	if err != nil {

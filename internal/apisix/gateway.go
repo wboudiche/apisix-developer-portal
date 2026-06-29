@@ -23,4 +23,8 @@ type Gateway interface {
 	EnsureRoute(ctx context.Context, routeID, contextPath, upstreamURL string, allowedConsumers []string) error
 	// DeleteRoute removes the route routeID. Deleting a missing route is a no-op.
 	DeleteRoute(ctx context.Context, routeID string) error
+	// EnsureOAuthRoute creates/updates an OAuth2 product route: openid-connect
+	// (bearer_only, JWKS from issuer) + a serverless-pre-function whitelisting the
+	// token's claimName claim against allowedClientIDs.
+	EnsureOAuthRoute(ctx context.Context, routeID, contextPath, upstreamURL, issuer, claimName string, allowedClientIDs []string) error
 }

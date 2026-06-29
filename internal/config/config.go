@@ -28,6 +28,8 @@ type Config struct {
 	CredentialEncKey        string
 	TrustedProxies          string // comma-separated CIDRs whose X-Forwarded-For is trusted
 	PrometheusURL           string // base URL of the Prometheus read API; empty disables usage metrics
+	OIDCIssuer              string // OIDC issuer URL; empty means OAuth2 is disabled
+	OIDCClientIDClaim       string // JWT claim that carries the client_id (default "azp")
 }
 
 func get(key, def string) string {
@@ -54,6 +56,8 @@ func Load() Config {
 		CredentialEncKey:        get("CREDENTIAL_ENC_KEY", DevCredentialEncKey),
 		TrustedProxies:          get("TRUSTED_PROXIES", ""),
 		PrometheusURL:           get("PROMETHEUS_URL", "http://localhost:9099"),
+		OIDCIssuer:              get("OIDC_ISSUER", ""),
+		OIDCClientIDClaim:       get("OIDC_CLIENT_ID_CLAIM", "azp"),
 	}
 }
 
@@ -71,6 +75,9 @@ func (c Config) isDevLike() bool {
 func (c Config) UsesDevSecrets() bool {
 	return c.JWTSecret == DevJWTSecret || c.APISIXAdminKey == DevAPISIXAdminKey || c.CredentialEncKey == DevCredentialEncKey
 }
+
+// OIDCConfigured reports whether OAuth2 (bring-your-own OIDC) is wired up.
+func (c Config) OIDCConfigured() bool { return c.OIDCIssuer != "" }
 
 // SandboxConfigured reports whether the dedicated sandbox gateway is wired up.
 // When false, the portal runs production-only and all sandbox features are inert.

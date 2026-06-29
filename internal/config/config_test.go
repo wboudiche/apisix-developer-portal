@@ -169,6 +169,22 @@ func TestGatewayURLDefaultAndOverride(t *testing.T) {
 	}
 }
 
+func TestOIDCConfigDefaultsAndPredicate(t *testing.T) {
+	os.Unsetenv("OIDC_ISSUER")
+	c := Load()
+	if c.OIDCConfigured() {
+		t.Error("OIDCConfigured() = true, want false when OIDC_ISSUER is unset")
+	}
+	if c.OIDCClientIDClaim != "azp" {
+		t.Errorf("OIDCClientIDClaim = %q, want azp", c.OIDCClientIDClaim)
+	}
+	t.Setenv("OIDC_ISSUER", "https://idp.example")
+	c2 := Load()
+	if !c2.OIDCConfigured() {
+		t.Error("OIDCConfigured() = false, want true when OIDC_ISSUER is set")
+	}
+}
+
 func TestSandboxConfigDefaultsAndPredicate(t *testing.T) {
 	t.Setenv("PORTAL_ENV", "dev")
 	c := Load()

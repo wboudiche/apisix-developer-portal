@@ -1,6 +1,9 @@
 package apisix
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // routeBody must carry the upstream scheme so a TLS backend (e.g. httpbin:443)
 // is actually reached over HTTPS, expose both the context root and its
@@ -51,5 +54,48 @@ func TestRouteBodySchemelessDefaultsHTTP(t *testing.T) {
 	nodes := up["nodes"].(map[string]int)
 	if _, ok := nodes["echo:8080"]; !ok {
 		t.Fatalf("nodes = %v, want echo:8080", nodes)
+	}
+}
+
+func TestOAuthRouteBodyHasOIDCAndWhitelist(t *testing.T) {
+	body, err := oauthRouteBody("/orders", "echo:8080", "https://idp.example/realms/dev", "azp", []string{"client-a", "client-b"})
+	if err != nil {
+		t.Fatalf("oauthRouteBody: %v", err)
+	}
+	plugins := body["plugins"].(map[string]any)
+	oidc, ok := plugins["openid-connect"].(map[string]any)
+	if !ok || oidc["bearer_only"] != true {
+		t.Fatalf("openid-connect missing/!bearer_only: %v", plugins["openid-connect"])
+	}
+	if d, _ := oidc["discovery"].(string); d != "https://idp.example/realms/dev/.well-known/openid-configuration" {
+		t.Fatalf("discovery = %v", oidc["discovery"])
+	}
+	sp, ok := plugins["serverless-pre-function"].(map[string]any)
+	if !ok {
+		t.Fatalf("serverless-pre-function missing")
+	}
+	fns := sp["functions"].([]string)
+	if len(fns) != 1 || !strings.Contains(fns[0], `["client-a"]=true`) || !strings.Contains(fns[0], `["client-b"]=true`) {
+		t.Fatalf("allow table missing client ids: %s", fns[0])
+	}
+	if !strings.Contains(fns[0], `claims["azp"]`) {
+		t.Fatalf("claim name not wired: %s", fns[0])
+	}
+	// no key-auth / consumer-restriction on an oauth route
+	if _, has := plugins["key-auth"]; has {
+		t.Fatalf("oauth route must not carry key-auth")
+	}
+}
+
+func TestValidClientIDRejectsInjection(t *testing.T) {
+	for _, good := range []string{"client-a", "svc.account@corp", "ABC_123:role"} {
+		if !ValidClientID(good) {
+			t.Errorf("ValidClientID(%q) = false, want true", good)
+		}
+	}
+	for _, bad := range []string{`a"]=true os.execute("x")--`, "a b", "", "a\nb", strings.Repeat("x", 201)} {
+		if ValidClientID(bad) {
+			t.Errorf("ValidClientID(%q) = true, want false", bad)
+		}
 	}
 }
