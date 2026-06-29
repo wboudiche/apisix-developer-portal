@@ -81,6 +81,10 @@ func TestOAuthRouteBodyHasOIDCAndWhitelist(t *testing.T) {
 	if !strings.Contains(fns[0], `claims["azp"]`) {
 		t.Fatalf("claim name not wired: %s", fns[0])
 	}
+	// openid-connect must carry a non-empty client_id (APISIX 3.9.1 schema requirement)
+	if cid, _ := oidc["client_id"].(string); cid == "" {
+		t.Fatalf("openid-connect missing required client_id")
+	}
 	// no key-auth / consumer-restriction on an oauth route
 	if _, has := plugins["key-auth"]; has {
 		t.Fatalf("oauth route must not carry key-auth")

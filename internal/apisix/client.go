@@ -205,9 +205,10 @@ end`
 		},
 		"plugins": map[string]any{
 			"openid-connect": map[string]any{
-				"bearer_only": true,
-				"discovery":   strings.TrimRight(issuer, "/") + "/.well-known/openid-configuration",
-				"use_jwks":    true,
+				"client_id":     "portal-bearer-only", // required by the plugin schema; unused for bearer-only JWT validation
+				"client_secret": "unused",             // required by the schema; not used when bearer_only=true
+				"bearer_only":   true,
+				"discovery":     strings.TrimRight(issuer, "/") + "/.well-known/openid-configuration",
 			},
 			"serverless-pre-function": map[string]any{
 				"phase":     "access",
