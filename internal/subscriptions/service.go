@@ -93,6 +93,11 @@ type Store interface {
 	ActivePlanForApp(ctx context.Context, appID int64) (PlanInfo, error)
 	// UpdateCredentialKey replaces the stored API key for the application's credential.
 	UpdateCredentialKey(ctx context.Context, appID int64, newKey string) error
+	GetSandboxKey(ctx context.Context, appID int64) (string, error)
+	UpdateSandboxKey(ctx context.Context, appID int64, key string) error
+	SandboxConsumersForProduct(ctx context.Context, productID int64) ([]string, error)
+	SandboxConsumersForPlan(ctx context.Context, planID int64) ([]Credential, error)
+	SandboxProductsForApp(ctx context.Context, appID int64) ([]ProductInfo, error)
 }
 
 func consumerName(appID int64) string { return fmt.Sprintf("app_%d", appID) }

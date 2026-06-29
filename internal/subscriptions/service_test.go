@@ -222,6 +222,20 @@ func (m *memStore) UpdateCredentialKey(_ context.Context, appID int64, newKey st
 	return nil
 }
 
+func (m *memStore) GetSandboxKey(_ context.Context, _ int64) (string, error) { return "", nil }
+func (m *memStore) UpdateSandboxKey(_ context.Context, _ int64, _ string) error {
+	return nil
+}
+func (m *memStore) SandboxConsumersForProduct(_ context.Context, _ int64) ([]string, error) {
+	return nil, nil
+}
+func (m *memStore) SandboxConsumersForPlan(_ context.Context, _ int64) ([]Credential, error) {
+	return nil, nil
+}
+func (m *memStore) SandboxProductsForApp(_ context.Context, _ int64) ([]ProductInfo, error) {
+	return nil, nil
+}
+
 func TestSubscribeIsPendingAndDoesNotProvision(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
