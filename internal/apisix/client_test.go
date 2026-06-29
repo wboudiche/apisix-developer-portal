@@ -85,6 +85,10 @@ func TestOAuthRouteBodyHasOIDCAndWhitelist(t *testing.T) {
 	if cid, _ := oidc["client_id"].(string); cid == "" {
 		t.Fatalf("openid-connect missing required client_id")
 	}
+	// use_jwks must be true so APISIX validates the bearer JWT via JWKS, not introspection
+	if oidc["use_jwks"] != true {
+		t.Fatalf("openid-connect must set use_jwks for bearer JWT validation")
+	}
 	// no key-auth / consumer-restriction on an oauth route
 	if _, has := plugins["key-auth"]; has {
 		t.Fatalf("oauth route must not carry key-auth")

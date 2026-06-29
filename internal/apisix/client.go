@@ -208,6 +208,7 @@ end`
 				"client_id":     "portal-bearer-only", // required by the plugin schema; unused for bearer-only JWT validation
 				"client_secret": "unused",             // required by the schema; not used when bearer_only=true
 				"bearer_only":   true,
+				"use_jwks":      true, // verify the bearer JWT signature via the discovery JWKS (no introspection)
 				"discovery":     strings.TrimRight(issuer, "/") + "/.well-known/openid-configuration",
 			},
 			"serverless-pre-function": map[string]any{
