@@ -108,6 +108,20 @@ func TestValidUpstreamAcceptsScheme(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsBadSandboxUpstream(t *testing.T) {
+	p := Product{Name: "X", Slug: "x", Category: "C", ContextPath: "/x", SandboxUpstreamURL: "not a url"}
+	if msg := p.validate(false); msg == "" {
+		t.Fatal("expected invalid sandbox upstream to fail validation")
+	}
+}
+
+func TestValidateAcceptsEmptySandboxUpstream(t *testing.T) {
+	p := Product{Name: "X", Slug: "x", Category: "C", ContextPath: "/x"} // sandbox optional
+	if msg := p.validate(false); msg != "" {
+		t.Fatalf("empty sandbox upstream should be valid: %v", msg)
+	}
+}
+
 func TestValidContextPath(t *testing.T) {
 	ok := []string{"/orders", "/v1/orders", "/a-b_c"}
 	bad := []string{"orders", "/orders/*", "/orders ", "/", "//x", "/a;b", "/orders/"}

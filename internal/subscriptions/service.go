@@ -42,10 +42,11 @@ var ErrNoActiveSubscription = errors.New("subscriptions: application has no acti
 
 // ProductInfo is what the service needs to provision a product's gateway route.
 type ProductInfo struct {
-	ID          int64
-	ContextPath string
-	Upstream    string // scheme://host:port (or bare host:port, treated as http)
-	Published   bool
+	ID              int64
+	ContextPath     string
+	Upstream        string // scheme://host:port (or bare host:port, treated as http)
+	SandboxUpstream string // product's sandbox backend, "" = no sandbox
+	Published       bool
 }
 
 // PlanInfo is the rate limit for a subscription.

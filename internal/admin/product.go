@@ -9,17 +9,18 @@ import (
 // Product is an API product as managed by an admin: the full field set, including
 // upstream_url and the published flag (admins see unpublished products too).
 type Product struct {
-	ID          int64    `json:"id"`
-	Name        string   `json:"name"`
-	Slug        string   `json:"slug"`
-	Category    string   `json:"category"`
-	Version     string   `json:"version"`
-	ContextPath string   `json:"contextPath"`
-	Description string   `json:"description"`
-	Tags        []string `json:"tags"`
-	Icon        string   `json:"icon"`
-	UpstreamURL string   `json:"upstreamUrl"`
-	Published   bool     `json:"published"`
+	ID                 int64    `json:"id"`
+	Name               string   `json:"name"`
+	Slug               string   `json:"slug"`
+	Category           string   `json:"category"`
+	Version            string   `json:"version"`
+	ContextPath        string   `json:"contextPath"`
+	Description        string   `json:"description"`
+	Tags               []string `json:"tags"`
+	Icon               string   `json:"icon"`
+	UpstreamURL        string   `json:"upstreamUrl"`
+	SandboxUpstreamURL string   `json:"sandboxUpstreamUrl"`
+	Published          bool     `json:"published"`
 	// OpenAPISpec is the raw OpenAPI/Swagger document (JSON or YAML) backing the
 	// product's docs + Try-it. Empty = no docs. omitempty so list/update
 	// responses (which don't re-select it) don't echo an empty string.
@@ -47,6 +48,9 @@ func (p Product) validate(allowPrivate bool) string {
 	}
 	if p.UpstreamURL != "" && !ValidUpstream(p.UpstreamURL, allowPrivate) {
 		return "upstreamUrl must be host:port and not target a private/internal address"
+	}
+	if p.SandboxUpstreamURL != "" && !ValidUpstream(p.SandboxUpstreamURL, allowPrivate) {
+		return "sandboxUpstreamUrl must be host:port and not target a private/internal address"
 	}
 	return ""
 }
