@@ -663,3 +663,33 @@ func TestEnableSandbox409WhenNoEligibleSubscription(t *testing.T) {
 		t.Fatalf("err = %v, want ErrNoSandboxEligibleSubscription", err)
 	}
 }
+
+func TestRotateSandboxKey(t *testing.T) {
+	store := newMemStore()
+	store.sandboxKeys = map[int64]string{42: "old"}
+	store.creds[42] = Credential{ApplicationID: 42, APIKey: "prodkey", ConsumerUsername: "app_42"}
+	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 42, ProductID: 3, PlanID: 2, Status: StatusActive}
+	sbGW := apisix.NewFake()
+	svc := NewService(store, apisix.NewFake(), sbGW, func() string { return "new" }, nil)
+
+	key, err := svc.RotateSandboxKey(context.Background(), 42)
+	if err != nil || key != "new" {
+		t.Fatalf("RotateSandboxKey = %q, %v", key, err)
+	}
+	if store.sandboxKeys[42] != "new" {
+		t.Error("sandbox key not updated in store")
+	}
+	if sbGW.Consumers["app_42"].APIKey != "new" {
+		t.Errorf("sandbox gateway consumer key = %q, want new", sbGW.Consumers["app_42"].APIKey)
+	}
+}
+
+func TestRotateSandboxKey409WhenNoKey(t *testing.T) {
+	store := newMemStore()
+	store.sandboxKeys = map[int64]string{} // no sandbox key
+	store.creds[42] = Credential{ApplicationID: 42, APIKey: "prodkey", ConsumerUsername: "app_42"}
+	svc := NewService(store, apisix.NewFake(), apisix.NewFake(), func() string { return "x" }, nil)
+	if _, err := svc.RotateSandboxKey(context.Background(), 42); !errors.Is(err, ErrNoSandboxKey) {
+		t.Fatalf("err = %v, want ErrNoSandboxKey", err)
+	}
+}
