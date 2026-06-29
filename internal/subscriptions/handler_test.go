@@ -42,6 +42,12 @@ func (f fakeReader) ActivePlanForApp(_ context.Context, _ int64) (PlanInfo, erro
 func (f fakeReader) GetSandboxKey(_ context.Context, _ int64) (string, error) {
 	return f.sandboxKey, nil
 }
+func (f fakeReader) GetAppOIDCClientID(_ context.Context, _ int64) (string, error) {
+	return "", nil
+}
+func (f fakeReader) OAuthProductsForApp(_ context.Context, _ int64) ([]ProductInfo, error) {
+	return nil, nil
+}
 
 // fakeUsageReader implements UsageReader for handler tests.
 type fakeUsageReader struct {
@@ -420,6 +426,43 @@ func TestSandboxRotateEndpoint(t *testing.T) {
 	}
 	if out["sandboxApiKey"] != "newsb" {
 		t.Fatalf("body=%s", rec.Body)
+	}
+}
+
+func TestSetOIDCClientEndpoint(t *testing.T) {
+	store := newMemStore()
+	svc := NewService(store, apisix.NewFake(), nil, func() string { return "k" }, nil)
+	svc.ConfigureOIDC("https://idp.example", "azp")
+	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
+	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1}}
+	h := NewHandler(svc, reader, fakeEvents{}, owns, "")
+
+	req := httptest.NewRequest(http.MethodPut, "/api/applications/1/oidc-client", strings.NewReader(`{"clientId":"client-a"}`))
+	req = req.WithContext(auth.WithUserID(req.Context(), 5))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
+	}
+	if store.oidcClientIDs[1] != "client-a" {
+		t.Fatalf("not saved")
+	}
+}
+
+func TestSetOIDCClient400OnBadCharset(t *testing.T) {
+	store := newMemStore()
+	svc := NewService(store, apisix.NewFake(), nil, func() string { return "k" }, nil)
+	svc.ConfigureOIDC("https://idp.example", "azp")
+	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
+	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1}}
+	h := NewHandler(svc, reader, fakeEvents{}, owns, "")
+
+	req := httptest.NewRequest(http.MethodPut, "/api/applications/1/oidc-client", strings.NewReader(`{"clientId":"a b\"]=true"}`))
+	req = req.WithContext(auth.WithUserID(req.Context(), 5))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d", rec.Code)
 	}
 }
 

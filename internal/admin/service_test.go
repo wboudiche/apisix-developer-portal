@@ -246,6 +246,40 @@ func TestUpdateReprovisionsSandboxWhenSandboxUpstreamChanges(t *testing.T) {
 	}
 }
 
+func TestUpdateReprovisionsWhenAuthTypeChangesAndHasSubs(t *testing.T) {
+	store := newFakeStore()
+	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p", UpstreamURL: "api:8080", AuthType: "key-auth"}
+	store.counts[1] = 3
+	prov := &fakeProv{}
+	svc := NewService(store, prov)
+
+	updated := store.products[1]
+	updated.AuthType = "oauth2" // same upstream, only auth_type changes
+	if _, err := svc.Update(context.Background(), updated); err != nil {
+		t.Fatal(err)
+	}
+	if len(prov.reprovisioned) != 1 || prov.reprovisioned[0] != 1 {
+		t.Fatalf("expected reprovision of product 1 on auth_type change, got %v", prov.reprovisioned)
+	}
+}
+
+func TestUpdateNoReprovisionWhenNeitherUpstreamNorAuthTypeChanges(t *testing.T) {
+	store := newFakeStore()
+	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p", UpstreamURL: "api:8080", AuthType: "key-auth"}
+	store.counts[1] = 5
+	prov := &fakeProv{}
+	svc := NewService(store, prov)
+
+	updated := store.products[1]
+	updated.Description = "docs update only"
+	if _, err := svc.Update(context.Background(), updated); err != nil {
+		t.Fatal(err)
+	}
+	if len(prov.reprovisioned) != 0 {
+		t.Fatalf("expected no reprovision when neither upstream nor auth_type changed, got %v", prov.reprovisioned)
+	}
+}
+
 func TestUpdateNoSandboxReprovisionWhenSandboxUpstreamUnchanged(t *testing.T) {
 	store := newFakeStore()
 	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p", UpstreamURL: "old:8080", SandboxUpstreamURL: "sb-same:8080"}

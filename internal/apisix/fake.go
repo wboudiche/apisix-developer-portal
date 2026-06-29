@@ -14,6 +14,7 @@ type FakeRoute struct {
 	URI      string
 	Upstream string
 	Allowed  []string
+	OAuth    bool // true for EnsureOAuthRoute, false for EnsureRoute
 }
 
 // Fake is an in-memory Gateway for unit tests.
@@ -46,7 +47,14 @@ func (f *Fake) DeleteConsumer(_ context.Context, username string) error {
 func (f *Fake) EnsureRoute(_ context.Context, routeID, contextPath, upstreamURL string, allowed []string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.Routes[routeID] = FakeRoute{URI: contextPath, Upstream: upstreamURL, Allowed: append([]string(nil), allowed...)}
+	f.Routes[routeID] = FakeRoute{URI: contextPath, Upstream: upstreamURL, Allowed: append([]string(nil), allowed...), OAuth: false}
+	return nil
+}
+
+func (f *Fake) EnsureOAuthRoute(_ context.Context, routeID, contextPath, upstreamURL, issuer, claimName string, allowed []string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Routes[routeID] = FakeRoute{URI: contextPath, Upstream: upstreamURL, Allowed: append([]string(nil), allowed...), OAuth: true}
 	return nil
 }
 

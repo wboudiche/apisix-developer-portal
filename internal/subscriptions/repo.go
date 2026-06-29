@@ -65,8 +65,8 @@ func (r *Repo) GetOrCreateCredential(ctx context.Context, appID int64, genKey fu
 func (r *Repo) GetProduct(ctx context.Context, id int64) (ProductInfo, error) {
 	var p ProductInfo
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, context_path, upstream_url, sandbox_upstream_url, published FROM api_products WHERE id=$1`, id,
-	).Scan(&p.ID, &p.ContextPath, &p.Upstream, &p.SandboxUpstream, &p.Published)
+		`SELECT id, context_path, upstream_url, sandbox_upstream_url, published, auth_type FROM api_products WHERE id=$1`, id,
+	).Scan(&p.ID, &p.ContextPath, &p.Upstream, &p.SandboxUpstream, &p.Published, &p.AuthType)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ProductInfo{}, ErrNotFound
 	}
@@ -146,6 +146,69 @@ func (r *Repo) ConsumersForPlan(ctx context.Context, planID int64) ([]Credential
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+// OAuthClientsForProduct returns the client ids of active subscribers whose app
+// has a non-empty oidc_client_id (the OAuth2 route whitelist).
+func (r *Repo) OAuthClientsForProduct(ctx context.Context, productID int64) ([]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT a.oidc_client_id FROM subscriptions s
+		   JOIN applications a ON a.id = s.application_id
+		 WHERE s.api_product_id=$1 AND s.status='active' AND a.oidc_client_id <> ''`, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var c string
+		if err := rows.Scan(&c); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// OAuthProductsForApp returns the oauth2 products the app is actively subscribed to.
+func (r *Repo) OAuthProductsForApp(ctx context.Context, appID int64) ([]ProductInfo, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT p.id, p.context_path, p.upstream_url, p.auth_type
+		   FROM subscriptions s JOIN api_products p ON p.id = s.api_product_id
+		 WHERE s.application_id=$1 AND s.status='active' AND p.auth_type='oauth2'`, appID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ProductInfo
+	for rows.Next() {
+		var p ProductInfo
+		if err := rows.Scan(&p.ID, &p.ContextPath, &p.Upstream, &p.AuthType); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+func (r *Repo) GetAppOIDCClientID(ctx context.Context, appID int64) (string, error) {
+	var cid string
+	err := r.pool.QueryRow(ctx, `SELECT oidc_client_id FROM applications WHERE id=$1`, appID).Scan(&cid)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return cid, err
+}
+
+func (r *Repo) SetAppOIDCClientID(ctx context.Context, appID int64, clientID string) error {
+	tag, err := r.pool.Exec(ctx, `UPDATE applications SET oidc_client_id=$2 WHERE id=$1`, appID, clientID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 var _ Store = (*Repo)(nil)

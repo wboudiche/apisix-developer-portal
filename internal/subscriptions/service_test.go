@@ -95,6 +95,9 @@ type memStore struct {
 	sandboxKeys      map[int64]string        // appID -> sandbox key
 	sandboxProducts  map[int64][]ProductInfo // appID -> sandbox-enabled active products
 	sandboxWhitelist map[int64][]string      // productID -> consumer usernames with sandbox key
+	oidcClientIDs    map[int64]string        // appID -> oidc client id
+	oauthWhitelist   map[int64][]string      // productID -> allowed client ids
+	oauthProducts    map[int64][]ProductInfo // appID -> oauth2 products the app actively subscribes to
 }
 
 func newMemStore() *memStore {
@@ -106,6 +109,9 @@ func newMemStore() *memStore {
 		sandboxKeys:      map[int64]string{},
 		sandboxProducts:  map[int64][]ProductInfo{},
 		sandboxWhitelist: map[int64][]string{},
+		oidcClientIDs:    map[int64]string{},
+		oauthWhitelist:   map[int64][]string{},
+		oauthProducts:    map[int64][]ProductInfo{},
 	}
 }
 
@@ -243,6 +249,20 @@ func (m *memStore) SandboxConsumersForPlan(_ context.Context, _ int64) ([]Creden
 }
 func (m *memStore) SandboxProductsForApp(_ context.Context, appID int64) ([]ProductInfo, error) {
 	return m.sandboxProducts[appID], nil
+}
+
+func (m *memStore) OAuthClientsForProduct(_ context.Context, productID int64) ([]string, error) {
+	return m.oauthWhitelist[productID], nil
+}
+func (m *memStore) OAuthProductsForApp(_ context.Context, appID int64) ([]ProductInfo, error) {
+	return m.oauthProducts[appID], nil
+}
+func (m *memStore) GetAppOIDCClientID(_ context.Context, appID int64) (string, error) {
+	return m.oidcClientIDs[appID], nil
+}
+func (m *memStore) SetAppOIDCClientID(_ context.Context, appID int64, clientID string) error {
+	m.oidcClientIDs[appID] = clientID
+	return nil
 }
 
 func TestSubscribeIsPendingAndDoesNotProvision(t *testing.T) {
@@ -691,5 +711,73 @@ func TestRotateSandboxKey409WhenNoKey(t *testing.T) {
 	svc := NewService(store, apisix.NewFake(), apisix.NewFake(), func() string { return "x" }, nil)
 	if _, err := svc.RotateSandboxKey(context.Background(), 42); !errors.Is(err, ErrNoSandboxKey) {
 		t.Fatalf("err = %v, want ErrNoSandboxKey", err)
+	}
+}
+
+func TestReprovisionBranchesToOAuthRoute(t *testing.T) {
+	store := newMemStore()
+	store.products[9] = ProductInfo{ID: 9, ContextPath: "/orders", Upstream: "echo:8080", AuthType: "oauth2"}
+	store.oauthWhitelist[9] = []string{"client-a"}
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, nil, func() string { return "k" }, nil)
+	svc.ConfigureOIDC("https://idp.example/realms/dev", "azp")
+	if err := svc.ReprovisionRoute(context.Background(), 9); err != nil {
+		t.Fatalf("reprovision: %v", err)
+	}
+	r, ok := gw.Routes[RouteID(9)]
+	if !ok || len(r.Allowed) != 1 || r.Allowed[0] != "client-a" {
+		t.Fatalf("oauth route not provisioned with whitelist: %+v", r)
+	}
+	if !r.OAuth {
+		t.Fatalf("expected OAuth=true on the route, got false")
+	}
+}
+
+func TestSetOIDCClientIDReprovisions(t *testing.T) {
+	store := newMemStore()
+	store.products[9] = ProductInfo{ID: 9, ContextPath: "/orders", Upstream: "echo:8080", AuthType: "oauth2"}
+	store.oauthProducts[42] = []ProductInfo{store.products[9]}
+	store.oauthWhitelist[9] = []string{"client-a"}
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, nil, func() string { return "k" }, nil)
+	svc.ConfigureOIDC("https://idp.example/realms/dev", "azp")
+	if err := svc.SetOIDCClientID(context.Background(), 42, "client-a"); err != nil {
+		t.Fatalf("SetOIDCClientID: %v", err)
+	}
+	if store.oidcClientIDs[42] != "client-a" {
+		t.Fatalf("client id not persisted")
+	}
+	if _, ok := gw.Routes[RouteID(9)]; !ok {
+		t.Fatalf("route not reprovisioned")
+	}
+}
+
+func TestSetOIDCClientIDRejectsBadCharset(t *testing.T) {
+	svc := NewService(newMemStore(), apisix.NewFake(), nil, func() string { return "k" }, nil)
+	svc.ConfigureOIDC("https://idp.example", "azp")
+	if err := svc.SetOIDCClientID(context.Background(), 42, `evil"]=true--`); !errors.Is(err, ErrInvalidClientID) {
+		t.Fatalf("err = %v, want ErrInvalidClientID", err)
+	}
+}
+
+// TestReprovisionOAuth2EmptyClientIDDoesNotCreateRoute is a regression test for the
+// empty-extras filter fix: when an Approve carries a "" client id (the app has no
+// OIDC client id yet) and the product has no other active oauth subscribers, the
+// resulting whitelist is empty and the route must be DELETED, not created.
+func TestReprovisionOAuth2EmptyClientIDDoesNotCreateRoute(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	store.products[9] = ProductInfo{ID: 9, ContextPath: "/orders", Upstream: "echo:8080", AuthType: "oauth2"}
+	// oauthWhitelist[9] deliberately unset — no active subscribers with a client id.
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, nil, func() string { return "k" }, nil)
+	svc.ConfigureOIDC("https://idp.example/realms/dev", "azp")
+
+	// Mirrors Approve for an oauth2 product where GetAppOIDCClientID returns "".
+	if err := svc.reprovisionRoute(ctx, 9, ""); err != nil {
+		t.Fatalf("reprovisionRoute: %v", err)
+	}
+	if _, ok := gw.Routes[RouteID(9)]; ok {
+		t.Fatal("empty-whitelist oauth route must be deleted, not created")
 	}
 }

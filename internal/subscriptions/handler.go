@@ -25,6 +25,8 @@ type Reader interface {
 	SubscriptionsForApp(ctx context.Context, appID int64) ([]SubscriptionView, error)
 	ActivePlanForApp(ctx context.Context, appID int64) (PlanInfo, error)
 	GetSandboxKey(ctx context.Context, appID int64) (string, error)
+	GetAppOIDCClientID(ctx context.Context, appID int64) (string, error)
+	OAuthProductsForApp(ctx context.Context, appID int64) ([]ProductInfo, error)
 }
 
 // EventReader returns an application's recent activity (satisfied by
@@ -64,6 +66,7 @@ type Handler struct {
 	owns              OwnerCheck
 	router            chi.Router
 	sandboxGatewayURL string
+	oidcIssuer        string
 }
 
 func NewHandler(svc *Service, reader Reader, eventReader EventReader, owns OwnerCheck, sandboxGatewayURL string) *Handler {
@@ -76,12 +79,17 @@ func NewHandler(svc *Service, reader Reader, eventReader EventReader, owns Owner
 	h.router.Post("/api/applications/{appID}/credentials/rotate", h.rotateKey)
 	h.router.Post("/api/applications/{appID}/sandbox/enable", h.enableSandbox)
 	h.router.Post("/api/applications/{appID}/sandbox/rotate", h.rotateSandbox)
+	h.router.Put("/api/applications/{appID}/oidc-client", h.setOIDCClient)
 	return h
 }
 
 // SetUsageReader wires the metrics backend. Left unset (nil) when metrics are
 // not configured; the usage endpoint then reports unavailable.
 func (h *Handler) SetUsageReader(u UsageReader) { h.usage = u }
+
+// SetOIDCIssuer wires the OIDC issuer URL for the app detail endpoint.
+// Left unset when OIDC is not configured.
+func (h *Handler) SetOIDCIssuer(s string) { h.oidcIssuer = s }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.ServeHTTP(w, r) }
 
@@ -189,6 +197,13 @@ func (h *Handler) detail(w http.ResponseWriter, r *http.Request) {
 			out.SandboxEnabled = true
 		}
 	}
+	if h.oidcIssuer != "" {
+		out.OIDCIssuer = h.oidcIssuer
+		out.OIDCClientID, _ = h.reader.GetAppOIDCClientID(r.Context(), appID)
+		if prods, err := h.reader.OAuthProductsForApp(r.Context(), appID); err == nil {
+			out.OAuthEligible = len(prods) > 0
+		}
+	}
 	httpx.JSON(w, http.StatusOK, out)
 }
 
@@ -285,6 +300,29 @@ func (h *Handler) rotateSandbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]string{"sandboxApiKey": key})
+}
+
+func (h *Handler) setOIDCClient(w http.ResponseWriter, r *http.Request) {
+	appID, ok := h.authorize(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		ClientID string `json:"clientId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "bad body")
+		return
+	}
+	if err := h.svc.SetOIDCClientID(r.Context(), appID, body.ClientID); errors.Is(err, ErrInvalidClientID) {
+		httpx.Error(w, http.StatusBadRequest, "invalid client id")
+		return
+	} else if err != nil {
+		log.Printf("set oidc client (app=%d): %v", appID, err)
+		httpx.Error(w, http.StatusInternalServerError, "failed")
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 // usageHandler serves GET /api/applications/{id}/usage?range=24h|7d|30d — the

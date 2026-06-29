@@ -57,8 +57,9 @@ func (s *Service) Create(ctx context.Context, p Product) (Product, error) {
 	return s.store.Create(ctx, p)
 }
 
-// Update persists changes and, when the upstream changed on a product that has
-// active subscriptions, rebuilds its APISIX route so the new upstream takes effect.
+// Update persists changes and, when the upstream or auth_type changed on a
+// product that has active subscriptions, rebuilds its APISIX route so the new
+// configuration takes effect.
 func (s *Service) Update(ctx context.Context, p Product) (Product, error) {
 	old, err := s.store.Get(ctx, p.ID)
 	if err != nil {
@@ -77,7 +78,7 @@ func (s *Service) Update(ctx context.Context, p Product) (Product, error) {
 	if err != nil {
 		return Product{}, err
 	}
-	if updated.UpstreamURL != old.UpstreamURL {
+	if updated.UpstreamURL != old.UpstreamURL || updated.AuthType != old.AuthType {
 		n, err := s.store.CountActiveSubscriptions(ctx, p.ID)
 		if err != nil {
 			return Product{}, err

@@ -28,6 +28,9 @@ type AppDetail struct {
 	Events            []events.View      `json:"events"`
 	SandboxEnabled    bool               `json:"sandboxEnabled"`
 	SandboxGatewayUrl string             `json:"sandboxGatewayUrl"`
+	OIDCClientID      string             `json:"oidcClientId"`
+	OAuthEligible     bool               `json:"oauthEligible"`
+	OIDCIssuer        string             `json:"oidcIssuer"`
 }
 
 // SubscriptionRecord is the minimal subscription identity used by the approval
