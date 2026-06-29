@@ -80,7 +80,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	}
 	allowPrivate := os.Getenv("UPSTREAM_ALLOW_PRIVATE") == "1"
 	adminSvc := admin.NewService(admin.NewRepo(pool), subSvc)
-	adminH := admin.NewHandler(adminSvc, allowPrivate)
+	adminH := admin.NewHandler(adminSvc, allowPrivate, cfg.OIDCConfigured())
 	planAdminSvc := admin.NewPlanService(admin.NewPlanRepo(pool), subSvc)
 	planAdminH := admin.NewPlanHandler(planAdminSvc)
 	subAdminH := subscriptions.NewAdminHandler(subSvc)

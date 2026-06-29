@@ -25,13 +25,14 @@ type ProductService interface {
 }
 
 type Handler struct {
-	svc          ProductService
-	router       chi.Router
-	allowPrivate bool
+	svc            ProductService
+	router         chi.Router
+	allowPrivate   bool
+	oidcConfigured bool
 }
 
-func NewHandler(svc ProductService, allowPrivate bool) *Handler {
-	h := &Handler{svc: svc, router: chi.NewRouter(), allowPrivate: allowPrivate}
+func NewHandler(svc ProductService, allowPrivate bool, oidcConfigured bool) *Handler {
+	h := &Handler{svc: svc, router: chi.NewRouter(), allowPrivate: allowPrivate, oidcConfigured: oidcConfigured}
 	h.router.Get("/api/admin/products", h.list)
 	h.router.Post("/api/admin/products", h.create)
 	h.router.Post("/api/admin/products/import", h.importSpec)
@@ -205,6 +206,10 @@ func (h *Handler) decodeProduct(w http.ResponseWriter, r *http.Request) (Product
 	}
 	if msg := p.validate(h.allowPrivate); msg != "" {
 		httpx.Error(w, http.StatusBadRequest, msg)
+		return Product{}, false
+	}
+	if p.AuthType == "oauth2" && !h.oidcConfigured {
+		httpx.Error(w, http.StatusBadRequest, "OAuth2 is not configured on this portal")
 		return Product{}, false
 	}
 	if p.OpenAPISpec != "" {

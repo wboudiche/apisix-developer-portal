@@ -48,7 +48,7 @@ func (f *fakeService) Update(_ context.Context, p Product) (Product, error) {
 }
 func (f *fakeService) Delete(_ context.Context, id int64) error { return f.deleteErr }
 
-func newTestHandler(svc ProductService) *Handler { return NewHandler(svc, true) }
+func newTestHandler(svc ProductService) *Handler { return NewHandler(svc, true, false) }
 
 func do(h *Handler, method, target string, body any) *httptest.ResponseRecorder {
 	var rdr *bytes.Reader
@@ -158,7 +158,7 @@ func TestUpdateContextPathTakenReturns409(t *testing.T) {
 
 func TestCreateProductStoresSpec(t *testing.T) {
 	svc := &fakeService{products: map[int64]Product{}}
-	h := NewHandler(svc, true)
+	h := NewHandler(svc, true, false)
 	spec := `{"openapi":"3.0.0","info":{"title":"X","version":"1.0.0"}}`
 	body, _ := json.Marshal(Product{
 		Name: "X", Slug: "x", Category: "C", ContextPath: "/x", OpenAPISpec: spec,
@@ -178,7 +178,7 @@ func TestCreateProductStoresSpec(t *testing.T) {
 
 func TestCreateProductRejectsBrokenSpec(t *testing.T) {
 	svc := &fakeService{products: map[int64]Product{}}
-	h := NewHandler(svc, true)
+	h := NewHandler(svc, true, false)
 	body, _ := json.Marshal(Product{
 		Name: "X", Slug: "x", Category: "C", ContextPath: "/x", OpenAPISpec: "this is not a spec",
 	})
@@ -187,5 +187,25 @@ func TestCreateProductRejectsBrokenSpec(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCreateOAuth2ProductReturns400WhenOIDCUnconfigured(t *testing.T) {
+	svc := &fakeService{products: map[int64]Product{}}
+	h := NewHandler(svc, true, false) // oidcConfigured=false
+	rec := do(h, http.MethodPost, "/api/admin/products",
+		Product{Name: "Orders", Slug: "orders", Category: "Commerce", ContextPath: "/orders", AuthType: "oauth2"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (OAuth2 without OIDC configured); body: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUpdateOAuth2ProductReturns400WhenOIDCUnconfigured(t *testing.T) {
+	svc := &fakeService{products: map[int64]Product{1: {ID: 1}}}
+	h := NewHandler(svc, true, false) // oidcConfigured=false
+	rec := do(h, http.MethodPut, "/api/admin/products/1",
+		Product{Name: "Orders", Slug: "orders", Category: "Commerce", ContextPath: "/orders", AuthType: "oauth2"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (OAuth2 without OIDC configured); body: %s", rec.Code, rec.Body.String())
 	}
 }
