@@ -196,7 +196,7 @@ export function ProductsPage() {
           </div>
           <div className="field">
             <label htmlFor="f-sbup">Sandbox <span className="opt">host:port — optionnel</span></label>
-            <input id="f-sbup" placeholder="ex. sandbox.example.com:443"
+            <input id="f-sbup" className="ipt mono" placeholder="ex. sandbox.example.com:443"
               value={form.sandboxUpstreamUrl} onChange={e => set('sandboxUpstreamUrl', e.target.value)} />
           </div>
           <div className="field">
