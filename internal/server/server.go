@@ -63,6 +63,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		sandboxGatewayURL = cfg.APISIXSandboxGatewayURL
 	}
 	subSvc := subscriptions.NewService(subRepo, gw, sandboxGW, subscriptions.GenerateKey, eventRepo)
+	subSvc.ConfigureOIDC(cfg.OIDCIssuer, cfg.OIDCClientIDClaim)
 	owns := func(ctx context.Context, appID, userID int64) (bool, error) {
 		if _, err := appsRepo.Get(ctx, appID, userID); err != nil {
 			if err == applications.ErrNotFound {
@@ -73,6 +74,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		return true, nil
 	}
 	subH := subscriptions.NewHandler(subSvc, subRepo, eventRepo, owns, sandboxGatewayURL)
+	subH.SetOIDCIssuer(cfg.OIDCIssuer)
 	// Usage metrics are a read-only consumer of Prometheus; left unconfigured
 	// (empty URL) the /usage endpoint reports unavailable rather than guessing.
 	if cfg.PrometheusURL != "" {
