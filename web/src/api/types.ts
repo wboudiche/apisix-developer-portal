@@ -66,6 +66,7 @@ export interface SubscriptionView {
   planId: number
   planName: string
   status: string
+  sandboxAvailable?: boolean
 }
 
 export interface AdminProduct {
@@ -81,6 +82,7 @@ export interface AdminProduct {
   upstreamUrl: string
   published: boolean
   openapiSpec?: string
+  sandboxUpstreamUrl?: string
 }
 
 export interface AdminSubscription {
@@ -101,6 +103,8 @@ export type AppEventKind =
   | 'rejected'
   | 'unsubscribed'
   | 'key_rotated'
+  | 'sandbox_enabled'
+  | 'sandbox_key_rotated'
 
 export interface AppEvent {
   kind: AppEventKind
@@ -112,6 +116,8 @@ export interface AppEvent {
 export interface AppDetail {
   apiKey: string
   consumerUsername: string
+  sandboxEnabled?: boolean
+  sandboxGatewayUrl?: string
   subscriptions: SubscriptionView[]
   events: AppEvent[]
 }
