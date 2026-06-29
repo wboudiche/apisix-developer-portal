@@ -123,7 +123,7 @@ export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, op
 
   return (
     <section className="panel">
-      <p className="section-title">Clés API · key-auth</p>
+      <p className="section-title">Identifiants d'accès</p>
       <div className="keygrid">
         <div className="keycard prod">
           <div className="kh"><span className="env">Production <span className="envtag">live</span></span></div>
@@ -194,7 +194,7 @@ export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, op
         <div className="cb" style={{ display: 'flex', gap: 30, flexWrap: 'wrap', fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
           <div style={{ flex: 1, minWidth: 240 }}><b style={{ color: 'var(--fg)', display: 'block', marginBottom: 5 }}>Ne la partagez jamais côté client</b>La clé porte tous les droits de l&apos;application. Gardez-la côté serveur ou dans un secret manager.</div>
           <div style={{ flex: 1, minWidth: 240 }}><b style={{ color: 'var(--fg)', display: 'block', marginBottom: 5 }}>Régénérer invalide l&apos;ancienne</b>La rotation révoque immédiatement le <span className="mono">consumer</span> précédent dans APISIX. Prévoyez le redéploiement.</div>
-          <div style={{ flex: 1, minWidth: 240 }}><b style={{ color: 'var(--fg)', display: 'block', marginBottom: 5 }}>OAuth2 / JWT à venir</b>Le portail est prêt pour un second fournisseur d&apos;identifiants (<span className="mono">jwt-auth</span>) sans réécriture.</div>
+          <div style={{ flex: 1, minWidth: 240 }}><b style={{ color: 'var(--fg)', display: 'block', marginBottom: 5 }}>OAuth2 disponible</b>Les API marquées OAuth2 valident des jetons Bearer auprès de votre fournisseur OIDC ; renseignez le <span className="mono">client_id</span> de votre application ci-dessus.</div>
         </div>
       </div>
     </section>
