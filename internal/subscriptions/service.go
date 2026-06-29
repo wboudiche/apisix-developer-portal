@@ -44,10 +44,6 @@ var ErrNoActiveSubscription = errors.New("subscriptions: application has no acti
 // sandbox gateway has been wired into the service.
 var ErrSandboxNotConfigured = errors.New("subscriptions: sandbox gateway not configured")
 
-// ErrOIDCNotConfigured is returned when an oauth2 operation requires a trusted
-// OIDC issuer but none has been wired via ConfigureOIDC.
-var ErrOIDCNotConfigured = errors.New("subscriptions: oidc not configured")
-
 // ErrInvalidClientID is returned by SetOIDCClientID when the client id contains
 // characters outside the safe charset (Lua injection guard).
 var ErrInvalidClientID = errors.New("subscriptions: invalid oidc client id")
