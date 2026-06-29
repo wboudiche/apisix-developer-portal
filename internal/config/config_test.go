@@ -168,3 +168,25 @@ func TestGatewayURLDefaultAndOverride(t *testing.T) {
 		t.Errorf("override = %q", got)
 	}
 }
+
+func TestSandboxConfigDefaultsAndPredicate(t *testing.T) {
+	t.Setenv("PORTAL_ENV", "dev")
+	c := Load()
+	if c.APISIXSandboxAdminURL != "http://localhost:19280" {
+		t.Errorf("sandbox admin url = %q", c.APISIXSandboxAdminURL)
+	}
+	if c.APISIXSandboxGatewayURL != "http://localhost:9081" {
+		t.Errorf("sandbox gateway url = %q", c.APISIXSandboxGatewayURL)
+	}
+	// Sandbox admin key defaults to the production admin key.
+	if c.APISIXSandboxAdminKey != c.APISIXAdminKey {
+		t.Errorf("sandbox admin key = %q, want = prod admin key", c.APISIXSandboxAdminKey)
+	}
+	if !c.SandboxConfigured() {
+		t.Error("SandboxConfigured() = false, want true with both URLs set")
+	}
+	c.APISIXSandboxGatewayURL = ""
+	if c.SandboxConfigured() {
+		t.Error("SandboxConfigured() = true with gateway URL empty")
+	}
+}

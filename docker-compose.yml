@@ -29,6 +29,15 @@ services:
       - "9080:9080"
       - "127.0.0.1:19180:9180"
 
+  apisix-sandbox:
+    image: apache/apisix:3.9.1-debian
+    depends_on: [etcd]
+    volumes:
+      - ./deploy/apisix-sandbox/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+    ports:
+      - "9081:9080"
+      - "127.0.0.1:19280:9180"
+
   echo:
     image: mendhak/http-https-echo:31
     environment:
