@@ -48,7 +48,7 @@ export function ProductDetailPage() {
   }, [token, slug])
 
   const serverUrl = appId != null
-    ? `/api/try/${slug}/${appId}${tryMode === 'sandbox' ? '/sandbox' : ''}`
+    ? `/api/try/${slug}/${appId}${tryMode === 'sandbox' && sandboxAvailable ? '/sandbox' : ''}`
     : undefined
 
   return (
@@ -80,8 +80,8 @@ export function ProductDetailPage() {
             )}
             {token && appId != null && sandboxAvailable && (
               <div className="try-mode" role="group" aria-label="Environnement">
-                <button type="button" className={tryMode === 'prod' ? 'on' : ''} onClick={() => setTryMode('prod')}>Production</button>
-                <button type="button" className={tryMode === 'sandbox' ? 'on' : ''} onClick={() => setTryMode('sandbox')}>Sandbox</button>
+                <button type="button" className={tryMode === 'prod' ? 'on' : ''} onClick={() => setTryMode('prod')} aria-pressed={tryMode === 'prod'}>Production</button>
+                <button type="button" className={tryMode === 'sandbox' ? 'on' : ''} onClick={() => setTryMode('sandbox')} aria-pressed={tryMode === 'sandbox'}>Sandbox</button>
               </div>
             )}
             {token && tryLoaded && apps.length === 0 && (
