@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { maskKey, copyText } from './helpers'
 import { formatRelative } from './activity'
-import { rotateKey, enableSandbox, rotateSandboxKey } from '../../api/client'
+import { rotateKey, enableSandbox, rotateSandboxKey, setOidcClient } from '../../api/client'
 import type { ModalSpec } from '../../components/ConfirmModal'
 
 function EyeIcon() {
@@ -27,7 +27,8 @@ function RotateIcon() {
 }
 
 export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, openModal, onRotated,
-  sandboxEnabled, sandboxGatewayUrl, sandboxEligible }: {
+  sandboxEnabled, sandboxGatewayUrl, sandboxEligible,
+  oauthEligible, oidcClientId, oidcIssuer }: {
   apiKey: string
   appId: number
   token: string
@@ -38,6 +39,9 @@ export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, op
   sandboxEnabled?: boolean
   sandboxGatewayUrl?: string
   sandboxEligible: boolean
+  oauthEligible?: boolean
+  oidcClientId?: string
+  oidcIssuer?: string
 }) {
   const [shownKey, setShownKey] = useState(apiKey)
   const [revealed, setRevealed] = useState(false)
@@ -48,6 +52,21 @@ export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, op
   const [sbRevealed, setSbRevealed] = useState(false)
   const [sbBusy, setSbBusy] = useState(false)
   const hasSandbox = (sandboxEnabled ?? false) || sbKey !== ''
+
+  const [clientId, setClientId] = useState(oidcClientId ?? '')
+  const [oauthBusy, setOauthBusy] = useState(false)
+  useEffect(() => { setClientId(oidcClientId ?? '') }, [oidcClientId])
+
+  async function onSaveClientId() {
+    if (oauthBusy) return
+    setOauthBusy(true)
+    try {
+      await setOidcClient(token, appId, clientId.trim())
+      notify('Client OIDC enregistré'); onRotated()
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Échec de l’enregistrement.')
+    } finally { setOauthBusy(false) }
+  }
 
   async function onEnableSandbox() {
     if (sbBusy) return
@@ -147,6 +166,24 @@ export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, op
                   <button className="rotate" disabled={sbBusy} onClick={onEnableSandbox}>Activer le sandbox</button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+        {oauthEligible && (
+          <div className="keycard oauth">
+            <div className="kh"><span className="env">OAuth2 <span className="envtag">OIDC</span></span></div>
+            <div className="kb">
+              <label htmlFor="oidc-cid" className="oauthlabel">Client ID</label>
+              <div className="keyrow">
+                <input id="oidc-cid" className="ipt mono" placeholder="votre client_id OIDC"
+                  value={clientId} onChange={e => setClientId(e.target.value)} />
+                <button className="btn btn-primary" disabled={oauthBusy} onClick={onSaveClientId}>Enregistrer</button>
+              </div>
+              <p className="keymeta">
+                <span>Émetteur · <span className="mono">{oidcIssuer || '—'}</span></span>
+                <span><span className="mono">grant_type=client_credentials</span></span>
+              </p>
+              <p className="keyhint">Enregistrez votre client auprès de votre fournisseur OIDC, puis collez son <span className="mono">client_id</span> ici. Le portail ne stocke jamais le secret.</p>
             </div>
           </div>
         )}

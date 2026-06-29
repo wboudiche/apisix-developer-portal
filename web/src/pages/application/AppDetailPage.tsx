@@ -182,6 +182,9 @@ export function AppDetailPage() {
                 sandboxEnabled={detail.sandboxEnabled}
                 sandboxGatewayUrl={detail.sandboxGatewayUrl}
                 sandboxEligible={subs.some(s => s.sandboxAvailable)}
+                oauthEligible={detail.oauthEligible}
+                oidcClientId={detail.oidcClientId}
+                oidcIssuer={detail.oidcIssuer}
               />
             )}
             {tab === 'subs' && <SubscriptionsTab subs={subs} plans={plans} onResiliate={onResiliate} />}
