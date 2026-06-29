@@ -44,6 +44,14 @@ var ErrNoActiveSubscription = errors.New("subscriptions: application has no acti
 // sandbox gateway has been wired into the service.
 var ErrSandboxNotConfigured = errors.New("subscriptions: sandbox gateway not configured")
 
+// ErrOIDCNotConfigured is returned when an oauth2 operation requires a trusted
+// OIDC issuer but none has been wired via ConfigureOIDC.
+var ErrOIDCNotConfigured = errors.New("subscriptions: oidc not configured")
+
+// ErrInvalidClientID is returned by SetOIDCClientID when the client id contains
+// characters outside the safe charset (Lua injection guard).
+var ErrInvalidClientID = errors.New("subscriptions: invalid oidc client id")
+
 // ErrNoSandboxEligibleSubscription is returned by EnableSandbox when the
 // application has no active subscription to a sandbox-enabled product (or has
 // no credential / active plan at all).
@@ -127,17 +135,40 @@ type Store interface {
 
 func consumerName(appID int64) string { return fmt.Sprintf("app_%d", appID) }
 
+// dedup returns a new slice with duplicates removed and empty strings dropped,
+// preserving the order of first occurrence.
+func dedup(ss []string) []string {
+	seen := make(map[string]struct{}, len(ss))
+	out := make([]string, 0, len(ss))
+	for _, s := range ss {
+		if s == "" {
+			continue
+		}
+		if _, ok := seen[s]; !ok {
+			seen[s] = struct{}{}
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 // RouteID is the deterministic APISIX route id for a product.
 func RouteID(productID int64) string { return fmt.Sprintf("prod_%d", productID) }
 
 // Service orchestrates subscribe/unsubscribe and the matching APISIX provisioning.
 type Service struct {
-	store     Store
-	gw        apisix.Gateway
-	sandboxGW apisix.Gateway
-	genKey    func() string
-	events    EventLogger
+	store      Store
+	gw         apisix.Gateway
+	sandboxGW  apisix.Gateway
+	genKey     func() string
+	events     EventLogger
+	oidcIssuer string
+	oidcClaim  string
 }
+
+// ConfigureOIDC wires the trusted issuer + client-id claim for oauth2 product
+// routes. Empty issuer leaves OAuth2 provisioning disabled.
+func (s *Service) ConfigureOIDC(issuer, claim string) { s.oidcIssuer, s.oidcClaim = issuer, claim }
 
 func NewService(store Store, gw, sandboxGW apisix.Gateway, genKey func() string, eventLog EventLogger) *Service {
 	return &Service{store: store, gw: gw, sandboxGW: sandboxGW, genKey: genKey, events: eventLog}
@@ -171,6 +202,19 @@ func (s *Service) reprovisionRoute(ctx context.Context, productID int64, extraCo
 	if err != nil {
 		return err
 	}
+
+	if prod.AuthType == "oauth2" {
+		allowed, err := s.store.OAuthClientsForProduct(ctx, productID)
+		if err != nil {
+			return err
+		}
+		allowed = append(allowed, extraConsumers...) // extras carry through for the approve path (client ids)
+		if len(allowed) == 0 || s.oidcIssuer == "" {
+			return s.gw.DeleteRoute(ctx, RouteID(prod.ID))
+		}
+		return s.gw.EnsureOAuthRoute(ctx, RouteID(prod.ID), prod.ContextPath, prod.Upstream, s.oidcIssuer, s.oidcClaim, dedup(allowed))
+	}
+
 	allowed, err := s.store.ConsumersForProduct(ctx, productID)
 	if err != nil {
 		return err
@@ -201,6 +245,28 @@ func (s *Service) reprovisionRoute(ctx context.Context, productID int64, extraCo
 // DeprovisionRoute removes the product's APISIX route entirely.
 func (s *Service) DeprovisionRoute(ctx context.Context, productID int64) error {
 	return s.gw.DeleteRoute(ctx, RouteID(productID))
+}
+
+// SetOIDCClientID stores the OIDC client id for an application and immediately
+// re-provisions every oauth2 product route the app has an active subscription
+// on, so the updated client id takes effect without a manual reprovision.
+func (s *Service) SetOIDCClientID(ctx context.Context, appID int64, clientID string) error {
+	if clientID != "" && !apisix.ValidClientID(clientID) {
+		return ErrInvalidClientID
+	}
+	if err := s.store.SetAppOIDCClientID(ctx, appID, clientID); err != nil {
+		return err
+	}
+	prods, err := s.store.OAuthProductsForApp(ctx, appID)
+	if err != nil {
+		return err
+	}
+	for _, p := range prods {
+		if err := s.reprovisionRoute(ctx, p.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ReprovisionPlan applies the plan's current rate limits to every active
@@ -266,6 +332,13 @@ func (s *Service) Subscribe(ctx context.Context, appID, productID, planID int64)
 	if existing == StatusActive {
 		return Credential{}, ErrAlreadySubscribed
 	}
+	if prod.AuthType == "oauth2" {
+		if err := s.store.SaveSubscription(ctx, appID, productID, planID); err != nil {
+			return Credential{}, err
+		}
+		s.logEvent(ctx, appID, events.KindSubscribed, &productID, &planID)
+		return Credential{}, nil // no key for oauth2 apps
+	}
 	cred, err := s.store.GetOrCreateCredential(ctx, appID, s.genKey)
 	if err != nil {
 		return Credential{}, err
@@ -306,6 +379,21 @@ func (s *Service) Approve(ctx context.Context, subID int64) error {
 	}
 	if rec.Status == StatusRejected {
 		return ErrInvalidTransition // a rejected subscription cannot be approved
+	}
+	prod, err := s.store.GetProduct(ctx, rec.ProductID)
+	if err != nil {
+		return err
+	}
+	if prod.AuthType == "oauth2" {
+		cid, _ := s.store.GetAppOIDCClientID(ctx, rec.AppID)
+		if err := s.reprovisionRoute(ctx, rec.ProductID, cid); err != nil {
+			return err
+		}
+		if err := s.store.SetSubscriptionStatus(ctx, subID, StatusActive); err != nil {
+			return err
+		}
+		s.logEvent(ctx, rec.AppID, events.KindApproved, &rec.ProductID, &rec.PlanID)
+		return nil
 	}
 	plan, err := s.store.GetPlan(ctx, rec.PlanID)
 	if err != nil {
