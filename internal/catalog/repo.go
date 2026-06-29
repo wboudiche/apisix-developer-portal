@@ -128,6 +128,17 @@ func (r *Repo) GetSpecBySlug(ctx context.Context, slug string) (string, error) {
 	return spec, nil
 }
 
+// SandboxUpstreamBySlug reports whether a PUBLISHED product has a sandbox upstream.
+func (r *Repo) SandboxUpstreamBySlug(ctx context.Context, slug string) (bool, error) {
+	var has bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT sandbox_upstream_url <> '' FROM api_products WHERE slug=$1 AND published=true`, slug).Scan(&has)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	return has, err
+}
+
 // scanProducts collects all rows into a slice of Product.
 func scanProducts(rows pgx.Rows) ([]Product, error) {
 	var products []Product

@@ -20,6 +20,10 @@ func (a tryitProductsAdapter) ProductBySlug(ctx context.Context, slug string) (i
 	return id, ctxPath, err
 }
 
+func (a tryitProductsAdapter) SandboxUpstream(ctx context.Context, slug string) (bool, error) {
+	return a.repo.SandboxUpstreamBySlug(ctx, slug)
+}
+
 type tryitAccessAdapter struct {
 	apps *applications.Repo
 	subs *subscriptions.Repo
@@ -55,4 +59,12 @@ func (a tryitAccessAdapter) ApprovedApps(ctx context.Context, userID, productID 
 		out[i] = tryit.AppRef{ID: r.ID, Name: r.Name}
 	}
 	return out, nil
+}
+
+func (a tryitAccessAdapter) SandboxKey(ctx context.Context, appID int64) (string, error) {
+	key, err := a.subs.GetSandboxKey(ctx, appID)
+	if errors.Is(err, subscriptions.ErrNotFound) {
+		return "", nil
+	}
+	return key, err
 }
