@@ -16,11 +16,12 @@ import (
 )
 
 type fakeReader struct {
-	cred    Credential
-	has     bool
-	subs    []SubscriptionView
-	plan    PlanInfo
-	planErr error
+	cred       Credential
+	has        bool
+	subs       []SubscriptionView
+	plan       PlanInfo
+	planErr    error
+	sandboxKey string
 }
 
 func (f fakeReader) GetCredential(_ context.Context, _ int64) (Credential, error) {
@@ -37,6 +38,9 @@ func (f fakeReader) ActivePlanForApp(_ context.Context, _ int64) (PlanInfo, erro
 		return PlanInfo{}, f.planErr
 	}
 	return f.plan, nil
+}
+func (f fakeReader) GetSandboxKey(_ context.Context, _ int64) (string, error) {
+	return f.sandboxKey, nil
 }
 
 // fakeUsageReader implements UsageReader for handler tests.
@@ -73,7 +77,7 @@ func newTestHandler() (*Handler, *apisix.Fake) {
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "key-xyz", ConsumerUsername: "app_1"},
 		subs: []SubscriptionView{{ProductID: 3, ProductName: "PizzaShackAPI", PlanID: 2, PlanName: "Silver"}}}
-	return NewHandler(svc, reader, fakeEvents{}, owns), gw
+	return NewHandler(svc, reader, fakeEvents{}, owns, ""), gw
 }
 
 func TestSubscribeEndpointReturnsKeyWithoutProvisioning(t *testing.T) {
@@ -151,7 +155,7 @@ func TestAppDetailIncludesActivityFeed(t *testing.T) {
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1}}
 	feed := fakeEvents{feed: []events.View{{Kind: events.KindSubscribed, ProductName: "Inventory API", PlanName: "Gold"}}}
-	h := NewHandler(svc, reader, feed, owns)
+	h := NewHandler(svc, reader, feed, owns, "")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/applications/1", nil)
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -174,7 +178,7 @@ func TestAppDetailSurvivesFeedReadError(t *testing.T) {
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "key-xyz"}}
 	// Feed read fails — the page must still load (200) with an empty feed, not 500.
-	h := NewHandler(svc, reader, fakeEvents{err: errors.New("db down")}, owns)
+	h := NewHandler(svc, reader, fakeEvents{err: errors.New("db down")}, owns, "")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/applications/1", nil)
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -210,7 +214,7 @@ func newSeededTestHandler() (*Handler, *apisix.Fake) {
 	svc := NewService(store, gw, nil, func() string { return "rotated-key" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "old-key", ConsumerUsername: "app_1"}}
-	return NewHandler(svc, reader, fakeEvents{}, owns), gw
+	return NewHandler(svc, reader, fakeEvents{}, owns, ""), gw
 }
 
 func TestRotateKeyEndpoint(t *testing.T) {
@@ -258,7 +262,7 @@ func TestQuotaHappyPath(t *testing.T) {
 		subs: []SubscriptionView{{ProductID: 3, ProductName: "PizzaShackAPI", PlanID: 2, PlanName: "Silver"}},
 		plan: PlanInfo{Count: 1000, WindowSeconds: 60},
 	}
-	h := NewHandler(svc, reader, fakeEvents{}, owns)
+	h := NewHandler(svc, reader, fakeEvents{}, owns, "")
 	h.SetUsageReader(fakeUsageReader{used: 612})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/applications/1/quota", nil)
@@ -285,7 +289,7 @@ func TestQuotaNoActiveSubscription(t *testing.T) {
 		cred:    Credential{ApplicationID: 1, APIKey: "key-xyz", ConsumerUsername: "app_1"},
 		planErr: ErrNoActiveSubscription,
 	}
-	h := NewHandler(svc, reader, fakeEvents{}, owns)
+	h := NewHandler(svc, reader, fakeEvents{}, owns, "")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/applications/1/quota", nil)
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -312,7 +316,7 @@ func TestQuotaMetricsUnavailable(t *testing.T) {
 		plan: PlanInfo{Count: 1000, WindowSeconds: 60},
 	}
 	// Do NOT set a usage reader — h.usage stays nil
-	h := NewHandler(svc, reader, fakeEvents{}, owns)
+	h := NewHandler(svc, reader, fakeEvents{}, owns, "")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/applications/1/quota", nil)
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -336,5 +340,56 @@ func TestQuotaNonOwner403(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden && rec.Code != http.StatusNotFound {
 		t.Fatalf("non-owner status=%d (want 403/404)", rec.Code)
+	}
+}
+
+func TestSandboxEnableEndpoint(t *testing.T) {
+	store := newMemStore()
+	// Seed app 1 with a credential and an active plan subscription.
+	store.creds[1] = Credential{ApplicationID: 1, APIKey: "prodkey", ConsumerUsername: "app_1"}
+	store.nextID = 1
+	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 1, ProductID: 3, PlanID: 2, Status: StatusActive}
+	// sandboxProducts[1] must be non-empty so EnableSandbox doesn't return ErrNoSandboxEligibleSubscription.
+	store.sandboxProducts[1] = []ProductInfo{{ID: 3, ContextPath: "/pizzashack", SandboxUpstream: "echo:8081"}}
+	sbGW := apisix.NewFake()
+	svc := NewService(store, apisix.NewFake(), sbGW, func() string { return "sbkey" }, nil)
+	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
+	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "prodkey", ConsumerUsername: "app_1"}}
+	h := NewHandler(svc, reader, fakeEvents{}, owns, "http://localhost:9081")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/applications/1/sandbox/enable", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 5))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
+	}
+	var out map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if out["sandboxApiKey"] != "sbkey" {
+		t.Fatalf("body=%s", rec.Body)
+	}
+}
+
+func TestSandboxEnable409WhenIneligible(t *testing.T) {
+	store := newMemStore()
+	// Seed app 1 with a credential and an active subscription but NO sandbox products.
+	store.creds[1] = Credential{ApplicationID: 1, APIKey: "prodkey", ConsumerUsername: "app_1"}
+	store.nextID = 1
+	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 1, ProductID: 3, PlanID: 2, Status: StatusActive}
+	// sandboxProducts[1] is empty (not set) → EnableSandbox returns ErrNoSandboxEligibleSubscription.
+	svc := NewService(store, apisix.NewFake(), apisix.NewFake(), func() string { return "sbkey" }, nil)
+	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
+	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "prodkey", ConsumerUsername: "app_1"}}
+	h := NewHandler(svc, reader, fakeEvents{}, owns, "http://localhost:9081")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/applications/1/sandbox/enable", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 5))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status=%d (want 409)", rec.Code)
 	}
 }

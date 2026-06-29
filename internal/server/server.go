@@ -66,7 +66,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		}
 		return true, nil
 	}
-	subH := subscriptions.NewHandler(subSvc, subRepo, eventRepo, owns)
+	subH := subscriptions.NewHandler(subSvc, subRepo, eventRepo, owns, cfg.APISIXSandboxGatewayURL)
 	// Usage metrics are a read-only consumer of Prometheus; left unconfigured
 	// (empty URL) the /usage endpoint reports unavailable rather than guessing.
 	if cfg.PrometheusURL != "" {

@@ -24,6 +24,7 @@ type Reader interface {
 	GetCredential(ctx context.Context, appID int64) (Credential, error)
 	SubscriptionsForApp(ctx context.Context, appID int64) ([]SubscriptionView, error)
 	ActivePlanForApp(ctx context.Context, appID int64) (PlanInfo, error)
+	GetSandboxKey(ctx context.Context, appID int64) (string, error)
 }
 
 // EventReader returns an application's recent activity (satisfied by
@@ -56,22 +57,25 @@ const feedLimit = 20
 const defaultUsageRange = "24h"
 
 type Handler struct {
-	svc    *Service
-	reader Reader
-	events EventReader
-	usage  UsageReader
-	owns   OwnerCheck
-	router chi.Router
+	svc               *Service
+	reader            Reader
+	events            EventReader
+	usage             UsageReader
+	owns              OwnerCheck
+	router            chi.Router
+	sandboxGatewayURL string
 }
 
-func NewHandler(svc *Service, reader Reader, eventReader EventReader, owns OwnerCheck) *Handler {
-	h := &Handler{svc: svc, reader: reader, events: eventReader, owns: owns, router: chi.NewRouter()}
+func NewHandler(svc *Service, reader Reader, eventReader EventReader, owns OwnerCheck, sandboxGatewayURL string) *Handler {
+	h := &Handler{svc: svc, reader: reader, events: eventReader, owns: owns, router: chi.NewRouter(), sandboxGatewayURL: sandboxGatewayURL}
 	h.router.Get("/api/applications/{appID}", h.detail)
 	h.router.Get("/api/applications/{appID}/usage", h.usageHandler)
 	h.router.Get("/api/applications/{appID}/quota", h.quotaHandler)
 	h.router.Post("/api/applications/{appID}/subscriptions", h.subscribe)
 	h.router.Delete("/api/applications/{appID}/subscriptions/{productID}", h.unsubscribe)
 	h.router.Post("/api/applications/{appID}/credentials/rotate", h.rotateKey)
+	h.router.Post("/api/applications/{appID}/sandbox/enable", h.enableSandbox)
+	h.router.Post("/api/applications/{appID}/sandbox/rotate", h.rotateSandbox)
 	return h
 }
 
@@ -179,6 +183,12 @@ func (h *Handler) detail(w http.ResponseWriter, r *http.Request) {
 			out.Events = feed
 		}
 	}
+	if h.sandboxGatewayURL != "" {
+		out.SandboxGatewayUrl = h.sandboxGatewayURL
+		if sk, err := h.reader.GetSandboxKey(r.Context(), appID); err == nil && sk != "" {
+			out.SandboxEnabled = true
+		}
+	}
 	httpx.JSON(w, http.StatusOK, out)
 }
 
@@ -239,6 +249,42 @@ func (h *Handler) quotaHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	httpx.JSON(w, http.StatusOK, q)
+}
+
+func (h *Handler) enableSandbox(w http.ResponseWriter, r *http.Request) {
+	appID, ok := h.authorize(w, r)
+	if !ok {
+		return
+	}
+	key, err := h.svc.EnableSandbox(r.Context(), appID)
+	if errors.Is(err, ErrNoSandboxEligibleSubscription) || errors.Is(err, ErrSandboxNotConfigured) {
+		httpx.Error(w, http.StatusConflict, "sandbox unavailable — subscribe to a sandbox-enabled API first")
+		return
+	}
+	if err != nil {
+		log.Printf("enable sandbox failed (app=%d): %v", appID, err)
+		httpx.Error(w, http.StatusInternalServerError, "enable sandbox failed")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"sandboxApiKey": key})
+}
+
+func (h *Handler) rotateSandbox(w http.ResponseWriter, r *http.Request) {
+	appID, ok := h.authorize(w, r)
+	if !ok {
+		return
+	}
+	key, err := h.svc.RotateSandboxKey(r.Context(), appID)
+	if errors.Is(err, ErrNoSandboxKey) || errors.Is(err, ErrSandboxNotConfigured) {
+		httpx.Error(w, http.StatusConflict, "no sandbox key to rotate — enable sandbox first")
+		return
+	}
+	if err != nil {
+		log.Printf("rotate sandbox key failed (app=%d): %v", appID, err)
+		httpx.Error(w, http.StatusInternalServerError, "rotation failed")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"sandboxApiKey": key})
 }
 
 // usageHandler serves GET /api/applications/{id}/usage?range=24h|7d|30d — the
