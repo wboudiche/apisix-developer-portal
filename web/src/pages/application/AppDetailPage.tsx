@@ -179,6 +179,9 @@ export function AppDetailPage() {
                 notify={notify}
                 openModal={setModal}
                 onRotated={reloadDetail}
+                sandboxEnabled={detail.sandboxEnabled}
+                sandboxGatewayUrl={detail.sandboxGatewayUrl}
+                sandboxEligible={subs.some(s => s.sandboxAvailable)}
               />
             )}
             {tab === 'subs' && <SubscriptionsTab subs={subs} plans={plans} onResiliate={onResiliate} />}
