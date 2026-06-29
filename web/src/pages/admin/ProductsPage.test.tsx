@@ -140,6 +140,18 @@ describe('ProductsPage', () => {
     expect(create.mock.calls[0][1]).toMatchObject({ sandboxUpstreamUrl: 'sandbox.example.com:443' })
   })
 
+  it('sends authType when creating a product', async () => {
+    const create = vi.spyOn(api, 'adminCreateProduct').mockResolvedValue(products[0])
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getByRole('button', { name: /Nouveau produit/ }))
+    await userEvent.type(screen.getByLabelText('Nom'), 'OrdersAPI')
+    await userEvent.selectOptions(screen.getByLabelText(/Méthode d.authentification/i), 'oauth2')
+    await userEvent.click(screen.getByRole('button', { name: /Créer le produit/ }))
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0][1]).toMatchObject({ authType: 'oauth2' })
+  })
+
   it('persists the imported spec in the create payload', async () => {
     const create = vi.spyOn(api, 'adminCreateProduct').mockResolvedValue({} as AdminProduct)
     vi.spyOn(api, 'adminImportProduct').mockResolvedValue({
