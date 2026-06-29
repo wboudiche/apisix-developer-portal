@@ -12,9 +12,9 @@ import { ImportModal } from './ImportModal'
 
 interface FormState {
   name: string; slug: string; category: string; contextPath: string
-  upstreamUrl: string; version: string; published: boolean; openapiSpec: string
+  upstreamUrl: string; sandboxUpstreamUrl: string; version: string; published: boolean; openapiSpec: string
 }
-const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', upstreamUrl: '', version: '1.0.0', published: true, openapiSpec: '' }
+const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', upstreamUrl: '', sandboxUpstreamUrl: '', version: '1.0.0', published: true, openapiSpec: '' }
 
 function PlusIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M12 5v14M5 12h14" strokeLinecap="round" /></svg>
@@ -61,6 +61,7 @@ export function ProductsPage() {
     setForm({
       name: draft.name, slug: draft.slug, category: draft.category,
       contextPath: draft.contextPath, upstreamUrl: draft.upstreamUrl,
+      sandboxUpstreamUrl: draft.sandboxUpstreamUrl ?? '',
       version: draft.version, published: false, openapiSpec: draft.openapiSpec ?? '',
     })
     setSlugTouched(true)
@@ -69,7 +70,7 @@ export function ProductsPage() {
 
   function openEdit(p: AdminProduct) {
     setEditing(p)
-    setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, version: p.version, published: p.published, openapiSpec: '' })
+    setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, sandboxUpstreamUrl: p.sandboxUpstreamUrl ?? '', version: p.version, published: p.published, openapiSpec: '' })
     setSlugTouched(true)
     setOpen(true)
   }
@@ -84,6 +85,7 @@ export function ProductsPage() {
       category: form.category.trim(),
       contextPath: form.contextPath.trim() || `/${slug}`,
       upstreamUrl: form.upstreamUrl.trim(),
+      sandboxUpstreamUrl: form.sandboxUpstreamUrl.trim(),
       version: form.version.trim() || '1.0.0',
       published: form.published,
       openapiSpec: form.openapiSpec,
@@ -191,6 +193,11 @@ export function ProductsPage() {
             <label htmlFor="f-up">Upstream <span className="opt">host:port</span></label>
             <input id="f-up" className="ipt mono" placeholder="echo:8080" autoComplete="off"
               value={form.upstreamUrl} onChange={e => set('upstreamUrl', e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="f-sbup">Sandbox <span className="opt">host:port — optionnel</span></label>
+            <input id="f-sbup" placeholder="ex. sandbox.example.com:443"
+              value={form.sandboxUpstreamUrl} onChange={e => set('sandboxUpstreamUrl', e.target.value)} />
           </div>
           <div className="field">
             <label htmlFor="f-ver">Version</label>
