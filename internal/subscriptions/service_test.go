@@ -759,3 +759,25 @@ func TestSetOIDCClientIDRejectsBadCharset(t *testing.T) {
 		t.Fatalf("err = %v, want ErrInvalidClientID", err)
 	}
 }
+
+// TestReprovisionOAuth2EmptyClientIDDoesNotCreateRoute is a regression test for the
+// empty-extras filter fix: when an Approve carries a "" client id (the app has no
+// OIDC client id yet) and the product has no other active oauth subscribers, the
+// resulting whitelist is empty and the route must be DELETED, not created.
+func TestReprovisionOAuth2EmptyClientIDDoesNotCreateRoute(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	store.products[9] = ProductInfo{ID: 9, ContextPath: "/orders", Upstream: "echo:8080", AuthType: "oauth2"}
+	// oauthWhitelist[9] deliberately unset — no active subscribers with a client id.
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, nil, func() string { return "k" }, nil)
+	svc.ConfigureOIDC("https://idp.example/realms/dev", "azp")
+
+	// Mirrors Approve for an oauth2 product where GetAppOIDCClientID returns "".
+	if err := svc.reprovisionRoute(ctx, 9, ""); err != nil {
+		t.Fatalf("reprovisionRoute: %v", err)
+	}
+	if _, ok := gw.Routes[RouteID(9)]; ok {
+		t.Fatal("empty-whitelist oauth route must be deleted, not created")
+	}
+}

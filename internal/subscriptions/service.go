@@ -208,7 +208,11 @@ func (s *Service) reprovisionRoute(ctx context.Context, productID int64, extraCo
 		if err != nil {
 			return err
 		}
-		allowed = append(allowed, extraConsumers...) // extras carry through for the approve path (client ids)
+		for _, e := range extraConsumers { // skip "" (app has no client id yet) to preserve the delete-when-empty lifecycle invariant
+			if e != "" {
+				allowed = append(allowed, e)
+			}
+		}
 		if len(allowed) == 0 || s.oidcIssuer == "" {
 			return s.gw.DeleteRoute(ctx, RouteID(prod.ID))
 		}
