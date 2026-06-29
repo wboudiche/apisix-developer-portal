@@ -245,6 +245,20 @@ func (m *memStore) SandboxProductsForApp(_ context.Context, appID int64) ([]Prod
 	return m.sandboxProducts[appID], nil
 }
 
+// OAuth stubs — fleshed out in Task 4.
+func (m *memStore) OAuthClientsForProduct(_ context.Context, _ int64) ([]string, error) {
+	return nil, nil
+}
+func (m *memStore) OAuthProductsForApp(_ context.Context, _ int64) ([]ProductInfo, error) {
+	return nil, nil
+}
+func (m *memStore) GetAppOIDCClientID(_ context.Context, _ int64) (string, error) {
+	return "", nil
+}
+func (m *memStore) SetAppOIDCClientID(_ context.Context, _ int64, _ string) error {
+	return nil
+}
+
 func TestSubscribeIsPendingAndDoesNotProvision(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()

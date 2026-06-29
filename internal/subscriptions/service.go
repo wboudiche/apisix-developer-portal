@@ -112,6 +112,17 @@ type Store interface {
 	SandboxConsumersForProduct(ctx context.Context, productID int64) ([]string, error)
 	SandboxConsumersForPlan(ctx context.Context, planID int64) ([]Credential, error)
 	SandboxProductsForApp(ctx context.Context, appID int64) ([]ProductInfo, error)
+	// OAuthClientsForProduct returns oidc_client_ids of active subscribers whose
+	// app has a non-empty oidc_client_id (the OAuth2 route whitelist).
+	OAuthClientsForProduct(ctx context.Context, productID int64) ([]string, error)
+	// OAuthProductsForApp returns the oauth2 products the app actively subscribes to.
+	OAuthProductsForApp(ctx context.Context, appID int64) ([]ProductInfo, error)
+	// GetAppOIDCClientID returns the app's current OIDC client id ("" when unset;
+	// ErrNotFound if no app row).
+	GetAppOIDCClientID(ctx context.Context, appID int64) (string, error)
+	// SetAppOIDCClientID persists the OIDC client id for the app (ErrNotFound when
+	// no app row).
+	SetAppOIDCClientID(ctx context.Context, appID int64, clientID string) error
 }
 
 func consumerName(appID int64) string { return fmt.Sprintf("app_%d", appID) }
