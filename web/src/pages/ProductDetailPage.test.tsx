@@ -1,5 +1,6 @@
 import { it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ProductDetailPage } from './ProductDetailPage'
 import { AuthProvider } from '../auth/AuthProvider'
@@ -66,4 +67,27 @@ it('shows a subscribe banner when the user has no approved app', async () => {
   vi.spyOn(api, 'getTryContext').mockResolvedValue({ apps: [] })
   renderAt('orders')
   expect(await screen.findByText(/Abonnez-vous pour essayer/i)).toBeInTheDocument()
+})
+
+it('toggles the Try-it server between production and sandbox', async () => {
+  const user = userEvent.setup()
+  localStorage.setItem('token', 'jwt')
+  localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'D', role: 'developer' }))
+  vi.spyOn(api, 'getProductSpec').mockResolvedValue('{"openapi":"3.0.0"}')
+  vi.spyOn(api, 'getTryContext').mockResolvedValue({ apps: [{ id: 3, name: 'App A' }], sandboxAvailable: true })
+  renderAt('orders')
+  await waitFor(() => expect(screen.getByTestId('scalar')).toHaveAttribute('data-server', '/api/try/orders/3'))
+  const sandboxToggle = screen.getByRole('button', { name: /Sandbox/i })
+  await user.click(sandboxToggle)
+  await waitFor(() => expect(screen.getByTestId('scalar')).toHaveAttribute('data-server', '/api/try/orders/3/sandbox'))
+})
+
+it('does not show sandbox toggle when sandboxAvailable is false', async () => {
+  localStorage.setItem('token', 'jwt')
+  localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'D', role: 'developer' }))
+  vi.spyOn(api, 'getProductSpec').mockResolvedValue('{"openapi":"3.0.0"}')
+  vi.spyOn(api, 'getTryContext').mockResolvedValue({ apps: [{ id: 3, name: 'App A' }] })
+  renderAt('orders')
+  await waitFor(() => expect(screen.getByTestId('scalar')).toHaveAttribute('data-server', '/api/try/orders/3'))
+  expect(screen.queryByRole('button', { name: /Sandbox/i })).not.toBeInTheDocument()
 })
