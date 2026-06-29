@@ -69,7 +69,7 @@ func (f fakeEvents) Recent(_ context.Context, _ int64, _ int) ([]events.View, er
 func newTestHandler() (*Handler, *apisix.Fake) {
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "key-xyz" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "key-xyz" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "key-xyz", ConsumerUsername: "app_1"},
 		subs: []SubscriptionView{{ProductID: 3, ProductName: "PizzaShackAPI", PlanID: 2, PlanName: "Silver"}}}
@@ -147,7 +147,7 @@ func TestAppDetailReturnsKeyAndSubscriptions(t *testing.T) {
 func TestAppDetailIncludesActivityFeed(t *testing.T) {
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "k" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1}}
 	feed := fakeEvents{feed: []events.View{{Kind: events.KindSubscribed, ProductName: "Inventory API", PlanName: "Gold"}}}
@@ -170,7 +170,7 @@ func TestAppDetailIncludesActivityFeed(t *testing.T) {
 func TestAppDetailSurvivesFeedReadError(t *testing.T) {
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "k" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "key-xyz"}}
 	// Feed read fails — the page must still load (200) with an empty feed, not 500.
@@ -207,7 +207,7 @@ func newSeededTestHandler() (*Handler, *apisix.Fake) {
 	store.nextID = 1
 	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 1, ProductID: 3, PlanID: 2, Status: StatusActive}
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "rotated-key" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "rotated-key" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "old-key", ConsumerUsername: "app_1"}}
 	return NewHandler(svc, reader, fakeEvents{}, owns), gw
@@ -250,7 +250,7 @@ func TestRotateKeyEndpoint_NonOwner403(t *testing.T) {
 func TestQuotaHappyPath(t *testing.T) {
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "key-xyz" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "key-xyz" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{
 		has:  true,
@@ -278,7 +278,7 @@ func TestQuotaHappyPath(t *testing.T) {
 func TestQuotaNoActiveSubscription(t *testing.T) {
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "key-xyz" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "key-xyz" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{
 		has:     true,
@@ -304,7 +304,7 @@ func TestQuotaNoActiveSubscription(t *testing.T) {
 func TestQuotaMetricsUnavailable(t *testing.T) {
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "key-xyz" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "key-xyz" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{
 		has:  true,

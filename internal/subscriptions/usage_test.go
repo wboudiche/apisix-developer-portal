@@ -32,7 +32,7 @@ func (f *fakeUsage) RequestsInWindow(_ context.Context, _ string, _ int) (int64,
 
 func newUsageHandler(reader Reader, usage UsageReader) *Handler {
 	store := newMemStore()
-	svc := NewService(store, nil, func() string { return "k" }, nil)
+	svc := NewService(store, nil, nil, func() string { return "k" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	h := NewHandler(svc, reader, fakeEvents{}, owns)
 	h.SetUsageReader(usage)
