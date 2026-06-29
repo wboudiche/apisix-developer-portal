@@ -40,12 +40,26 @@ var ErrNoCredential = errors.New("subscriptions: application has no credential")
 // active subscription (so no rate limit can be derived for the refreshed consumer).
 var ErrNoActiveSubscription = errors.New("subscriptions: application has no active subscription")
 
+// ErrSandboxNotConfigured is returned when EnableSandbox is called but no
+// sandbox gateway has been wired into the service.
+var ErrSandboxNotConfigured = errors.New("subscriptions: sandbox gateway not configured")
+
+// ErrNoSandboxEligibleSubscription is returned by EnableSandbox when the
+// application has no active subscription to a sandbox-enabled product (or has
+// no credential / active plan at all).
+var ErrNoSandboxEligibleSubscription = errors.New("subscriptions: no active subscription to a sandbox-enabled product")
+
+// ErrNoSandboxKey is returned when a sandbox operation requires the application
+// to already have a sandbox key but none is stored.
+var ErrNoSandboxKey = errors.New("subscriptions: application has no sandbox key")
+
 // ProductInfo is what the service needs to provision a product's gateway route.
 type ProductInfo struct {
-	ID          int64
-	ContextPath string
-	Upstream    string // scheme://host:port (or bare host:port, treated as http)
-	Published   bool
+	ID              int64
+	ContextPath     string
+	Upstream        string // scheme://host:port (or bare host:port, treated as http)
+	SandboxUpstream string // product's sandbox backend, "" = no sandbox
+	Published       bool
 }
 
 // PlanInfo is the rate limit for a subscription.
@@ -92,6 +106,11 @@ type Store interface {
 	ActivePlanForApp(ctx context.Context, appID int64) (PlanInfo, error)
 	// UpdateCredentialKey replaces the stored API key for the application's credential.
 	UpdateCredentialKey(ctx context.Context, appID int64, newKey string) error
+	GetSandboxKey(ctx context.Context, appID int64) (string, error)
+	UpdateSandboxKey(ctx context.Context, appID int64, key string) error
+	SandboxConsumersForProduct(ctx context.Context, productID int64) ([]string, error)
+	SandboxConsumersForPlan(ctx context.Context, planID int64) ([]Credential, error)
+	SandboxProductsForApp(ctx context.Context, appID int64) ([]ProductInfo, error)
 }
 
 func consumerName(appID int64) string { return fmt.Sprintf("app_%d", appID) }
@@ -101,15 +120,18 @@ func RouteID(productID int64) string { return fmt.Sprintf("prod_%d", productID) 
 
 // Service orchestrates subscribe/unsubscribe and the matching APISIX provisioning.
 type Service struct {
-	store  Store
-	gw     apisix.Gateway
-	genKey func() string
-	events EventLogger
+	store     Store
+	gw        apisix.Gateway
+	sandboxGW apisix.Gateway
+	genKey    func() string
+	events    EventLogger
 }
 
-func NewService(store Store, gw apisix.Gateway, genKey func() string, eventLog EventLogger) *Service {
-	return &Service{store: store, gw: gw, genKey: genKey, events: eventLog}
+func NewService(store Store, gw, sandboxGW apisix.Gateway, genKey func() string, eventLog EventLogger) *Service {
+	return &Service{store: store, gw: gw, sandboxGW: sandboxGW, genKey: genKey, events: eventLog}
 }
+
+func (s *Service) sandboxEnabled() bool { return s.sandboxGW != nil }
 
 // logEvent appends an activity event, best-effort: a failure is logged but never
 // propagated, so the feed can never break the action it merely records.
@@ -186,6 +208,18 @@ func (s *Service) ReprovisionPlan(ctx context.Context, planID int64) error {
 			return err
 		}
 	}
+	if s.sandboxEnabled() {
+		sbConsumers, err := s.store.SandboxConsumersForPlan(ctx, planID)
+		if err != nil {
+			return err
+		}
+		for _, c := range sbConsumers {
+			if err := s.sandboxGW.EnsureConsumer(ctx, c.ConsumerUsername, c.APIKey,
+				apisix.RateLimit{Count: plan.Count, WindowSeconds: plan.WindowSeconds}); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -240,7 +274,10 @@ func (s *Service) Unsubscribe(ctx context.Context, appID, productID int64) error
 	// already gone, so the event reflects the true DB state even if the gateway
 	// sync below fails (and a retry would otherwise never re-log it).
 	s.logEvent(ctx, appID, events.KindUnsubscribed, &productID, nil)
-	return s.ReprovisionRoute(ctx, productID)
+	if err := s.ReprovisionRoute(ctx, productID); err != nil {
+		return err
+	}
+	return s.reprovisionSandboxRoute(ctx, productID)
 }
 
 // Approve activates a pending subscription: it provisions the application's
@@ -280,6 +317,13 @@ func (s *Service) Approve(ctx context.Context, subID int64) error {
 	if err := s.store.SetSubscriptionStatus(ctx, subID, StatusActive); err != nil {
 		return err
 	}
+	if s.sandboxEnabled() {
+		if sk, err := s.store.GetSandboxKey(ctx, rec.AppID); err == nil && sk != "" {
+			if err := s.reprovisionSandboxRoute(ctx, rec.ProductID, cred.ConsumerUsername); err != nil {
+				return err
+			}
+		}
+	}
 	s.logEvent(ctx, rec.AppID, events.KindApproved, &rec.ProductID, &rec.PlanID)
 	return nil
 }
@@ -301,12 +345,149 @@ func (s *Service) Reject(ctx context.Context, subID int64) error {
 	// Log after the durable status change (see Unsubscribe): the event reflects
 	// the persisted "rejected" state regardless of the gateway sync outcome.
 	s.logEvent(ctx, rec.AppID, events.KindRejected, &rec.ProductID, nil)
-	return s.ReprovisionRoute(ctx, rec.ProductID)
+	if err := s.ReprovisionRoute(ctx, rec.ProductID); err != nil {
+		return err
+	}
+	return s.reprovisionSandboxRoute(ctx, rec.ProductID)
 }
 
 // AdminSubscriptions lists subscriptions for the admin queue (see Store).
 func (s *Service) AdminSubscriptions(ctx context.Context, statusFilter string, p paging.Params) ([]AdminSubscriptionView, int, error) {
 	return s.store.AdminSubscriptions(ctx, statusFilter, p)
+}
+
+// reprovisionSandboxRoute rebuilds the product's route on the SANDBOX gateway
+// from its sandbox upstream and the set of active subscribers that have a
+// sandbox key (plus any extras not yet reflected in the store). No-op when
+// sandbox is disabled or the product has no sandbox upstream.
+func (s *Service) reprovisionSandboxRoute(ctx context.Context, productID int64, extra ...string) error {
+	if !s.sandboxEnabled() {
+		return nil
+	}
+	prod, err := s.store.GetProduct(ctx, productID)
+	if err != nil {
+		return err
+	}
+	if prod.SandboxUpstream == "" {
+		return s.sandboxGW.DeleteRoute(ctx, RouteID(prod.ID))
+	}
+	allowed, err := s.store.SandboxConsumersForProduct(ctx, productID)
+	if err != nil {
+		return err
+	}
+	for _, e := range extra {
+		present := false
+		for _, a := range allowed {
+			if a == e {
+				present = true
+				break
+			}
+		}
+		if !present {
+			allowed = append(allowed, e)
+		}
+	}
+	if len(allowed) == 0 {
+		return s.sandboxGW.DeleteRoute(ctx, RouteID(prod.ID))
+	}
+	return s.sandboxGW.EnsureRoute(ctx, RouteID(prod.ID), prod.ContextPath, prod.SandboxUpstream, allowed)
+}
+
+// EnableSandbox opts an application into sandbox: it generates (once) the app's
+// sandbox key, provisions the sandbox consumer with the app's active plan limit
+// on the sandbox gateway, and grants it on the sandbox route of every
+// sandbox-enabled product the app actively subscribes to. Idempotent — a second
+// call returns the existing key and re-asserts the gateway state.
+func (s *Service) EnableSandbox(ctx context.Context, appID int64) (string, error) {
+	if !s.sandboxEnabled() {
+		return "", ErrSandboxNotConfigured
+	}
+	cred, err := s.store.GetCredential(ctx, appID)
+	if errors.Is(err, ErrNotFound) {
+		return "", ErrNoSandboxEligibleSubscription
+	}
+	if err != nil {
+		return "", err
+	}
+	plan, err := s.store.ActivePlanForApp(ctx, appID)
+	if errors.Is(err, ErrNoActiveSubscription) {
+		return "", ErrNoSandboxEligibleSubscription
+	}
+	if err != nil {
+		return "", err
+	}
+	prods, err := s.store.SandboxProductsForApp(ctx, appID)
+	if err != nil {
+		return "", err
+	}
+	if len(prods) == 0 {
+		return "", ErrNoSandboxEligibleSubscription
+	}
+	key, err := s.store.GetSandboxKey(ctx, appID)
+	if err != nil {
+		return "", err
+	}
+	if key == "" {
+		key = s.genKey()
+	}
+	if err := s.sandboxGW.EnsureConsumer(ctx, cred.ConsumerUsername, key,
+		apisix.RateLimit{Count: plan.Count, WindowSeconds: plan.WindowSeconds}); err != nil {
+		return "", err
+	}
+	if err := s.store.UpdateSandboxKey(ctx, appID, key); err != nil {
+		return "", err
+	}
+	for _, p := range prods {
+		if err := s.reprovisionSandboxRoute(ctx, p.ID, cred.ConsumerUsername); err != nil {
+			return "", err
+		}
+	}
+	s.logEvent(ctx, appID, events.KindSandboxEnabled, nil, nil)
+	return key, nil
+}
+
+// ReprovisionSandboxRoute rebuilds a product's sandbox route (used by admin on a
+// sandbox-upstream change). No-op when sandbox is disabled.
+func (s *Service) ReprovisionSandboxRoute(ctx context.Context, productID int64) error {
+	return s.reprovisionSandboxRoute(ctx, productID)
+}
+
+// RotateSandboxKey issues a fresh sandbox key, installs it on the sandbox
+// gateway consumer (old key 401s immediately), then persists it (gateway before
+// DB). The limit is preserved from the app's active plan. 409 if the app has no
+// sandbox key (ErrNoSandboxKey) or sandbox is disabled (ErrSandboxNotConfigured).
+func (s *Service) RotateSandboxKey(ctx context.Context, appID int64) (string, error) {
+	if !s.sandboxEnabled() {
+		return "", ErrSandboxNotConfigured
+	}
+	cred, err := s.store.GetCredential(ctx, appID)
+	if errors.Is(err, ErrNotFound) {
+		return "", ErrNoSandboxKey
+	}
+	if err != nil {
+		return "", err
+	}
+	existing, err := s.store.GetSandboxKey(ctx, appID)
+	if err != nil {
+		return "", err
+	}
+	if existing == "" {
+		return "", ErrNoSandboxKey
+	}
+	plan, err := s.store.ActivePlanForApp(ctx, appID)
+	if err != nil {
+		return "", err
+	}
+	newKey := s.genKey()
+	if err := s.sandboxGW.EnsureConsumer(ctx, cred.ConsumerUsername, newKey,
+		apisix.RateLimit{Count: plan.Count, WindowSeconds: plan.WindowSeconds}); err != nil {
+		return "", err
+	}
+	if err := s.store.UpdateSandboxKey(ctx, appID, newKey); err != nil {
+		return "", err
+	}
+	s.logEvent(ctx, appID, events.KindSandboxKeyRotated, nil, nil)
+	return newKey, nil
 }
 
 // RotateKey issues a fresh key-auth key for the application, installs it on the

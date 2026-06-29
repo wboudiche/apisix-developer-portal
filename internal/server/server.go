@@ -56,7 +56,13 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		log.Fatalf("credential cipher: %v", err)
 	}
 	subRepo := subscriptions.NewRepo(pool, cipher)
-	subSvc := subscriptions.NewService(subRepo, gw, subscriptions.GenerateKey, eventRepo)
+	var sandboxGW apisix.Gateway
+	sandboxGatewayURL := ""
+	if cfg.SandboxConfigured() {
+		sandboxGW = apisix.NewClient(cfg.APISIXSandboxAdminURL, cfg.APISIXSandboxAdminKey)
+		sandboxGatewayURL = cfg.APISIXSandboxGatewayURL
+	}
+	subSvc := subscriptions.NewService(subRepo, gw, sandboxGW, subscriptions.GenerateKey, eventRepo)
 	owns := func(ctx context.Context, appID, userID int64) (bool, error) {
 		if _, err := appsRepo.Get(ctx, appID, userID); err != nil {
 			if err == applications.ErrNotFound {
@@ -66,7 +72,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		}
 		return true, nil
 	}
-	subH := subscriptions.NewHandler(subSvc, subRepo, eventRepo, owns)
+	subH := subscriptions.NewHandler(subSvc, subRepo, eventRepo, owns, sandboxGatewayURL)
 	// Usage metrics are a read-only consumer of Prometheus; left unconfigured
 	// (empty URL) the /usage endpoint reports unavailable rather than guessing.
 	if cfg.PrometheusURL != "" {
@@ -98,7 +104,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	mux.Handle("/api/admin/subscriptions/", requireAdmin(subAdminH))
 	tryProducts := tryitProductsAdapter{repo: catRepo}
 	tryAccess := tryitAccessAdapter{apps: appsRepo, subs: subRepo}
-	tryH := tryit.NewHandler(tryProducts, tryAccess, cfg.APISIXGatewayURL)
+	tryH := tryit.NewHandler(tryProducts, tryAccess, cfg.APISIXGatewayURL, sandboxGatewayURL)
 	ratingsH := ratings.NewHandler(
 		ratings.NewRepo(pool),
 		ratingsProductsAdapter{repo: catRepo},

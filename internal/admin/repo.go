@@ -24,12 +24,12 @@ type Repo struct{ pool *pgxpool.Pool }
 
 func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
-const productCols = `id, name, slug, category, version, context_path, description, tags, icon, upstream_url, published`
+const productCols = `id, name, slug, category, version, context_path, description, tags, icon, upstream_url, sandbox_upstream_url, published`
 
 func scanProduct(row pgx.Row) (Product, error) {
 	var p Product
 	err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.Category, &p.Version,
-		&p.ContextPath, &p.Description, &p.Tags, &p.Icon, &p.UpstreamURL, &p.Published)
+		&p.ContextPath, &p.Description, &p.Tags, &p.Icon, &p.UpstreamURL, &p.SandboxUpstreamURL, &p.Published)
 	return p, err
 }
 
@@ -66,10 +66,10 @@ func (r *Repo) Get(ctx context.Context, id int64) (Product, error) {
 
 func (r *Repo) Create(ctx context.Context, p Product) (Product, error) {
 	created, err := scanProduct(r.pool.QueryRow(ctx,
-		`INSERT INTO api_products(name, slug, category, version, context_path, description, tags, icon, upstream_url, published, openapi_spec)
-		 VALUES($1,$2,$3,COALESCE(NULLIF($4,''),'1.0.0'),$5,$6,$7,$8,$9,$10,$11)
+		`INSERT INTO api_products(name, slug, category, version, context_path, description, tags, icon, upstream_url, sandbox_upstream_url, published, openapi_spec)
+		 VALUES($1,$2,$3,COALESCE(NULLIF($4,''),'1.0.0'),$5,$6,$7,$8,$9,$10,$11,$12)
 		 RETURNING `+productCols,
-		p.Name, p.Slug, p.Category, p.Version, p.ContextPath, p.Description, p.Tags, p.Icon, p.UpstreamURL, p.Published, p.OpenAPISpec))
+		p.Name, p.Slug, p.Category, p.Version, p.ContextPath, p.Description, p.Tags, p.Icon, p.UpstreamURL, p.SandboxUpstreamURL, p.Published, p.OpenAPISpec))
 	if err != nil {
 		return Product{}, uniqueErr(err)
 	}
@@ -79,11 +79,11 @@ func (r *Repo) Create(ctx context.Context, p Product) (Product, error) {
 func (r *Repo) Update(ctx context.Context, p Product) (Product, error) {
 	updated, err := scanProduct(r.pool.QueryRow(ctx,
 		`UPDATE api_products SET name=$2, slug=$3, category=$4, version=COALESCE(NULLIF($5,''),'1.0.0'),
-		   context_path=$6, description=$7, tags=$8, icon=$9, upstream_url=$10, published=$11,
-		   openapi_spec=COALESCE(NULLIF($12,''), openapi_spec)
+		   context_path=$6, description=$7, tags=$8, icon=$9, upstream_url=$10, sandbox_upstream_url=$11, published=$12,
+		   openapi_spec=COALESCE(NULLIF($13,''), openapi_spec)
 		 WHERE id=$1
 		 RETURNING `+productCols,
-		p.ID, p.Name, p.Slug, p.Category, p.Version, p.ContextPath, p.Description, p.Tags, p.Icon, p.UpstreamURL, p.Published, p.OpenAPISpec))
+		p.ID, p.Name, p.Slug, p.Category, p.Version, p.ContextPath, p.Description, p.Tags, p.Icon, p.UpstreamURL, p.SandboxUpstreamURL, p.Published, p.OpenAPISpec))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Product{}, ErrNotFound
 	}

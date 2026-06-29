@@ -16,7 +16,7 @@ import (
 
 const (
 	statusActive   = "active" // mirrors subscriptions.StatusActive
-	maxBodyBytes   = 2 << 20   // 2 MiB cap on request and response bodies
+	maxBodyBytes   = 2 << 20  // 2 MiB cap on request and response bodies
 	gatewayTimeout = 15 * time.Second
 )
 
@@ -36,18 +36,23 @@ type Handler struct {
 	products Products
 	access   Access
 	gateway  string
+	sandbox  string
 	client   *http.Client
 	router   chi.Router
 }
 
-func NewHandler(p Products, a Access, gatewayURL string) *Handler {
+func NewHandler(p Products, a Access, gatewayURL string, sandboxGatewayURL string) *Handler {
 	h := &Handler{
 		products: p, access: a,
 		gateway: strings.TrimRight(gatewayURL, "/"),
+		sandbox: strings.TrimRight(sandboxGatewayURL, "/"),
 		client:  &http.Client{Timeout: gatewayTimeout},
 		router:  chi.NewRouter(),
 	}
 	h.router.Get("/api/try/{slug}/context", h.context)
+	// Sandbox routes must be registered before the prod catch-all so they match first.
+	h.router.Handle("/api/try/{slug}/{appId}/sandbox", http.HandlerFunc(h.sandboxProxy))
+	h.router.Handle("/api/try/{slug}/{appId}/sandbox/*", http.HandlerFunc(h.sandboxProxy))
 	h.router.Handle("/api/try/{slug}/{appId}", http.HandlerFunc(h.proxy))
 	h.router.Handle("/api/try/{slug}/{appId}/*", http.HandlerFunc(h.proxy))
 	return h
@@ -61,7 +66,8 @@ func (h *Handler) context(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusUnauthorized, "unauthenticated")
 		return
 	}
-	id, _, err := h.products.ProductBySlug(r.Context(), chi.URLParam(r, "slug"))
+	slug := chi.URLParam(r, "slug")
+	id, _, err := h.products.ProductBySlug(r.Context(), slug)
 	if errors.Is(err, ErrNotFound) {
 		httpx.Error(w, http.StatusNotFound, "product not found")
 		return
@@ -78,7 +84,11 @@ func (h *Handler) context(w http.ResponseWriter, r *http.Request) {
 	if apps == nil {
 		apps = []AppRef{}
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"apps": apps})
+	sbAvail := false
+	if h.sandbox != "" {
+		sbAvail, _ = h.products.SandboxUpstream(r.Context(), slug)
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"apps": apps, "sandboxAvailable": sbAvail})
 }
 
 func (h *Handler) proxy(w http.ResponseWriter, r *http.Request) {
@@ -120,10 +130,72 @@ func (h *Handler) proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.do(w, r, h.gateway, key, contextPath, chi.URLParam(r, "*"))
+}
+
+func (h *Handler) sandboxProxy(w http.ResponseWriter, r *http.Request) {
+	userID := auth.UserID(r.Context())
+	if userID == 0 {
+		httpx.Error(w, http.StatusUnauthorized, "unauthenticated")
+		return
+	}
+
+	if h.sandbox == "" {
+		httpx.Error(w, http.StatusNotFound, "sandbox not available")
+		return
+	}
+
+	slug := chi.URLParam(r, "slug")
+	appID, err := strconv.ParseInt(chi.URLParam(r, "appId"), 10, 64)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "bad app id")
+		return
+	}
+
+	productID, contextPath, err := h.products.ProductBySlug(r.Context(), slug)
+	if errors.Is(err, ErrNotFound) {
+		httpx.Error(w, http.StatusNotFound, "product not found")
+		return
+	}
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed")
+		return
+	}
+
+	owns, err := h.access.OwnsApp(r.Context(), appID, userID)
+	if err != nil || !owns {
+		httpx.Error(w, http.StatusForbidden, "not your application")
+		return
+	}
+	status, err := h.access.SubscriptionStatus(r.Context(), appID, productID)
+	if err != nil || status != statusActive {
+		httpx.Error(w, http.StatusForbidden, "no approved subscription for this API")
+		return
+	}
+
+	ok, _ := h.products.SandboxUpstream(r.Context(), slug)
+	if !ok {
+		httpx.Error(w, http.StatusNotFound, "no sandbox for this product")
+		return
+	}
+
+	key, _ := h.access.SandboxKey(r.Context(), appID)
+	if key == "" {
+		httpx.Error(w, http.StatusForbidden, "no sandbox key for this application")
+		return
+	}
+
+	h.do(w, r, h.sandbox, key, contextPath, chi.URLParam(r, "*"))
+}
+
+// do builds and executes the proxied request to the gateway. It handles header
+// stripping, key injection, body capping, and response forwarding. The host is
+// ALWAYS gatewayBase — never client-supplied input (SSRF prevention).
+func (h *Handler) do(w http.ResponseWriter, r *http.Request, gatewayBase, key, contextPath, rest string) {
 	// Build the gateway target from the product's context path + the wildcard
 	// remainder. The host is ALWAYS the configured gateway — never client input.
-	rest := strings.TrimPrefix(chi.URLParam(r, "*"), "/")
-	target := h.gateway + contextPath
+	rest = strings.TrimPrefix(rest, "/")
+	target := gatewayBase + contextPath
 	if rest != "" {
 		target += "/" + rest
 	}

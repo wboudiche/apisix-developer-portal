@@ -20,6 +20,7 @@ type AppRef struct {
 // PUBLISHED products resolve; others yield ErrNotFound.
 type Products interface {
 	ProductBySlug(ctx context.Context, slug string) (id int64, contextPath string, err error)
+	SandboxUpstream(ctx context.Context, slug string) (bool, error)
 }
 
 // Access answers the authorization + key questions for Try-it.
@@ -28,4 +29,5 @@ type Access interface {
 	SubscriptionStatus(ctx context.Context, appID, productID int64) (string, error)
 	APIKey(ctx context.Context, appID int64) (string, error)
 	ApprovedApps(ctx context.Context, userID, productID int64) ([]AppRef, error)
+	SandboxKey(ctx context.Context, appID int64) (string, error)
 }

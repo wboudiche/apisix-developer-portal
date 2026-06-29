@@ -14,12 +14,14 @@ import (
 // Event kinds. Stored verbatim in app_events.kind; the frontend maps each to an
 // icon and label, so keep these stable.
 const (
-	KindAppCreated   = "app_created"
-	KindSubscribed   = "subscribed"
-	KindApproved     = "approved"
-	KindRejected     = "rejected"
-	KindUnsubscribed = "unsubscribed"
-	KindKeyRotated   = "key_rotated"
+	KindAppCreated        = "app_created"
+	KindSubscribed        = "subscribed"
+	KindApproved          = "approved"
+	KindRejected          = "rejected"
+	KindUnsubscribed      = "unsubscribed"
+	KindKeyRotated        = "key_rotated"
+	KindSandboxEnabled    = "sandbox_enabled"
+	KindSandboxKeyRotated = "sandbox_key_rotated"
 )
 
 // View is one feed entry as returned in the application detail response. The

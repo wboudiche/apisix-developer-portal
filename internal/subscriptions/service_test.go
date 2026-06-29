@@ -41,7 +41,7 @@ func TestServiceEmitsLifecycleEvents(t *testing.T) {
 	store := newMemStore()
 	gw := apisix.NewFake()
 	log := &captureLogger{}
-	svc := NewService(store, gw, func() string { return "k" }, log)
+	svc := NewService(store, gw, nil, func() string { return "k" }, log)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("Subscribe: %v", err)
@@ -75,7 +75,7 @@ func TestServiceActionSucceedsWhenEventLogFails(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" }, &captureLogger{failOn: "subscribed"})
+	svc := NewService(store, gw, nil, func() string { return "k" }, &captureLogger{failOn: "subscribed"})
 
 	// A failing activity log must not fail the subscribe it merely records.
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
@@ -87,19 +87,25 @@ func TestServiceActionSucceedsWhenEventLogFails(t *testing.T) {
 }
 
 type memStore struct {
-	creds    map[int64]Credential
-	products map[int64]ProductInfo
-	plans    map[int64]PlanInfo
-	records  map[int64]*SubscriptionRecord // subID -> record
-	nextID   int64
+	creds            map[int64]Credential
+	products         map[int64]ProductInfo
+	plans            map[int64]PlanInfo
+	records          map[int64]*SubscriptionRecord // subID -> record
+	nextID           int64
+	sandboxKeys      map[int64]string        // appID -> sandbox key
+	sandboxProducts  map[int64][]ProductInfo // appID -> sandbox-enabled active products
+	sandboxWhitelist map[int64][]string      // productID -> consumer usernames with sandbox key
 }
 
 func newMemStore() *memStore {
 	return &memStore{
-		creds:    map[int64]Credential{},
-		products: map[int64]ProductInfo{3: {ID: 3, ContextPath: "/pizzashack", Upstream: "echo:8080", Published: true}},
-		plans:    map[int64]PlanInfo{2: {ID: 2, Count: 100, WindowSeconds: 60}},
-		records:  map[int64]*SubscriptionRecord{},
+		creds:            map[int64]Credential{},
+		products:         map[int64]ProductInfo{3: {ID: 3, ContextPath: "/pizzashack", Upstream: "echo:8080", Published: true}},
+		plans:            map[int64]PlanInfo{2: {ID: 2, Count: 100, WindowSeconds: 60}},
+		records:          map[int64]*SubscriptionRecord{},
+		sandboxKeys:      map[int64]string{},
+		sandboxProducts:  map[int64][]ProductInfo{},
+		sandboxWhitelist: map[int64][]string{},
 	}
 }
 
@@ -222,11 +228,28 @@ func (m *memStore) UpdateCredentialKey(_ context.Context, appID int64, newKey st
 	return nil
 }
 
+func (m *memStore) GetSandboxKey(_ context.Context, appID int64) (string, error) {
+	return m.sandboxKeys[appID], nil
+}
+func (m *memStore) UpdateSandboxKey(_ context.Context, appID int64, key string) error {
+	m.sandboxKeys[appID] = key
+	return nil
+}
+func (m *memStore) SandboxConsumersForProduct(_ context.Context, productID int64) ([]string, error) {
+	return m.sandboxWhitelist[productID], nil
+}
+func (m *memStore) SandboxConsumersForPlan(_ context.Context, _ int64) ([]Credential, error) {
+	return nil, nil
+}
+func (m *memStore) SandboxProductsForApp(_ context.Context, appID int64) ([]ProductInfo, error) {
+	return m.sandboxProducts[appID], nil
+}
+
 func TestSubscribeIsPendingAndDoesNotProvision(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "fixed-key" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "fixed-key" }, nil)
 
 	cred, err := svc.Subscribe(ctx, 42, 3, 2)
 	if err != nil {
@@ -251,7 +274,7 @@ func TestApproveProvisionsConsumerAndRoute(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "fixed-key" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "fixed-key" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("Subscribe: %v", err)
@@ -278,7 +301,7 @@ func TestApproveDoesNotMarkActiveWhenRouteProvisioningFails(t *testing.T) {
 	store := newMemStore()
 	boom := errors.New("apisix down")
 	gw := &routeFailGateway{Fake: apisix.NewFake(), err: boom}
-	svc := NewService(store, gw, func() string { return "fixed-key" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "fixed-key" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("Subscribe: %v", err)
@@ -299,7 +322,7 @@ func TestApproveRouteWhitelistIncludesNewlyApprovedConsumer(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "fixed-key" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "fixed-key" }, nil)
 
 	// An existing active subscriber on the same product.
 	store.creds[41] = Credential{ApplicationID: 41, APIKey: "k41", ConsumerUsername: "app_41"}
@@ -335,7 +358,7 @@ func TestRejectSetsStatusAndDoesNotProvision(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "fixed-key" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "fixed-key" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("Subscribe: %v", err)
@@ -363,7 +386,7 @@ func TestUnsubscribeRemovesFromWhitelist(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "k" }, nil)
 	_, _ = svc.Subscribe(ctx, 42, 3, 2)
 	_, _ = svc.Subscribe(ctx, 43, 3, 2)
 	if err := svc.Approve(ctx, store.findRecord(42, 3).ID); err != nil {
@@ -387,7 +410,7 @@ func TestReprovisionRoute(t *testing.T) {
 	store.records[101] = &SubscriptionRecord{ID: 101, AppID: 1, ProductID: 7, PlanID: 2, Status: "active"}
 	store.records[102] = &SubscriptionRecord{ID: 102, AppID: 2, ProductID: 7, PlanID: 2, Status: "active"}
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, GenerateKey, nil)
+	svc := NewService(store, gw, nil, GenerateKey, nil)
 
 	if err := svc.ReprovisionRoute(context.Background(), 7); err != nil {
 		t.Fatalf("reprovision: %v", err)
@@ -409,7 +432,7 @@ func TestDeprovisionRoute(t *testing.T) {
 	store.products[7] = ProductInfo{ID: 7, ContextPath: "/seven", Upstream: "echo:8080", Published: true}
 	gw := apisix.NewFake()
 	_ = gw.EnsureRoute(context.Background(), RouteID(7), "/seven/*", "echo:8080", nil)
-	svc := NewService(store, gw, GenerateKey, nil)
+	svc := NewService(store, gw, nil, GenerateKey, nil)
 
 	if err := svc.DeprovisionRoute(context.Background(), 7); err != nil {
 		t.Fatalf("deprovision: %v", err)
@@ -427,7 +450,7 @@ func TestReprovisionPlanUpdatesEachConsumerLimit(t *testing.T) {
 	store.records[201] = &SubscriptionRecord{ID: 201, AppID: 1, ProductID: 3, PlanID: 2, Status: "active"}
 	store.records[202] = &SubscriptionRecord{ID: 202, AppID: 2, ProductID: 3, PlanID: 2, Status: "active"}
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, GenerateKey, nil)
+	svc := NewService(store, gw, nil, GenerateKey, nil)
 
 	if err := svc.ReprovisionPlan(ctx, 2); err != nil {
 		t.Fatalf("ReprovisionPlan: %v", err)
@@ -451,7 +474,7 @@ func TestSubscribeRejectsUnpublishedProduct(t *testing.T) {
 	store := newMemStore()
 	store.products[8] = ProductInfo{ID: 8, ContextPath: "/x", Upstream: "echo:8080", Published: false}
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "k" }, nil)
 
 	_, err := svc.Subscribe(ctx, 42, 8, 2)
 	if err != ErrNotFound {
@@ -466,7 +489,7 @@ func TestSubscribeRejectsAlreadyActive(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "k" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("first Subscribe: %v", err)
@@ -485,7 +508,7 @@ func TestSubscribeAllowsResubscribeWhenRejected(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "k" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("first Subscribe: %v", err)
@@ -507,7 +530,7 @@ func TestApproveRejectedReturnsInvalidTransition(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "k" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("Subscribe: %v", err)
@@ -531,7 +554,7 @@ func TestRejectAlreadyRejectedReturnsInvalidTransition(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "k" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "k" }, nil)
 
 	if _, err := svc.Subscribe(ctx, 42, 3, 2); err != nil {
 		t.Fatalf("Subscribe: %v", err)
@@ -551,7 +574,7 @@ func TestRotateKey_HappyPath(t *testing.T) {
 	store.creds[1] = Credential{ApplicationID: 1, APIKey: "old", ConsumerUsername: "app_1"}
 	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 1, ProductID: 3, PlanID: 2, Status: StatusActive}
 	gw := apisix.NewFake()
-	svc := NewService(store, gw, func() string { return "newkey123" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "newkey123" }, nil)
 
 	got, err := svc.RotateKey(ctx, 1)
 	if err != nil || got != "newkey123" {
@@ -567,7 +590,7 @@ func TestRotateKey_HappyPath(t *testing.T) {
 
 func TestRotateKey_NoCredential(t *testing.T) {
 	ctx := context.Background()
-	svc := NewService(newMemStore(), apisix.NewFake(), func() string { return "x" }, nil)
+	svc := NewService(newMemStore(), apisix.NewFake(), nil, func() string { return "x" }, nil)
 	if _, err := svc.RotateKey(ctx, 1); !errors.Is(err, ErrNoCredential) {
 		t.Fatalf("want ErrNoCredential, got %v", err)
 	}
@@ -577,7 +600,7 @@ func TestRotateKey_NoActiveSubscription(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()
 	store.creds[1] = Credential{ApplicationID: 1, APIKey: "old", ConsumerUsername: "app_1"}
-	svc := NewService(store, apisix.NewFake(), func() string { return "x" }, nil)
+	svc := NewService(store, apisix.NewFake(), nil, func() string { return "x" }, nil)
 	if _, err := svc.RotateKey(ctx, 1); !errors.Is(err, ErrNoActiveSubscription) {
 		t.Fatalf("want ErrNoActiveSubscription, got %v", err)
 	}
@@ -590,11 +613,83 @@ func TestRotateKey_GatewayFailureKeepsOldKey(t *testing.T) {
 	store := newMemStore()
 	store.creds[1] = Credential{ApplicationID: 1, APIKey: "old", ConsumerUsername: "app_1"}
 	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 1, ProductID: 3, PlanID: 2, Status: StatusActive}
-	svc := NewService(store, gw, func() string { return "newkey123" }, nil)
+	svc := NewService(store, gw, nil, func() string { return "newkey123" }, nil)
 	if _, err := svc.RotateKey(ctx, 1); err == nil {
 		t.Fatal("expected gateway error")
 	}
 	if store.creds[1].APIKey != "old" {
 		t.Errorf("DB key must NOT change on gateway failure, got %q", store.creds[1].APIKey)
+	}
+}
+
+func TestEnableSandboxProvisionsConsumerAndRoutes(t *testing.T) {
+	store := newMemStore()
+	// Seed app 42 with a credential and an active plan subscription.
+	store.creds[42] = Credential{ApplicationID: 42, APIKey: "prodkey", ConsumerUsername: "app_42"}
+	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 42, ProductID: 3, PlanID: 2, Status: StatusActive}
+	// Product 9 must be in the store so reprovisionSandboxRoute can look it up.
+	store.products[9] = ProductInfo{ID: 9, ContextPath: "/sb", SandboxUpstream: "echo:8080", Published: true}
+	store.sandboxProducts[42] = []ProductInfo{{ID: 9, ContextPath: "/sb", SandboxUpstream: "echo:8080"}}
+	store.sandboxWhitelist[9] = []string{"app_42"}
+	prodGW, sbGW := apisix.NewFake(), apisix.NewFake()
+	svc := NewService(store, prodGW, sbGW, func() string { return "sbkey" }, nil)
+
+	key, err := svc.EnableSandbox(context.Background(), 42)
+	if err != nil || key != "sbkey" {
+		t.Fatalf("EnableSandbox = %q, %v", key, err)
+	}
+	if _, ok := sbGW.Consumers["app_42"]; !ok {
+		t.Error("sandbox consumer app_42 not provisioned on the sandbox gateway")
+	}
+	if _, ok := prodGW.Consumers["app_42"]; ok {
+		t.Error("production gateway must not be touched by EnableSandbox")
+	}
+	if store.sandboxKeys[42] != "sbkey" {
+		t.Error("sandbox key not persisted")
+	}
+	// A sandbox route exists for product 9 on the sandbox gateway.
+	if _, ok := sbGW.Routes[RouteID(9)]; !ok {
+		t.Error("sandbox route for product 9 not provisioned")
+	}
+}
+
+func TestEnableSandbox409WhenNoEligibleSubscription(t *testing.T) {
+	store := newMemStore()
+	// Seed app 42 with a credential and an active plan but NO sandbox-enabled products.
+	store.creds[42] = Credential{ApplicationID: 42, APIKey: "prodkey", ConsumerUsername: "app_42"}
+	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 42, ProductID: 3, PlanID: 2, Status: StatusActive}
+	svc := NewService(store, apisix.NewFake(), apisix.NewFake(), func() string { return "k" }, nil)
+	if _, err := svc.EnableSandbox(context.Background(), 42); !errors.Is(err, ErrNoSandboxEligibleSubscription) {
+		t.Fatalf("err = %v, want ErrNoSandboxEligibleSubscription", err)
+	}
+}
+
+func TestRotateSandboxKey(t *testing.T) {
+	store := newMemStore()
+	store.sandboxKeys = map[int64]string{42: "old"}
+	store.creds[42] = Credential{ApplicationID: 42, APIKey: "prodkey", ConsumerUsername: "app_42"}
+	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 42, ProductID: 3, PlanID: 2, Status: StatusActive}
+	sbGW := apisix.NewFake()
+	svc := NewService(store, apisix.NewFake(), sbGW, func() string { return "new" }, nil)
+
+	key, err := svc.RotateSandboxKey(context.Background(), 42)
+	if err != nil || key != "new" {
+		t.Fatalf("RotateSandboxKey = %q, %v", key, err)
+	}
+	if store.sandboxKeys[42] != "new" {
+		t.Error("sandbox key not updated in store")
+	}
+	if sbGW.Consumers["app_42"].APIKey != "new" {
+		t.Errorf("sandbox gateway consumer key = %q, want new", sbGW.Consumers["app_42"].APIKey)
+	}
+}
+
+func TestRotateSandboxKey409WhenNoKey(t *testing.T) {
+	store := newMemStore()
+	store.sandboxKeys = map[int64]string{} // no sandbox key
+	store.creds[42] = Credential{ApplicationID: 42, APIKey: "prodkey", ConsumerUsername: "app_42"}
+	svc := NewService(store, apisix.NewFake(), apisix.NewFake(), func() string { return "x" }, nil)
+	if _, err := svc.RotateSandboxKey(context.Background(), 42); !errors.Is(err, ErrNoSandboxKey) {
+		t.Fatalf("err = %v, want ErrNoSandboxKey", err)
 	}
 }

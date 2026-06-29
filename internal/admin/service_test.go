@@ -74,12 +74,17 @@ func (f *fakeStore) ContextPathOverlaps(_ context.Context, p string, exceptID in
 }
 
 type fakeProv struct {
-	reprovisioned []int64
-	deprovisioned []int64
+	reprovisioned        []int64
+	deprovisioned        []int64
+	sandboxReprovisioned []int64
 }
 
 func (f *fakeProv) ReprovisionRoute(_ context.Context, id int64) error {
 	f.reprovisioned = append(f.reprovisioned, id)
+	return nil
+}
+func (f *fakeProv) ReprovisionSandboxRoute(_ context.Context, id int64) error {
+	f.sandboxReprovisioned = append(f.sandboxReprovisioned, id)
 	return nil
 }
 func (f *fakeProv) DeprovisionRoute(_ context.Context, id int64) error {
@@ -219,5 +224,40 @@ func TestContextPathOverlapBlocksUpdate(t *testing.T) {
 	_, err = svc.Update(context.Background(), same)
 	if err != nil {
 		t.Fatalf("update product with unchanged contextPath: got %v, want nil", err)
+	}
+}
+
+func TestUpdateReprovisionsSandboxWhenSandboxUpstreamChanges(t *testing.T) {
+	store := newFakeStore()
+	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p", UpstreamURL: "old:8080", SandboxUpstreamURL: "sb-old:8080"}
+	prov := &fakeProv{}
+	svc := NewService(store, prov)
+
+	updated := store.products[1]
+	updated.SandboxUpstreamURL = "sb-new:9090"
+	if _, err := svc.Update(context.Background(), updated); err != nil {
+		t.Fatal(err)
+	}
+	if len(prov.sandboxReprovisioned) != 1 || prov.sandboxReprovisioned[0] != 1 {
+		t.Fatalf("expected sandbox reprovision of product 1, got %v", prov.sandboxReprovisioned)
+	}
+	if len(prov.reprovisioned) != 0 {
+		t.Fatalf("expected no prod reprovision (upstream unchanged), got %v", prov.reprovisioned)
+	}
+}
+
+func TestUpdateNoSandboxReprovisionWhenSandboxUpstreamUnchanged(t *testing.T) {
+	store := newFakeStore()
+	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p", UpstreamURL: "old:8080", SandboxUpstreamURL: "sb-same:8080"}
+	prov := &fakeProv{}
+	svc := NewService(store, prov)
+
+	updated := store.products[1]
+	updated.Description = "changed text only"
+	if _, err := svc.Update(context.Background(), updated); err != nil {
+		t.Fatal(err)
+	}
+	if len(prov.sandboxReprovisioned) != 0 {
+		t.Fatalf("expected no sandbox reprovision, got %v", prov.sandboxReprovisioned)
 	}
 }

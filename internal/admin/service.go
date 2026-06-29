@@ -26,6 +26,7 @@ type Store interface {
 // Provisioner triggers APISIX route changes (satisfied by *subscriptions.Service).
 type Provisioner interface {
 	ReprovisionRoute(ctx context.Context, productID int64) error
+	ReprovisionSandboxRoute(ctx context.Context, productID int64) error
 	DeprovisionRoute(ctx context.Context, productID int64) error
 }
 
@@ -85,6 +86,11 @@ func (s *Service) Update(ctx context.Context, p Product) (Product, error) {
 			if err := s.prov.ReprovisionRoute(ctx, p.ID); err != nil {
 				return Product{}, err
 			}
+		}
+	}
+	if updated.SandboxUpstreamURL != old.SandboxUpstreamURL {
+		if err := s.prov.ReprovisionSandboxRoute(ctx, p.ID); err != nil {
+			return Product{}, err
 		}
 	}
 	return updated, nil

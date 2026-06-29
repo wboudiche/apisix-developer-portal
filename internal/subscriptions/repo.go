@@ -65,8 +65,8 @@ func (r *Repo) GetOrCreateCredential(ctx context.Context, appID int64, genKey fu
 func (r *Repo) GetProduct(ctx context.Context, id int64) (ProductInfo, error) {
 	var p ProductInfo
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, context_path, upstream_url, published FROM api_products WHERE id=$1`, id,
-	).Scan(&p.ID, &p.ContextPath, &p.Upstream, &p.Published)
+		`SELECT id, context_path, upstream_url, sandbox_upstream_url, published FROM api_products WHERE id=$1`, id,
+	).Scan(&p.ID, &p.ContextPath, &p.Upstream, &p.SandboxUpstream, &p.Published)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ProductInfo{}, ErrNotFound
 	}
@@ -210,7 +210,7 @@ func (r *Repo) UpdateCredentialKey(ctx context.Context, appID int64, newKey stri
 // including pending/rejected ones so the developer can see their status.
 func (r *Repo) SubscriptionsForApp(ctx context.Context, appID int64) ([]SubscriptionView, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT s.api_product_id, p.name, p.version, p.context_path, s.plan_id, pl.name, s.status
+		`SELECT s.api_product_id, p.name, p.version, p.context_path, s.plan_id, pl.name, s.status, (p.sandbox_upstream_url <> '')
 		 FROM subscriptions s
 		 JOIN api_products p ON p.id = s.api_product_id
 		 JOIN plans pl ON pl.id = s.plan_id
@@ -223,7 +223,7 @@ func (r *Repo) SubscriptionsForApp(ctx context.Context, appID int64) ([]Subscrip
 	var out []SubscriptionView
 	for rows.Next() {
 		var v SubscriptionView
-		if err := rows.Scan(&v.ProductID, &v.ProductName, &v.Version, &v.ContextPath, &v.PlanID, &v.PlanName, &v.Status); err != nil {
+		if err := rows.Scan(&v.ProductID, &v.ProductName, &v.Version, &v.ContextPath, &v.PlanID, &v.PlanName, &v.Status, &v.SandboxAvailable); err != nil {
 			return nil, err
 		}
 		out = append(out, v)
@@ -325,6 +325,113 @@ func (r *Repo) ApprovedAppsForProduct(ctx context.Context, userID, productID int
 			return nil, err
 		}
 		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// GetSandboxKey returns the application's decrypted sandbox key ("" when not
+// enabled), or ErrNotFound when the app has no credential row.
+func (r *Repo) GetSandboxKey(ctx context.Context, appID int64) (string, error) {
+	var stored string
+	err := r.pool.QueryRow(ctx,
+		`SELECT sandbox_api_key FROM credentials WHERE application_id=$1`, appID).Scan(&stored)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	if stored == "" {
+		return "", nil
+	}
+	return r.cipher.Decrypt(stored)
+}
+
+// UpdateSandboxKey encrypts and stores the application's sandbox key.
+func (r *Repo) UpdateSandboxKey(ctx context.Context, appID int64, key string) error {
+	enc, err := r.cipher.Encrypt(key)
+	if err != nil {
+		return err
+	}
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE credentials SET sandbox_api_key=$2 WHERE application_id=$1`, appID, enc)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SandboxConsumersForProduct returns the usernames of active subscribers whose
+// app has a sandbox key (the product's sandbox-route whitelist).
+func (r *Repo) SandboxConsumersForProduct(ctx context.Context, productID int64) ([]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT c.consumer_username FROM subscriptions s
+		   JOIN credentials c ON c.application_id = s.application_id
+		 WHERE s.api_product_id=$1 AND s.status='active' AND c.sandbox_api_key <> ''`, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+// SandboxConsumersForPlan returns the sandbox credential (username + sandbox key)
+// of active subscribers on the plan whose app has a sandbox key.
+func (r *Repo) SandboxConsumersForPlan(ctx context.Context, planID int64) ([]Credential, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT c.application_id, c.sandbox_api_key, c.consumer_username
+		   FROM subscriptions s
+		   JOIN credentials c ON c.application_id = s.application_id
+		 WHERE s.plan_id=$1 AND s.status='active' AND c.sandbox_api_key <> ''`, planID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Credential
+	for rows.Next() {
+		var c Credential
+		var stored string
+		if err := rows.Scan(&c.ApplicationID, &stored, &c.ConsumerUsername); err != nil {
+			return nil, err
+		}
+		if c.APIKey, err = r.cipher.Decrypt(stored); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// SandboxProductsForApp returns the products the app is ACTIVELY subscribed to
+// that have a sandbox upstream configured.
+func (r *Repo) SandboxProductsForApp(ctx context.Context, appID int64) ([]ProductInfo, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT p.id, p.context_path, p.sandbox_upstream_url
+		   FROM subscriptions s
+		   JOIN api_products p ON p.id = s.api_product_id
+		 WHERE s.application_id=$1 AND s.status='active' AND p.sandbox_upstream_url <> ''`, appID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ProductInfo
+	for rows.Next() {
+		var p ProductInfo
+		if err := rows.Scan(&p.ID, &p.ContextPath, &p.SandboxUpstream); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
 	}
 	return out, rows.Err()
 }

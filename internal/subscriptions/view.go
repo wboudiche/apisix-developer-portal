@@ -9,22 +9,25 @@ import (
 // SubscriptionView is one of an application's subscriptions, enriched with the
 // product and plan names for display, including its approval status.
 type SubscriptionView struct {
-	ProductID   int64  `json:"productId"`
-	ProductName string `json:"productName"`
-	Version     string `json:"version"`
-	ContextPath string `json:"contextPath"`
-	PlanID      int64  `json:"planId"`
-	PlanName    string `json:"planName"`
-	Status      string `json:"status"`
+	ProductID        int64  `json:"productId"`
+	ProductName      string `json:"productName"`
+	Version          string `json:"version"`
+	ContextPath      string `json:"contextPath"`
+	PlanID           int64  `json:"planId"`
+	PlanName         string `json:"planName"`
+	Status           string `json:"status"`
+	SandboxAvailable bool   `json:"sandboxAvailable"`
 }
 
 // AppDetail is the response for GET /api/applications/{id}: the app's gateway
 // key (empty until it has at least one subscription) and its subscriptions.
 type AppDetail struct {
-	APIKey           string             `json:"apiKey"`
-	ConsumerUsername string             `json:"consumerUsername"`
-	Subscriptions    []SubscriptionView `json:"subscriptions"`
-	Events           []events.View      `json:"events"`
+	APIKey            string             `json:"apiKey"`
+	ConsumerUsername  string             `json:"consumerUsername"`
+	Subscriptions     []SubscriptionView `json:"subscriptions"`
+	Events            []events.View      `json:"events"`
+	SandboxEnabled    bool               `json:"sandboxEnabled"`
+	SandboxGatewayUrl string             `json:"sandboxGatewayUrl"`
 }
 
 // SubscriptionRecord is the minimal subscription identity used by the approval
