@@ -393,3 +393,53 @@ func TestSandboxEnable409WhenIneligible(t *testing.T) {
 		t.Fatalf("status=%d (want 409)", rec.Code)
 	}
 }
+
+func TestSandboxRotateEndpoint(t *testing.T) {
+	store := newMemStore()
+	// Seed app 1 with a credential, an active plan subscription, and an existing sandbox key.
+	store.creds[1] = Credential{ApplicationID: 1, APIKey: "prodkey", ConsumerUsername: "app_1"}
+	store.nextID = 1
+	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 1, ProductID: 3, PlanID: 2, Status: StatusActive}
+	store.sandboxKeys[1] = "old"
+	sbGW := apisix.NewFake()
+	svc := NewService(store, apisix.NewFake(), sbGW, func() string { return "newsb" }, nil)
+	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
+	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "prodkey", ConsumerUsername: "app_1"}}
+	h := NewHandler(svc, reader, fakeEvents{}, owns, "http://localhost:9081")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/applications/1/sandbox/rotate", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 5))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
+	}
+	var out map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if out["sandboxApiKey"] != "newsb" {
+		t.Fatalf("body=%s", rec.Body)
+	}
+}
+
+func TestSandboxRotate409WhenNoKey(t *testing.T) {
+	store := newMemStore()
+	// Seed app 1 with a credential and an active subscription but NO sandbox key.
+	store.creds[1] = Credential{ApplicationID: 1, APIKey: "prodkey", ConsumerUsername: "app_1"}
+	store.nextID = 1
+	store.records[1] = &SubscriptionRecord{ID: 1, AppID: 1, ProductID: 3, PlanID: 2, Status: StatusActive}
+	// sandboxKeys is empty (not set) → RotateSandboxKey returns ErrNoSandboxKey.
+	svc := NewService(store, apisix.NewFake(), apisix.NewFake(), func() string { return "newsb" }, nil)
+	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
+	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "prodkey", ConsumerUsername: "app_1"}}
+	h := NewHandler(svc, reader, fakeEvents{}, owns, "http://localhost:9081")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/applications/1/sandbox/rotate", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 5))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status=%d (want 409)", rec.Code)
+	}
+}
