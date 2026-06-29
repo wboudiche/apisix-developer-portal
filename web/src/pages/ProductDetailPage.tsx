@@ -63,7 +63,7 @@ export function ProductDetailPage() {
               <span className="glyph" style={{ background: categoryDotColor(product.category) }}><ApiIcon name={product.icon} /></span>
               <div className="htext">
                 <h1>{product.name}</h1>
-                <p className="sub"><span className="cat">{product.category}</span> · v{product.version} · {product.ratingCount > 0 ? <>★ {product.rating.toFixed(1)} ({product.ratingCount})</> : 'Pas encore noté'}</p>
+                <p className="sub"><span className="cat">{product.category}</span> · v{product.version} · {product.ratingCount > 0 ? <>★ {product.rating.toFixed(1)} ({product.ratingCount})</> : 'Pas encore noté'}{product.authType === 'oauth2' && <> · <span className="pill oauth">OAuth2</span></>}</p>
                 {product.description && <p className="desc">{product.description}</p>}
                 <div className="tags">{product.tags.map(t => <span key={t} className="tag">{t}</span>)}</div>
               </div>
