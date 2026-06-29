@@ -24,7 +24,7 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
-const baseSelect = `SELECT id, name, slug, category, version, context_path, description, tags, icon, rating, rating_count
+const baseSelect = `SELECT id, name, slug, category, version, context_path, description, tags, icon, rating, rating_count, auth_type
 	FROM api_products WHERE published = true`
 
 // filterClause builds the shared WHERE tail (after "published = true") and its
@@ -156,6 +156,7 @@ func scanProducts(rows pgx.Rows) ([]Product, error) {
 			&p.Icon,
 			&p.Rating,
 			&p.RatingCount,
+			&p.AuthType,
 		); err != nil {
 			return nil, err
 		}

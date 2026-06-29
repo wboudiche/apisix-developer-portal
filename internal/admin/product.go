@@ -21,6 +21,7 @@ type Product struct {
 	UpstreamURL        string   `json:"upstreamUrl"`
 	SandboxUpstreamURL string   `json:"sandboxUpstreamUrl"`
 	Published          bool     `json:"published"`
+	AuthType           string   `json:"authType"`
 	// OpenAPISpec is the raw OpenAPI/Swagger document (JSON or YAML) backing the
 	// product's docs + Try-it. Empty = no docs. omitempty so list/update
 	// responses (which don't re-select it) don't echo an empty string.
@@ -51,6 +52,9 @@ func (p Product) validate(allowPrivate bool) string {
 	}
 	if p.SandboxUpstreamURL != "" && !ValidUpstream(p.SandboxUpstreamURL, allowPrivate) {
 		return "sandboxUpstreamUrl must be host:port and not target a private/internal address"
+	}
+	if p.AuthType != "" && p.AuthType != "key-auth" && p.AuthType != "oauth2" {
+		return "authType must be key-auth or oauth2"
 	}
 	return ""
 }

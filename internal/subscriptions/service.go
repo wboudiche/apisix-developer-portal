@@ -60,6 +60,7 @@ type ProductInfo struct {
 	Upstream        string // scheme://host:port (or bare host:port, treated as http)
 	SandboxUpstream string // product's sandbox backend, "" = no sandbox
 	Published       bool
+	AuthType        string
 }
 
 // PlanInfo is the rate limit for a subscription.

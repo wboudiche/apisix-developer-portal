@@ -122,6 +122,22 @@ func TestValidateAcceptsEmptySandboxUpstream(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsBadAuthType(t *testing.T) {
+	p := Product{Name: "X", Slug: "x", Category: "C", ContextPath: "/x", AuthType: "bogus"}
+	if p.validate(false) == "" {
+		t.Fatal("expected invalid auth_type to fail validation")
+	}
+}
+
+func TestValidateAcceptsKnownAuthTypes(t *testing.T) {
+	for _, at := range []string{"", "key-auth", "oauth2"} { // "" defaults to key-auth at the DB
+		p := Product{Name: "X", Slug: "x", Category: "C", ContextPath: "/x", AuthType: at}
+		if msg := p.validate(false); msg != "" {
+			t.Fatalf("authType %q should be valid: %s", at, msg)
+		}
+	}
+}
+
 func TestValidContextPath(t *testing.T) {
 	ok := []string{"/orders", "/v1/orders", "/a-b_c"}
 	bad := []string{"orders", "/orders/*", "/orders ", "/", "//x", "/a;b", "/orders/"}
