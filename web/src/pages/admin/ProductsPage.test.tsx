@@ -128,6 +128,18 @@ describe('ProductsPage', () => {
     expect(screen.getByLabelText('Context path')).toHaveValue('/v2')
   })
 
+  it('sends sandboxUpstreamUrl when creating a product', async () => {
+    const create = vi.spyOn(api, 'adminCreateProduct').mockResolvedValue({} as AdminProduct)
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getByRole('button', { name: /Nouveau produit/ }))
+    await userEvent.type(screen.getByLabelText('Nom'), 'OrdersAPI')
+    await userEvent.type(screen.getByLabelText(/Sandbox/i), 'sandbox.example.com:443')
+    await userEvent.click(screen.getByRole('button', { name: /Créer le produit/ }))
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0][1]).toMatchObject({ sandboxUpstreamUrl: 'sandbox.example.com:443' })
+  })
+
   it('persists the imported spec in the create payload', async () => {
     const create = vi.spyOn(api, 'adminCreateProduct').mockResolvedValue({} as AdminProduct)
     vi.spyOn(api, 'adminImportProduct').mockResolvedValue({

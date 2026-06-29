@@ -169,6 +169,16 @@ export async function rotateKey(token: string, appId: number): Promise<{ apiKey:
   return parse<{ apiKey: string }>(await fetch(url, { method: 'POST', headers: authHeaders(token) }), url)
 }
 
+export async function enableSandbox(token: string, appId: number): Promise<{ sandboxApiKey: string }> {
+  const url = `/api/applications/${appId}/sandbox/enable`
+  return parse<{ sandboxApiKey: string }>(await fetch(url, { method: 'POST', headers: authHeaders(token) }), url)
+}
+
+export async function rotateSandboxKey(token: string, appId: number): Promise<{ sandboxApiKey: string }> {
+  const url = `/api/applications/${appId}/sandbox/rotate`
+  return parse<{ sandboxApiKey: string }>(await fetch(url, { method: 'POST', headers: authHeaders(token) }), url)
+}
+
 export async function unsubscribe(token: string, appId: number, productId: number): Promise<void> {
   const url = `/api/applications/${appId}/subscriptions/${productId}`
   const res = await fetch(url, { method: 'DELETE', headers: authHeaders(token) })
@@ -191,9 +201,9 @@ async function sendAuthed(method: string, url: string, token: string, body?: unk
   }
 }
 
-export async function getTryContext(token: string, slug: string): Promise<{ apps: TryApp[] }> {
+export async function getTryContext(token: string, slug: string): Promise<{ apps: TryApp[]; sandboxAvailable?: boolean }> {
   const url = `/api/try/${encodeURIComponent(slug)}/context`
-  return parse<{ apps: TryApp[] }>(await fetch(url, { headers: authHeaders(token) }), url)
+  return parse<{ apps: TryApp[]; sandboxAvailable?: boolean }>(await fetch(url, { headers: authHeaders(token) }), url)
 }
 
 // --- Admin: products ---

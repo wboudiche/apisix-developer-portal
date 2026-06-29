@@ -30,3 +30,6 @@
 .apidetail .rv-meta{display:flex;align-items:center;gap:8px;font-size:13px}
 .apidetail .rv-when{color:var(--faint);font-size:12px}
 .apidetail .rv-comment{font-size:14px;color:var(--ink-soft,var(--fg));margin-top:6px}
+.apidetail .try-mode{display:inline-flex;gap:4px;margin:8px 0;border:1px solid var(--border-2);border-radius:10px;padding:3px;width:max-content}
+.apidetail .try-mode button{font:inherit;font-size:13px;padding:5px 12px;border:none;background:none;color:var(--muted);border-radius:7px;cursor:pointer}
+.apidetail .try-mode button.on{background:var(--accent);color:#fff}

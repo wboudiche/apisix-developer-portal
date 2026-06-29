@@ -23,6 +23,8 @@ export function ProductDetailPage() {
   const [apps, setApps] = useState<TryApp[]>([])
   const [appId, setAppId] = useState<number | null>(null)
   const [tryLoaded, setTryLoaded] = useState(false)
+  const [sandboxAvailable, setSandboxAvailable] = useState(false)
+  const [tryMode, setTryMode] = useState<'prod' | 'sandbox'>('prod')
 
   useEffect(() => {
     let alive = true
@@ -39,13 +41,15 @@ export function ProductDetailPage() {
     let alive = true
     setTryLoaded(false)
     getTryContext(token, slug)
-      .then(r => { if (alive) { setApps(r.apps); setAppId(r.apps[0]?.id ?? null) } })
-      .catch(() => { if (alive) { setApps([]); setAppId(null) } })
+      .then(r => { if (alive) { setApps(r.apps); setAppId(r.apps[0]?.id ?? null); setSandboxAvailable(r.sandboxAvailable ?? false) } })
+      .catch(() => { if (alive) { setApps([]); setAppId(null); setSandboxAvailable(false) } })
       .finally(() => { if (alive) setTryLoaded(true) })
     return () => { alive = false }
   }, [token, slug])
 
-  const serverUrl = appId != null ? `/api/try/${slug}/${appId}` : undefined
+  const serverUrl = appId != null
+    ? `/api/try/${slug}/${appId}${tryMode === 'sandbox' && sandboxAvailable ? '/sandbox' : ''}`
+    : undefined
 
   return (
     <>
@@ -72,6 +76,12 @@ export function ProductDetailPage() {
                 <select id="app-picker" value={appId ?? ''} onChange={e => setAppId(Number(e.target.value))}>
                   {apps.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
+              </div>
+            )}
+            {token && appId != null && sandboxAvailable && (
+              <div className="try-mode" role="group" aria-label="Environnement">
+                <button type="button" className={tryMode === 'prod' ? 'on' : ''} onClick={() => setTryMode('prod')} aria-pressed={tryMode === 'prod'}>Production</button>
+                <button type="button" className={tryMode === 'sandbox' ? 'on' : ''} onClick={() => setTryMode('sandbox')} aria-pressed={tryMode === 'sandbox'}>Sandbox</button>
               </div>
             )}
             {token && tryLoaded && apps.length === 0 && (
