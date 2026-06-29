@@ -48,6 +48,7 @@ export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Produ
         <div className="cmeta">
           <span className="pill">v<b>{p.version}</b></span>
           <span className="pill ctx">{p.contextPath}</span>
+          {p.authType === 'oauth2' && <span className="pill oauth">OAuth2</span>}
         </div>
         <div className="cfoot">
           <div className="ctags">{p.tags.slice(0, 2).map(t => <span key={t} className="ctag">{t}</span>)}</div>

@@ -76,3 +76,22 @@ it('hides the sandbox card entirely when not eligible', () => {
   render(<CredentialsTab {...base} sandboxEligible={false} sandboxEnabled={false} sandboxGatewayUrl="" />)
   expect(screen.queryByText(/sandbox/i)).not.toBeInTheDocument()
 })
+
+it('shows the OAuth2 card when oauthEligible and saves the client id', async () => {
+  const spy = vi.spyOn(api, 'setOidcClient').mockResolvedValue(undefined)
+  render(<CredentialsTab {...base} sandboxEligible={false} oauthEligible oidcIssuer="https://idp.example" oidcClientId="" />)
+  expect(screen.getByText(/https:\/\/idp.example/)).toBeInTheDocument()
+  await userEvent.type(screen.getByLabelText(/Client ID/i), 'client-abc')
+  await userEvent.click(screen.getByRole('button', { name: /Enregistrer/i }))
+  await waitFor(() => expect(spy).toHaveBeenCalledWith('jwt', 7, 'client-abc'))
+})
+
+it('prefills the client id input from oidcClientId', () => {
+  render(<CredentialsTab {...base} sandboxEligible={false} oauthEligible oidcIssuer="https://idp.example" oidcClientId="existing-client" />)
+  expect((screen.getByLabelText(/Client ID/i) as HTMLInputElement).value).toBe('existing-client')
+})
+
+it('hides the OAuth2 card when not oauthEligible', () => {
+  render(<CredentialsTab {...base} sandboxEligible={false} oauthEligible={false} />)
+  expect(screen.queryByLabelText(/Client ID/i)).not.toBeInTheDocument()
+})

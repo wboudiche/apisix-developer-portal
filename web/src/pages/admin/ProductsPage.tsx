@@ -12,9 +12,9 @@ import { ImportModal } from './ImportModal'
 
 interface FormState {
   name: string; slug: string; category: string; contextPath: string
-  upstreamUrl: string; sandboxUpstreamUrl: string; version: string; published: boolean; openapiSpec: string
+  upstreamUrl: string; sandboxUpstreamUrl: string; authType: string; version: string; published: boolean; openapiSpec: string
 }
-const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', upstreamUrl: '', sandboxUpstreamUrl: '', version: '1.0.0', published: true, openapiSpec: '' }
+const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', upstreamUrl: '', sandboxUpstreamUrl: '', authType: 'key-auth', version: '1.0.0', published: true, openapiSpec: '' }
 
 function PlusIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M12 5v14M5 12h14" strokeLinecap="round" /></svg>
@@ -62,6 +62,7 @@ export function ProductsPage() {
       name: draft.name, slug: draft.slug, category: draft.category,
       contextPath: draft.contextPath, upstreamUrl: draft.upstreamUrl,
       sandboxUpstreamUrl: draft.sandboxUpstreamUrl ?? '',
+      authType: draft.authType ?? 'key-auth',
       version: draft.version, published: false, openapiSpec: draft.openapiSpec ?? '',
     })
     setSlugTouched(true)
@@ -70,7 +71,7 @@ export function ProductsPage() {
 
   function openEdit(p: AdminProduct) {
     setEditing(p)
-    setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, sandboxUpstreamUrl: p.sandboxUpstreamUrl ?? '', version: p.version, published: p.published, openapiSpec: '' })
+    setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, sandboxUpstreamUrl: p.sandboxUpstreamUrl ?? '', authType: p.authType ?? 'key-auth', version: p.version, published: p.published, openapiSpec: '' })
     setSlugTouched(true)
     setOpen(true)
   }
@@ -86,6 +87,7 @@ export function ProductsPage() {
       contextPath: form.contextPath.trim() || `/${slug}`,
       upstreamUrl: form.upstreamUrl.trim(),
       sandboxUpstreamUrl: form.sandboxUpstreamUrl.trim(),
+      authType: form.authType,
       version: form.version.trim() || '1.0.0',
       published: form.published,
       openapiSpec: form.openapiSpec,
@@ -198,6 +200,16 @@ export function ProductsPage() {
             <label htmlFor="f-sbup">Sandbox <span className="opt">host:port — optionnel</span></label>
             <input id="f-sbup" className="ipt mono" placeholder="ex. sandbox.example.com:443"
               value={form.sandboxUpstreamUrl} onChange={e => set('sandboxUpstreamUrl', e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="f-auth">Méthode d'authentification</label>
+            <select id="f-auth" className="ipt" value={form.authType} onChange={e => set('authType', e.target.value)}>
+              <option value="key-auth">Clé API (key-auth)</option>
+              <option value="oauth2">OAuth2 (OIDC)</option>
+            </select>
+            {form.authType === 'oauth2' && (
+              <p className="fieldhint">Les routes OAuth2 valident les jetons Bearer auprès de l'émetteur OIDC configuré ; les abonnés s'authentifient avec leur propre client.</p>
+            )}
           </div>
           <div className="field">
             <label htmlFor="f-ver">Version</label>

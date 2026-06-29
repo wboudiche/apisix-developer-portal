@@ -174,6 +174,10 @@ export async function enableSandbox(token: string, appId: number): Promise<{ san
   return parse<{ sandboxApiKey: string }>(await fetch(url, { method: 'POST', headers: authHeaders(token) }), url)
 }
 
+export async function setOidcClient(token: string, appId: number, clientId: string): Promise<void> {
+  return sendAuthed('PUT', `/api/applications/${appId}/oidc-client`, token, { clientId })
+}
+
 export async function rotateSandboxKey(token: string, appId: number): Promise<{ sandboxApiKey: string }> {
   const url = `/api/applications/${appId}/sandbox/rotate`
   return parse<{ sandboxApiKey: string }>(await fetch(url, { method: 'POST', headers: authHeaders(token) }), url)

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { maskKey, copyText } from './helpers'
 import { formatRelative } from './activity'
-import { rotateKey, enableSandbox, rotateSandboxKey } from '../../api/client'
+import { rotateKey, enableSandbox, rotateSandboxKey, setOidcClient } from '../../api/client'
 import type { ModalSpec } from '../../components/ConfirmModal'
 
 function EyeIcon() {
@@ -27,7 +27,8 @@ function RotateIcon() {
 }
 
 export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, openModal, onRotated,
-  sandboxEnabled, sandboxGatewayUrl, sandboxEligible }: {
+  sandboxEnabled, sandboxGatewayUrl, sandboxEligible,
+  oauthEligible, oidcClientId, oidcIssuer }: {
   apiKey: string
   appId: number
   token: string
@@ -38,6 +39,9 @@ export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, op
   sandboxEnabled?: boolean
   sandboxGatewayUrl?: string
   sandboxEligible: boolean
+  oauthEligible?: boolean
+  oidcClientId?: string
+  oidcIssuer?: string
 }) {
   const [shownKey, setShownKey] = useState(apiKey)
   const [revealed, setRevealed] = useState(false)
@@ -48,6 +52,21 @@ export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, op
   const [sbRevealed, setSbRevealed] = useState(false)
   const [sbBusy, setSbBusy] = useState(false)
   const hasSandbox = (sandboxEnabled ?? false) || sbKey !== ''
+
+  const [clientId, setClientId] = useState(oidcClientId ?? '')
+  const [oauthBusy, setOauthBusy] = useState(false)
+  useEffect(() => { setClientId(oidcClientId ?? '') }, [oidcClientId])
+
+  async function onSaveClientId() {
+    if (oauthBusy) return
+    setOauthBusy(true)
+    try {
+      await setOidcClient(token, appId, clientId.trim())
+      notify('Client OIDC enregistré'); onRotated()
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Échec de l’enregistrement.')
+    } finally { setOauthBusy(false) }
+  }
 
   async function onEnableSandbox() {
     if (sbBusy) return
@@ -104,7 +123,7 @@ export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, op
 
   return (
     <section className="panel">
-      <p className="section-title">Clés API · key-auth</p>
+      <p className="section-title">Identifiants d'accès</p>
       <div className="keygrid">
         <div className="keycard prod">
           <div className="kh"><span className="env">Production <span className="envtag">live</span></span></div>
@@ -150,6 +169,24 @@ export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, op
             </div>
           </div>
         )}
+        {oauthEligible && (
+          <div className="keycard oauth">
+            <div className="kh"><span className="env">OAuth2 <span className="envtag">OIDC</span></span></div>
+            <div className="kb">
+              <label htmlFor="oidc-cid" className="oauthlabel">Client ID</label>
+              <div className="keyrow">
+                <input id="oidc-cid" className="ipt mono" placeholder="votre client_id OIDC"
+                  value={clientId} onChange={e => setClientId(e.target.value)} />
+                <button className="btn btn-primary" disabled={oauthBusy} onClick={onSaveClientId}>Enregistrer</button>
+              </div>
+              <p className="keymeta">
+                <span>Émetteur · <span className="mono">{oidcIssuer || '—'}</span></span>
+                <span><span className="mono">grant_type=client_credentials</span></span>
+              </p>
+              <p className="keyhint">Enregistrez votre client auprès de votre fournisseur OIDC, puis collez son <span className="mono">client_id</span> ici. Le portail ne stocke jamais le secret.</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="dcard" style={{ marginTop: 20 }}>
@@ -157,7 +194,7 @@ export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, op
         <div className="cb" style={{ display: 'flex', gap: 30, flexWrap: 'wrap', fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
           <div style={{ flex: 1, minWidth: 240 }}><b style={{ color: 'var(--fg)', display: 'block', marginBottom: 5 }}>Ne la partagez jamais côté client</b>La clé porte tous les droits de l&apos;application. Gardez-la côté serveur ou dans un secret manager.</div>
           <div style={{ flex: 1, minWidth: 240 }}><b style={{ color: 'var(--fg)', display: 'block', marginBottom: 5 }}>Régénérer invalide l&apos;ancienne</b>La rotation révoque immédiatement le <span className="mono">consumer</span> précédent dans APISIX. Prévoyez le redéploiement.</div>
-          <div style={{ flex: 1, minWidth: 240 }}><b style={{ color: 'var(--fg)', display: 'block', marginBottom: 5 }}>OAuth2 / JWT à venir</b>Le portail est prêt pour un second fournisseur d&apos;identifiants (<span className="mono">jwt-auth</span>) sans réécriture.</div>
+          <div style={{ flex: 1, minWidth: 240 }}><b style={{ color: 'var(--fg)', display: 'block', marginBottom: 5 }}>OAuth2 disponible</b>Les API marquées OAuth2 valident des jetons Bearer auprès de votre fournisseur OIDC ; renseignez le <span className="mono">client_id</span> de votre application ci-dessus.</div>
         </div>
       </div>
     </section>

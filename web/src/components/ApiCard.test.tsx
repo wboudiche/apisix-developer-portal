@@ -79,4 +79,16 @@ describe('ApiCard', () => {
     render(<MemoryRouter><ApiCard p={p} onSubscribe={() => {}} /></MemoryRouter>)
     expect(screen.getByText(/Pas encore noté/i)).toBeInTheDocument()
   })
+
+  it('shows an OAuth2 badge for oauth2 products', () => {
+    const p = { id: 1, name: 'X', slug: 'x', category: 'C', version: '1', contextPath: '/x', description: '', tags: [], icon: '', rating: 0, ratingCount: 0, authType: 'oauth2' }
+    render(<MemoryRouter><ApiCard p={p} onSubscribe={() => {}} /></MemoryRouter>)
+    expect(screen.getByText('OAuth2')).toBeInTheDocument()
+  })
+
+  it('shows no OAuth2 badge for key-auth products', () => {
+    const p = { id: 1, name: 'X', slug: 'x', category: 'C', version: '1', contextPath: '/x', description: '', tags: [], icon: '', rating: 0, ratingCount: 0, authType: 'key-auth' }
+    render(<MemoryRouter><ApiCard p={p} onSubscribe={() => {}} /></MemoryRouter>)
+    expect(screen.queryByText('OAuth2')).not.toBeInTheDocument()
+  })
 })
