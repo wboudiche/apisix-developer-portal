@@ -30,6 +30,12 @@ type Config struct {
 	PrometheusURL           string // base URL of the Prometheus read API; empty disables usage metrics
 	OIDCIssuer              string // OIDC issuer URL; empty means OAuth2 is disabled
 	OIDCClientIDClaim       string // JWT claim that carries the client_id (default "azp")
+	SMTPHost                string
+	SMTPPort                string
+	SMTPUsername            string
+	SMTPPassword            string
+	SMTPFrom                string
+	PortalBaseURL           string
 }
 
 func get(key, def string) string {
@@ -58,6 +64,12 @@ func Load() Config {
 		PrometheusURL:           get("PROMETHEUS_URL", "http://localhost:9099"),
 		OIDCIssuer:              get("OIDC_ISSUER", ""),
 		OIDCClientIDClaim:       get("OIDC_CLIENT_ID_CLAIM", "azp"),
+		SMTPHost:                get("SMTP_HOST", ""),
+		SMTPPort:                get("SMTP_PORT", "587"),
+		SMTPUsername:            get("SMTP_USERNAME", ""),
+		SMTPPassword:            get("SMTP_PASSWORD", ""),
+		SMTPFrom:                get("SMTP_FROM", ""),
+		PortalBaseURL:           get("PORTAL_BASE_URL", "http://localhost:5173"),
 	}
 }
 
@@ -78,6 +90,10 @@ func (c Config) UsesDevSecrets() bool {
 
 // OIDCConfigured reports whether OAuth2 (bring-your-own OIDC) is wired up.
 func (c Config) OIDCConfigured() bool { return c.OIDCIssuer != "" }
+
+// SMTPConfigured reports whether email notifications are wired up. When false,
+// the notifier is unset and every notification call is a no-op.
+func (c Config) SMTPConfigured() bool { return c.SMTPHost != "" && c.SMTPFrom != "" }
 
 // SandboxConfigured reports whether the dedicated sandbox gateway is wired up.
 // When false, the portal runs production-only and all sandbox features are inert.

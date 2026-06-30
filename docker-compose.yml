@@ -43,6 +43,12 @@ services:
     environment:
       HTTP_PORT: "8080"
 
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
+
   prometheus:
     image: prom/prometheus:v2.54.1
     depends_on: [apisix]

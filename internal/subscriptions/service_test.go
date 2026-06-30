@@ -265,6 +265,54 @@ func (m *memStore) SetAppOIDCClientID(_ context.Context, appID int64, clientID s
 	return nil
 }
 
+type fakeNotifier struct{ requested, approved, rejected int }
+
+func (f *fakeNotifier) SubscriptionRequested(_, _, _ int64) { f.requested++ }
+func (f *fakeNotifier) SubscriptionApproved(_, _, _ int64)  { f.approved++ }
+func (f *fakeNotifier) SubscriptionRejected(_, _ int64)     { f.rejected++ }
+
+func TestSubscribeNotifiesAdmins(t *testing.T) {
+	store := newMemStore() // product 3 key-auth published, plan 2
+	fn := &fakeNotifier{}
+	svc := NewService(store, apisix.NewFake(), nil, func() string { return "k" }, nil)
+	svc.SetNotifier(fn)
+	if _, err := svc.Subscribe(context.Background(), 1, 3, 2); err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
+	if fn.requested != 1 {
+		t.Fatalf("requested=%d want 1", fn.requested)
+	}
+}
+
+func TestApproveRejectNotifyDeveloper(t *testing.T) {
+	store := newMemStore()
+	fn := &fakeNotifier{}
+	svc := NewService(store, apisix.NewFake(), nil, func() string { return "k" }, nil)
+	svc.SetNotifier(fn)
+	// seed a pending subscription record the store can approve/reject (mirror the
+	// existing approve/reject tests' record setup in this file)
+	store.records[10] = &SubscriptionRecord{ID: 10, AppID: 1, ProductID: 3, PlanID: 2, Status: StatusPending}
+	if err := svc.Approve(context.Background(), 10); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+	store.records[11] = &SubscriptionRecord{ID: 11, AppID: 1, ProductID: 3, PlanID: 2, Status: StatusPending}
+	if err := svc.Reject(context.Background(), 11); err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+	if fn.approved != 1 || fn.rejected != 1 {
+		t.Fatalf("approved=%d rejected=%d", fn.approved, fn.rejected)
+	}
+}
+
+func TestNilNotifierSafe(t *testing.T) {
+	store := newMemStore()
+	svc := NewService(store, apisix.NewFake(), nil, func() string { return "k" }, nil)
+	// no SetNotifier — must not panic
+	if _, err := svc.Subscribe(context.Background(), 1, 3, 2); err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
+}
+
 func TestSubscribeIsPendingAndDoesNotProvision(t *testing.T) {
 	ctx := context.Background()
 	store := newMemStore()

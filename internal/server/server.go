@@ -18,6 +18,7 @@ import (
 	"apisix-portal/internal/events"
 	"apisix-portal/internal/httpx"
 	"apisix-portal/internal/metrics"
+	"apisix-portal/internal/notify"
 	"apisix-portal/internal/plans"
 	"apisix-portal/internal/ratings"
 	"apisix-portal/internal/subscriptions"
@@ -64,6 +65,10 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	}
 	subSvc := subscriptions.NewService(subRepo, gw, sandboxGW, subscriptions.GenerateKey, eventRepo)
 	subSvc.ConfigureOIDC(cfg.OIDCIssuer, cfg.OIDCClientIDClaim)
+	if cfg.SMTPConfigured() {
+		sender := notify.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFrom)
+		subSvc.SetNotifier(notify.NewNotifier(sender, notify.NewRepo(pool), cfg.PortalBaseURL))
+	}
 	owns := func(ctx context.Context, appID, userID int64) (bool, error) {
 		if _, err := appsRepo.Get(ctx, appID, userID); err != nil {
 			if err == applications.ErrNotFound {

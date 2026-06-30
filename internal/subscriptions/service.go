@@ -18,6 +18,14 @@ type EventLogger interface {
 	Log(ctx context.Context, appID int64, kind string, productID, planID *int64) error
 }
 
+// Notifier sends approval-loop emails (satisfied by *notify.Notifier). nil =
+// disabled. Calls are best-effort and async (the implementation never blocks).
+type Notifier interface {
+	SubscriptionRequested(appID, productID, planID int64)
+	SubscriptionApproved(appID, productID, planID int64)
+	SubscriptionRejected(appID, productID int64)
+}
+
 // Subscription lifecycle states.
 const (
 	StatusPending  = "pending"
@@ -158,6 +166,7 @@ type Service struct {
 	sandboxGW  apisix.Gateway
 	genKey     func() string
 	events     EventLogger
+	notifier   Notifier
 	oidcIssuer string
 	oidcClaim  string
 }
@@ -165,6 +174,9 @@ type Service struct {
 // ConfigureOIDC wires the trusted issuer + client-id claim for oauth2 product
 // routes. Empty issuer leaves OAuth2 provisioning disabled.
 func (s *Service) ConfigureOIDC(issuer, claim string) { s.oidcIssuer, s.oidcClaim = issuer, claim }
+
+// SetNotifier wires email notifications. Left unset (nil) = disabled.
+func (s *Service) SetNotifier(n Notifier) { s.notifier = n }
 
 func NewService(store Store, gw, sandboxGW apisix.Gateway, genKey func() string, eventLog EventLogger) *Service {
 	return &Service{store: store, gw: gw, sandboxGW: sandboxGW, genKey: genKey, events: eventLog}
@@ -337,6 +349,9 @@ func (s *Service) Subscribe(ctx context.Context, appID, productID, planID int64)
 			return Credential{}, err
 		}
 		s.logEvent(ctx, appID, events.KindSubscribed, &productID, &planID)
+		if s.notifier != nil {
+			s.notifier.SubscriptionRequested(appID, productID, planID)
+		}
 		return Credential{}, nil // no key for oauth2 apps
 	}
 	cred, err := s.store.GetOrCreateCredential(ctx, appID, s.genKey)
@@ -347,6 +362,9 @@ func (s *Service) Subscribe(ctx context.Context, appID, productID, planID int64)
 		return Credential{}, err
 	}
 	s.logEvent(ctx, appID, events.KindSubscribed, &productID, &planID)
+	if s.notifier != nil {
+		s.notifier.SubscriptionRequested(appID, productID, planID)
+	}
 	return cred, nil
 }
 
@@ -393,6 +411,9 @@ func (s *Service) Approve(ctx context.Context, subID int64) error {
 			return err
 		}
 		s.logEvent(ctx, rec.AppID, events.KindApproved, &rec.ProductID, &rec.PlanID)
+		if s.notifier != nil {
+			s.notifier.SubscriptionApproved(rec.AppID, rec.ProductID, rec.PlanID)
+		}
 		return nil
 	}
 	plan, err := s.store.GetPlan(ctx, rec.PlanID)
@@ -425,6 +446,9 @@ func (s *Service) Approve(ctx context.Context, subID int64) error {
 		}
 	}
 	s.logEvent(ctx, rec.AppID, events.KindApproved, &rec.ProductID, &rec.PlanID)
+	if s.notifier != nil {
+		s.notifier.SubscriptionApproved(rec.AppID, rec.ProductID, rec.PlanID)
+	}
 	return nil
 }
 
@@ -445,6 +469,9 @@ func (s *Service) Reject(ctx context.Context, subID int64) error {
 	// Log after the durable status change (see Unsubscribe): the event reflects
 	// the persisted "rejected" state regardless of the gateway sync outcome.
 	s.logEvent(ctx, rec.AppID, events.KindRejected, &rec.ProductID, nil)
+	if s.notifier != nil {
+		s.notifier.SubscriptionRejected(rec.AppID, rec.ProductID)
+	}
 	if err := s.ReprovisionRoute(ctx, rec.ProductID); err != nil {
 		return err
 	}

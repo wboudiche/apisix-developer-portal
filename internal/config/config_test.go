@@ -185,6 +185,28 @@ func TestOIDCConfigDefaultsAndPredicate(t *testing.T) {
 	}
 }
 
+func TestSMTPConfigDefaultsAndPredicate(t *testing.T) {
+	t.Setenv("PORTAL_ENV", "dev")
+	c := Load()
+	if c.SMTPPort != "587" {
+		t.Errorf("SMTPPort default = %q, want 587", c.SMTPPort)
+	}
+	if c.PortalBaseURL != "http://localhost:5173" {
+		t.Errorf("PortalBaseURL default = %q", c.PortalBaseURL)
+	}
+	if c.SMTPConfigured() {
+		t.Error("SMTPConfigured() = true with no host/from")
+	}
+	c.SMTPHost, c.SMTPFrom = "mail.example.com", "portal@example.com"
+	if !c.SMTPConfigured() {
+		t.Error("SMTPConfigured() = false with host+from set")
+	}
+	c.SMTPFrom = ""
+	if c.SMTPConfigured() {
+		t.Error("SMTPConfigured() = true with from empty")
+	}
+}
+
 func TestSandboxConfigDefaultsAndPredicate(t *testing.T) {
 	t.Setenv("PORTAL_ENV", "dev")
 	c := Load()
