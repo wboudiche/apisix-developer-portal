@@ -47,6 +47,12 @@ func (n *Notifier) SubscriptionRejected(appID, productID int64) {
 // deliver resolves recipients, renders the template, and sends. Synchronous and
 // best-effort: all errors are logged and dropped; empty recipients are skipped.
 func (n *Notifier) deliver(kind string, appID, productID, planID int64) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("notify: recovered panic in deliver: %v", r)
+		}
+	}()
+
 	ctx, cancel := context.WithTimeout(context.Background(), deliverTimeout)
 	defer cancel()
 

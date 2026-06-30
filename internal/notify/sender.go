@@ -4,6 +4,7 @@ package notify
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/smtp"
@@ -27,16 +28,53 @@ func NewSMTPSender(host, port, username, password, from string) *SMTPSender {
 	return &SMTPSender{host: host, port: port, username: username, password: password, from: from}
 }
 
-func (s *SMTPSender) Send(_ context.Context, to []string, subject, body string) error {
+func (s *SMTPSender) Send(ctx context.Context, to []string, subject, body string) error {
 	if len(to) == 0 {
 		return nil
 	}
-	var auth smtp.Auth
-	if s.username != "" {
-		auth = smtp.PlainAuth("", s.username, s.password, s.host)
-	}
 	addr := net.JoinHostPort(s.host, s.port)
-	return smtp.SendMail(addr, auth, s.from, to, buildMessage(s.from, to, subject, body))
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if dl, ok := ctx.Deadline(); ok {
+		_ = conn.SetDeadline(dl) // bound the whole SMTP conversation incl. DATA
+	}
+	c, err := smtp.NewClient(conn, s.host)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+	if ok, _ := c.Extension("STARTTLS"); ok {
+		if err := c.StartTLS(&tls.Config{ServerName: s.host}); err != nil {
+			return err
+		}
+	}
+	if s.username != "" {
+		if err := c.Auth(smtp.PlainAuth("", s.username, s.password, s.host)); err != nil {
+			return err
+		}
+	}
+	if err := c.Mail(s.from); err != nil {
+		return err
+	}
+	for _, rcpt := range to {
+		if err := c.Rcpt(rcpt); err != nil {
+			return err
+		}
+	}
+	w, err := c.Data()
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write(buildMessage(s.from, to, subject, body)); err != nil {
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	return c.Quit()
 }
 
 // buildMessage renders an RFC 5322 plaintext message with CRLF line endings.
