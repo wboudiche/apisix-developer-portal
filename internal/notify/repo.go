@@ -12,16 +12,33 @@ type Repo struct{ pool *pgxpool.Pool }
 
 func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
-// OwnerEmailForApp returns the app owner's email + the app name.
-func (r *Repo) OwnerEmailForApp(ctx context.Context, appID int64) (string, string, error) {
-	var email, name string
-	err := r.pool.QueryRow(ctx,
-		`SELECT u.email, a.name FROM applications a JOIN users u ON u.id = a.owner_id WHERE a.id=$1`, appID).
-		Scan(&email, &name)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", "", nil
+// OwnerEmailsForApp returns the emails of the owners of the app's team + the app name.
+func (r *Repo) OwnerEmailsForApp(ctx context.Context, appID int64) ([]string, string, error) {
+	var name string
+	if err := r.pool.QueryRow(ctx, `SELECT name FROM applications WHERE id=$1`, appID).Scan(&name); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, "", nil
+		}
+		return nil, "", err
 	}
-	return email, name, err
+	rows, err := r.pool.Query(ctx,
+		`SELECT u.email FROM applications a
+		 JOIN team_members tm ON tm.team_id = a.team_id AND tm.role='owner'
+		 JOIN users u ON u.id = tm.user_id
+		 WHERE a.id=$1`, appID)
+	if err != nil {
+		return nil, name, err
+	}
+	defer rows.Close()
+	var emails []string
+	for rows.Next() {
+		var e string
+		if err := rows.Scan(&e); err != nil {
+			return nil, name, err
+		}
+		emails = append(emails, e)
+	}
+	return emails, name, rows.Err()
 }
 
 // AdminEmails returns the emails of all admin users.

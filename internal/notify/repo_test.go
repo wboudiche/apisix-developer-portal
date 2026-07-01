@@ -11,6 +11,14 @@ import (
 
 func testRepo(t *testing.T) (context.Context, *Repo, int64) {
 	t.Helper()
+	ctx, repo, appID, _ := seedTeamApp(t)
+	return ctx, repo, appID
+}
+
+// seedTeamApp seeds a user + personal team (with that user as owner) + an app
+// under that team. It returns the appID and the owner's email.
+func seedTeamApp(t *testing.T) (context.Context, *Repo, int64, string) {
+	t.Helper()
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
 		url = "postgres://portal:portal@localhost:5432/portal?sslmode=disable"
@@ -25,27 +33,37 @@ func testRepo(t *testing.T) (context.Context, *Repo, int64) {
 	}
 	t.Cleanup(pool.Close)
 	suf := time.Now().Format("150405.000000000")
-	var uid, appID int64
+	ownerEmail := "owner+" + suf + "@e.com"
+	var uid, teamID, appID int64
 	if err := pool.QueryRow(ctx, `INSERT INTO users(email,password_hash,name,role) VALUES($1,'x','Dev','developer') RETURNING id`,
-		"owner+"+suf+"@e.com").Scan(&uid); err != nil {
+		ownerEmail).Scan(&uid); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
-	if err := pool.QueryRow(ctx, `INSERT INTO applications(owner_id,name) VALUES($1,$2) RETURNING id`,
-		uid, "App "+suf).Scan(&appID); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO teams(name,personal) VALUES($1,true) RETURNING id`,
+		"Dev "+suf).Scan(&teamID); err != nil {
+		t.Fatalf("seed team: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO team_members(team_id,user_id,role) VALUES($1,$2,'owner')`,
+		teamID, uid); err != nil {
+		t.Fatalf("seed team member: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO applications(owner_id,name,team_id) VALUES($1,$2,$3) RETURNING id`,
+		uid, "App "+suf, teamID).Scan(&appID); err != nil {
 		t.Fatalf("seed app: %v", err)
 	}
 	t.Cleanup(func() {
 		_, _ = pool.Exec(ctx, `DELETE FROM applications WHERE id=$1`, appID)
+		_, _ = pool.Exec(ctx, `DELETE FROM teams WHERE id=$1`, teamID)
 		_, _ = pool.Exec(ctx, `DELETE FROM users WHERE id=$1`, uid)
 	})
-	return ctx, NewRepo(pool), appID
+	return ctx, NewRepo(pool), appID, ownerEmail
 }
 
 func TestOwnerEmailAndAdmins(t *testing.T) {
 	ctx, repo, appID := testRepo(t)
-	email, name, err := repo.OwnerEmailForApp(ctx, appID)
-	if err != nil || email == "" || name == "" {
-		t.Fatalf("OwnerEmailForApp = %q,%q,%v", email, name, err)
+	emails, name, err := repo.OwnerEmailsForApp(ctx, appID)
+	if err != nil || len(emails) == 0 || name == "" {
+		t.Fatalf("OwnerEmailsForApp = %v,%q,%v", emails, name, err)
 	}
 	admins, err := repo.AdminEmails(ctx)
 	if err != nil {
@@ -55,5 +73,22 @@ func TestOwnerEmailAndAdmins(t *testing.T) {
 		if a == "" {
 			t.Fatal("empty admin email")
 		}
+	}
+}
+
+func TestOwnerEmailsForAppReturnsTeamOwners(t *testing.T) {
+	ctx, repo, appID, ownerEmail := seedTeamApp(t)
+	emails, name, err := repo.OwnerEmailsForApp(ctx, appID)
+	if err != nil || name == "" {
+		t.Fatalf("err=%v name=%q", err, name)
+	}
+	var found bool
+	for _, e := range emails {
+		if e == ownerEmail {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("owner email %q not in %v", ownerEmail, emails)
 	}
 }
