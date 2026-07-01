@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"apisix-portal/internal/applications"
 	"apisix-portal/internal/catalog"
 	"apisix-portal/internal/subscriptions"
+	"apisix-portal/internal/teams"
 	"apisix-portal/internal/tryit"
 )
 
@@ -25,16 +25,12 @@ func (a tryitProductsAdapter) SandboxUpstream(ctx context.Context, slug string) 
 }
 
 type tryitAccessAdapter struct {
-	apps *applications.Repo
-	subs *subscriptions.Repo
+	teams *teams.Repo
+	subs  *subscriptions.Repo
 }
 
 func (a tryitAccessAdapter) OwnsApp(ctx context.Context, appID, userID int64) (bool, error) {
-	_, err := a.apps.Get(ctx, appID, userID)
-	if errors.Is(err, applications.ErrNotFound) {
-		return false, nil
-	}
-	return err == nil, err
+	return a.teams.IsMemberOfApp(ctx, userID, appID)
 }
 
 func (a tryitAccessAdapter) SubscriptionStatus(ctx context.Context, appID, productID int64) (string, error) {

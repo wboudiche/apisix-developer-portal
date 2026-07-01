@@ -22,6 +22,7 @@ import (
 	"apisix-portal/internal/plans"
 	"apisix-portal/internal/ratings"
 	"apisix-portal/internal/subscriptions"
+	"apisix-portal/internal/teams"
 	"apisix-portal/internal/tryit"
 )
 
@@ -51,7 +52,8 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	plansH := plans.NewHandler(plans.NewRepo(pool))
 	eventRepo := events.NewRepo(pool)
 	appsRepo := applications.NewRepo(pool)
-	appsH := applications.NewHandler(appsRepo, eventRepo)
+	teamsRepo := teams.NewRepo(pool)
+	appsH := applications.NewHandler(appsRepo, teamsRepo, eventRepo)
 	cipher, err := crypto.New(cfg.CredentialEncKey)
 	if err != nil {
 		log.Fatalf("credential cipher: %v", err)
@@ -70,13 +72,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		subSvc.SetNotifier(notify.NewNotifier(sender, notify.NewRepo(pool), cfg.PortalBaseURL))
 	}
 	owns := func(ctx context.Context, appID, userID int64) (bool, error) {
-		if _, err := appsRepo.Get(ctx, appID, userID); err != nil {
-			if err == applications.ErrNotFound {
-				return false, nil
-			}
-			return false, err
-		}
-		return true, nil
+		return teamsRepo.IsMemberOfApp(ctx, userID, appID)
 	}
 	subH := subscriptions.NewHandler(subSvc, subRepo, eventRepo, owns, sandboxGatewayURL)
 	subH.SetOIDCIssuer(cfg.OIDCIssuer)
@@ -110,7 +106,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	mux.Handle("/api/admin/subscriptions", requireAdmin(subAdminH))
 	mux.Handle("/api/admin/subscriptions/", requireAdmin(subAdminH))
 	tryProducts := tryitProductsAdapter{repo: catRepo}
-	tryAccess := tryitAccessAdapter{apps: appsRepo, subs: subRepo}
+	tryAccess := tryitAccessAdapter{teams: teamsRepo, subs: subRepo}
 	tryH := tryit.NewHandler(tryProducts, tryAccess, cfg.APISIXGatewayURL, sandboxGatewayURL)
 	ratingsH := ratings.NewHandler(
 		ratings.NewRepo(pool),
