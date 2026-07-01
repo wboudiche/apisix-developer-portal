@@ -87,6 +87,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	planAdminSvc := admin.NewPlanService(admin.NewPlanRepo(pool), subSvc)
 	planAdminH := admin.NewPlanHandler(planAdminSvc)
 	subAdminH := subscriptions.NewAdminHandler(subSvc)
+	teamsH := teams.NewHandler(teamsRepo)
 
 	requireAuth := auth.RequireAuth(tok)
 	requireAdmin := auth.RequireAdmin(tok, authRepo.GetRole)
@@ -105,6 +106,8 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	mux.Handle("/api/admin/plans/", requireAdmin(planAdminH))
 	mux.Handle("/api/admin/subscriptions", requireAdmin(subAdminH))
 	mux.Handle("/api/admin/subscriptions/", requireAdmin(subAdminH))
+	mux.Handle("/api/teams", requireAuth(teamsH))
+	mux.Handle("/api/teams/", requireAuth(teamsH))
 	tryProducts := tryitProductsAdapter{repo: catRepo}
 	tryAccess := tryitAccessAdapter{teams: teamsRepo, subs: subRepo}
 	tryH := tryit.NewHandler(tryProducts, tryAccess, cfg.APISIXGatewayURL, sandboxGatewayURL)
