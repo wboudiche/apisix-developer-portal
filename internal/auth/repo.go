@@ -19,10 +19,16 @@ type Repo struct{ pool *pgxpool.Pool }
 
 func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
-// Create inserts a developer user and returns it.
+// Create inserts a developer user AND their personal team (a team of one) in a
+// single transaction, returning the user.
 func (r *Repo) Create(ctx context.Context, email, passwordHash, name string) (User, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return User{}, err
+	}
+	defer tx.Rollback(ctx)
 	var u User
-	err := r.pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`INSERT INTO users (email, password_hash, name, role)
 		 VALUES ($1,$2,$3,'developer')
 		 RETURNING id, email, name, role`,
@@ -33,6 +39,22 @@ func (r *Repo) Create(ctx context.Context, email, passwordHash, name string) (Us
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return User{}, ErrEmailTaken
 		}
+		return User{}, err
+	}
+	teamName := name
+	if teamName == "" {
+		teamName = email
+	}
+	var teamID int64
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO teams(name, personal) VALUES($1, true) RETURNING id`, teamName).Scan(&teamID); err != nil {
+		return User{}, err
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO team_members(team_id, user_id, role) VALUES($1,$2,'owner')`, teamID, u.ID); err != nil {
+		return User{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return User{}, err
 	}
 	return u, nil

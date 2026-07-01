@@ -17,7 +17,7 @@ const deliverTimeout = 20 * time.Second
 
 // Resolver resolves recipient emails + display names (satisfied by *Repo).
 type Resolver interface {
-	OwnerEmailForApp(ctx context.Context, appID int64) (string, string, error)
+	OwnerEmailsForApp(ctx context.Context, appID int64) ([]string, string, error)
 	AdminEmails(ctx context.Context) ([]string, error)
 	ProductName(ctx context.Context, productID int64) (string, error)
 	PlanName(ctx context.Context, planID int64) (string, error)
@@ -63,9 +63,9 @@ func (n *Notifier) deliver(kind string, appID, productID, planID int64) {
 	if product == "" {
 		product = "une API"
 	}
-	owner, appName, err := n.repo.OwnerEmailForApp(ctx, appID)
+	ownerEmails, appName, err := n.repo.OwnerEmailsForApp(ctx, appID)
 	if err != nil {
-		log.Printf("notify: owner email (app=%d): %v", appID, err)
+		log.Printf("notify: owner emails (app=%d): %v", appID, err)
 	}
 	if appName == "" {
 		appName = "votre application"
@@ -89,7 +89,7 @@ func (n *Notifier) deliver(kind string, appID, productID, planID int64) {
 		body = fmt.Sprintf("Une nouvelle demande d'abonnement attend votre validation.\n\nApplication : %s\nAPI : %s\nForfait : %s\n\nExaminez-la ici : %s/admin/approvals\n",
 			appName, product, plan, n.baseURL)
 	case kindApproved:
-		to = []string{owner}
+		to = ownerEmails
 		plan, _ := n.repo.PlanName(ctx, planID)
 		if plan == "" {
 			plan = "votre forfait"
@@ -98,7 +98,7 @@ func (n *Notifier) deliver(kind string, appID, productID, planID int64) {
 		body = fmt.Sprintf("Bonne nouvelle ! L'abonnement de %s à %s (%s) est approuvé.\n\nRetrouvez vos identifiants ici : %s/applications\n",
 			appName, product, plan, n.baseURL)
 	case kindRejected:
-		to = []string{owner}
+		to = ownerEmails
 		subject = "Votre demande d'abonnement a été refusée"
 		body = fmt.Sprintf("La demande d'abonnement de %s à %s n'a pas été approuvée.\n\nParcourez le catalogue : %s/\n",
 			appName, product, n.baseURL)

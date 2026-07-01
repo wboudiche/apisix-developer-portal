@@ -34,8 +34,13 @@ func testRepo(t *testing.T) (context.Context, *events.Repo, int64) {
 		"evt+"+suffix+"@example.com").Scan(&uid); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
+	var teamID int64
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO applications(owner_id,name) VALUES($1,'EvtApp') RETURNING id`, uid).Scan(&appID); err != nil {
+		`INSERT INTO teams(name,personal) VALUES('t',true) RETURNING id`).Scan(&teamID); err != nil {
+		t.Fatalf("seed team: %v", err)
+	}
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO applications(owner_id,name,team_id) VALUES($1,'EvtApp',$2) RETURNING id`, uid, teamID).Scan(&appID); err != nil {
 		t.Fatalf("seed app: %v", err)
 	}
 	return ctx, events.NewRepo(pool), appID

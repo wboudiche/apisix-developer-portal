@@ -21,8 +21,8 @@ func (f *fakeSender) Send(_ context.Context, to []string, subject, body string) 
 
 type fakeResolver struct{}
 
-func (fakeResolver) OwnerEmailForApp(_ context.Context, _ int64) (string, string, error) {
-	return "dev@example.com", "Mon App", nil
+func (fakeResolver) OwnerEmailsForApp(_ context.Context, _ int64) ([]string, string, error) {
+	return []string{"dev@example.com"}, "Mon App", nil
 }
 func (fakeResolver) AdminEmails(_ context.Context) ([]string, error) {
 	return []string{"admin@example.com"}, nil
@@ -66,6 +66,6 @@ func TestDeliverSkipsEmptyRecipients(t *testing.T) {
 
 type emptyResolver struct{ fakeResolver }
 
-func (emptyResolver) OwnerEmailForApp(_ context.Context, _ int64) (string, string, error) {
-	return "", "", nil
+func (emptyResolver) OwnerEmailsForApp(_ context.Context, _ int64) ([]string, string, error) {
+	return nil, "", nil
 }

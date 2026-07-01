@@ -35,8 +35,17 @@ func testRepo(t *testing.T) (context.Context, *Repo, int64) {
 		"credowner+"+suffix+"@example.com").Scan(&uid); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
+	var teamID int64
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO applications(owner_id,name) VALUES($1,'CredApp') RETURNING id`, uid).Scan(&appID); err != nil {
+		`INSERT INTO teams(name,personal) VALUES('t',true) RETURNING id`).Scan(&teamID); err != nil {
+		t.Fatalf("seed team: %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO team_members(team_id,user_id,role) VALUES($1,$2,'owner')`, teamID, uid); err != nil {
+		t.Fatalf("seed team membership: %v", err)
+	}
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO applications(owner_id,name,team_id) VALUES($1,'CredApp',$2) RETURNING id`, uid, teamID).Scan(&appID); err != nil {
 		t.Fatalf("seed app: %v", err)
 	}
 	cipher, err := crypto.New(config.DevCredentialEncKey)
@@ -150,11 +159,18 @@ func TestApprovedAppsForProduct(t *testing.T) {
 		t.Fatalf("seed product: %v", err)
 	}
 
-	// Seed a second application owned by the same user.
+	// Seed a team to satisfy applications.team_id, then a second application
+	// owned by the same user.
+	var team2ID int64
+	if err := repo.pool.QueryRow(ctx,
+		`INSERT INTO teams(name,personal) VALUES('t',true) RETURNING id`,
+	).Scan(&team2ID); err != nil {
+		t.Fatalf("seed team2: %v", err)
+	}
 	var app2ID int64
 	if err := repo.pool.QueryRow(ctx,
-		`INSERT INTO applications(owner_id,name) VALUES($1,$2) RETURNING id`,
-		ownerID, "TryitApp2+"+suffix,
+		`INSERT INTO applications(owner_id,name,team_id) VALUES($1,$2,$3) RETURNING id`,
+		ownerID, "TryitApp2+"+suffix, team2ID,
 	).Scan(&app2ID); err != nil {
 		t.Fatalf("seed app2: %v", err)
 	}
@@ -197,6 +213,99 @@ func TestApprovedAppsForProduct(t *testing.T) {
 	}
 	if len(refs) != 1 {
 		t.Fatalf("expected 1 approved app, got %d", len(refs))
+	}
+	if refs[0].ID != appID {
+		t.Fatalf("expected appID=%d, got %d", appID, refs[0].ID)
+	}
+}
+
+// TestApprovedAppsForProductTeamMember proves that a non-owner team member
+// (not the application's owner_id) sees the team's approved app in their
+// try-it context dropdown, since applications are team-owned.
+func TestApprovedAppsForProductTeamMember(t *testing.T) {
+	ctx, repo, _ := testRepo(t)
+	suffix := time.Now().Format("150405.000000000")
+
+	// Seed a product.
+	var productID int64
+	if err := repo.pool.QueryRow(ctx,
+		`INSERT INTO api_products(name,slug,category,context_path,published)
+		 VALUES($1,$2,'Test','/tryit-member-test',true) RETURNING id`,
+		"TryitMemberProduct+"+suffix, "tryit-member-product-"+suffix,
+	).Scan(&productID); err != nil {
+		t.Fatalf("seed product: %v", err)
+	}
+
+	// Seed a team owner and a second, non-owner team member.
+	var ownerID, memberID int64
+	if err := repo.pool.QueryRow(ctx,
+		`INSERT INTO users(email,password_hash,name) VALUES($1,'x','Owner') RETURNING id`,
+		"teamowner+"+suffix+"@example.com").Scan(&ownerID); err != nil {
+		t.Fatalf("seed owner: %v", err)
+	}
+	if err := repo.pool.QueryRow(ctx,
+		`INSERT INTO users(email,password_hash,name) VALUES($1,'x','Member') RETURNING id`,
+		"teammember+"+suffix+"@example.com").Scan(&memberID); err != nil {
+		t.Fatalf("seed member: %v", err)
+	}
+
+	// Seed the team (must exist before applications.team_id, which is NOT NULL)
+	// and add both users as members: the owner and a plain 'member'.
+	var teamID int64
+	if err := repo.pool.QueryRow(ctx,
+		`INSERT INTO teams(name,personal) VALUES('Acme',false) RETURNING id`,
+	).Scan(&teamID); err != nil {
+		t.Fatalf("seed team: %v", err)
+	}
+	if _, err := repo.pool.Exec(ctx,
+		`INSERT INTO team_members(team_id,user_id,role) VALUES($1,$2,'owner')`, teamID, ownerID); err != nil {
+		t.Fatalf("seed owner membership: %v", err)
+	}
+	if _, err := repo.pool.Exec(ctx,
+		`INSERT INTO team_members(team_id,user_id,role) VALUES($1,$2,'member')`, teamID, memberID); err != nil {
+		t.Fatalf("seed member membership: %v", err)
+	}
+
+	// The app is owned (owner_id) by the team owner, but belongs to the team.
+	var appID int64
+	if err := repo.pool.QueryRow(ctx,
+		`INSERT INTO applications(owner_id,name,team_id) VALUES($1,$2,$3) RETURNING id`,
+		ownerID, "TeamApp+"+suffix, teamID,
+	).Scan(&appID); err != nil {
+		t.Fatalf("seed app: %v", err)
+	}
+
+	var planID int64
+	if err := repo.pool.QueryRow(ctx,
+		`INSERT INTO plans(name,rate_limit_count,rate_limit_window_s)
+		 VALUES($1,100,60) RETURNING id`, "TryitMemberPlan+"+suffix,
+	).Scan(&planID); err != nil {
+		t.Fatalf("seed plan: %v", err)
+	}
+
+	if _, err := repo.pool.Exec(ctx,
+		`INSERT INTO subscriptions(application_id,api_product_id,plan_id,status) VALUES($1,$2,$3,'active')`,
+		appID, productID, planID); err != nil {
+		t.Fatalf("seed active sub: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_, _ = repo.pool.Exec(ctx, `DELETE FROM subscriptions WHERE api_product_id=$1`, productID)
+		_, _ = repo.pool.Exec(ctx, `DELETE FROM applications WHERE id=$1`, appID)
+		_, _ = repo.pool.Exec(ctx, `DELETE FROM plans WHERE id=$1`, planID)
+		_, _ = repo.pool.Exec(ctx, `DELETE FROM api_products WHERE id=$1`, productID)
+		_, _ = repo.pool.Exec(ctx, `DELETE FROM team_members WHERE team_id=$1`, teamID)
+		_, _ = repo.pool.Exec(ctx, `DELETE FROM teams WHERE id=$1`, teamID)
+		_, _ = repo.pool.Exec(ctx, `DELETE FROM users WHERE id IN ($1,$2)`, ownerID, memberID)
+	})
+
+	// The non-owner member must see the team's approved app.
+	refs, err := repo.ApprovedAppsForProduct(ctx, memberID, productID)
+	if err != nil {
+		t.Fatalf("ApprovedAppsForProduct: %v", err)
+	}
+	if len(refs) != 1 {
+		t.Fatalf("expected 1 approved app for team member, got %d", len(refs))
 	}
 	if refs[0].ID != appID {
 		t.Fatalf("expected appID=%d, got %d", appID, refs[0].ID)

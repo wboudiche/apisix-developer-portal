@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -15,8 +16,14 @@ import (
 )
 
 type Store interface {
-	Create(ctx context.Context, ownerID int64, name, description string) (Application, error)
-	ListByOwner(ctx context.Context, ownerID int64, p paging.Params) ([]Application, int, error)
+	Create(ctx context.Context, ownerID, teamID int64, name, description string) (Application, error)
+	ListForUser(ctx context.Context, userID int64, p paging.Params) ([]Application, int, error)
+}
+
+// Membership resolves the caller's default team + validates chosen teams.
+type Membership interface {
+	PersonalTeamID(ctx context.Context, userID int64) (int64, error)
+	Role(ctx context.Context, teamID, userID int64) (string, bool, error)
 }
 
 // EventLogger records the app-created activity event (satisfied by
@@ -27,12 +34,13 @@ type EventLogger interface {
 
 type Handler struct {
 	store  Store
+	teams  Membership
 	events EventLogger
 	router chi.Router
 }
 
-func NewHandler(store Store, eventLog EventLogger) *Handler {
-	h := &Handler{store: store, events: eventLog, router: chi.NewRouter()}
+func NewHandler(store Store, teams Membership, eventLog EventLogger) *Handler {
+	h := &Handler{store: store, teams: teams, events: eventLog, router: chi.NewRouter()}
 	h.router.Post("/api/applications", h.create)
 	h.router.Get("/api/applications", h.list)
 	return h
@@ -41,15 +49,35 @@ func NewHandler(store Store, eventLog EventLogger) *Handler {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.ServeHTTP(w, r) }
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
+	uid := auth.UserID(r.Context())
 	var body struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
+		TeamID      int64  `json:"teamId"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Name == "" {
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Name) == "" {
 		httpx.Error(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	a, err := h.store.Create(r.Context(), auth.UserID(r.Context()), body.Name, body.Description)
+	teamID := body.TeamID
+	if teamID == 0 {
+		var err error
+		if teamID, err = h.teams.PersonalTeamID(r.Context(), uid); err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "no personal team")
+			return
+		}
+	} else {
+		_, isMember, err := h.teams.Role(r.Context(), teamID, uid)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "membership check failed")
+			return
+		}
+		if !isMember {
+			httpx.Error(w, http.StatusForbidden, "not a member of that team")
+			return
+		}
+	}
+	a, err := h.store.Create(r.Context(), uid, teamID, strings.TrimSpace(body.Name), body.Description)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to create application")
 		return
@@ -65,7 +93,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	p := paging.Parse(r.URL.Query())
-	apps, total, err := h.store.ListByOwner(r.Context(), auth.UserID(r.Context()), p)
+	apps, total, err := h.store.ListForUser(r.Context(), auth.UserID(r.Context()), p)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to list applications")
 		return
