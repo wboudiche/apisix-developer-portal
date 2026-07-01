@@ -375,7 +375,8 @@ func (r *Repo) ApprovedAppsForProduct(ctx context.Context, userID, productID int
 	rows, err := r.pool.Query(ctx,
 		`SELECT a.id, a.name FROM applications a
 		   JOIN subscriptions s ON s.application_id = a.id
-		 WHERE a.owner_id=$1 AND s.api_product_id=$2 AND s.status='active'
+		 WHERE a.team_id IN (SELECT team_id FROM team_members WHERE user_id=$1)
+		   AND s.api_product_id=$2 AND s.status='active'
 		 ORDER BY a.created_at`, userID, productID)
 	if err != nil {
 		return nil, err
