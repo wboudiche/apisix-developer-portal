@@ -35,8 +35,13 @@ func testRepo(t *testing.T) (context.Context, *Repo, int64) {
 		"credowner+"+suffix+"@example.com").Scan(&uid); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
+	var teamID int64
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO applications(owner_id,name) VALUES($1,'CredApp') RETURNING id`, uid).Scan(&appID); err != nil {
+		`INSERT INTO teams(name,personal) VALUES('t',true) RETURNING id`).Scan(&teamID); err != nil {
+		t.Fatalf("seed team: %v", err)
+	}
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO applications(owner_id,name,team_id) VALUES($1,'CredApp',$2) RETURNING id`, uid, teamID).Scan(&appID); err != nil {
 		t.Fatalf("seed app: %v", err)
 	}
 	cipher, err := crypto.New(config.DevCredentialEncKey)
@@ -150,11 +155,18 @@ func TestApprovedAppsForProduct(t *testing.T) {
 		t.Fatalf("seed product: %v", err)
 	}
 
-	// Seed a second application owned by the same user.
+	// Seed a team to satisfy applications.team_id, then a second application
+	// owned by the same user.
+	var team2ID int64
+	if err := repo.pool.QueryRow(ctx,
+		`INSERT INTO teams(name,personal) VALUES('t',true) RETURNING id`,
+	).Scan(&team2ID); err != nil {
+		t.Fatalf("seed team2: %v", err)
+	}
 	var app2ID int64
 	if err := repo.pool.QueryRow(ctx,
-		`INSERT INTO applications(owner_id,name) VALUES($1,$2) RETURNING id`,
-		ownerID, "TryitApp2+"+suffix,
+		`INSERT INTO applications(owner_id,name,team_id) VALUES($1,$2,$3) RETURNING id`,
+		ownerID, "TryitApp2+"+suffix, team2ID,
 	).Scan(&app2ID); err != nil {
 		t.Fatalf("seed app2: %v", err)
 	}

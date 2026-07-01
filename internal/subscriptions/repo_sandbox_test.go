@@ -34,7 +34,9 @@ func sandboxTestRepo(t *testing.T) (context.Context, *Repo, int64, int64, int64)
 	suf := time.Now().Format("150405.000000000")
 	var uid, appID, pid, planID int64
 	pool.QueryRow(ctx, `INSERT INTO users(email,password_hash,name) VALUES($1,'x','U') RETURNING id`, "sb+"+suf+"@e.com").Scan(&uid)
-	pool.QueryRow(ctx, `INSERT INTO applications(owner_id,name) VALUES($1,'App') RETURNING id`, uid).Scan(&appID)
+	var teamID int64
+	pool.QueryRow(ctx, `INSERT INTO teams(name,personal) VALUES('t',true) RETURNING id`).Scan(&teamID)
+	pool.QueryRow(ctx, `INSERT INTO applications(owner_id,name,team_id) VALUES($1,'App',$2) RETURNING id`, uid, teamID).Scan(&appID)
 	pool.QueryRow(ctx, `INSERT INTO api_products(name,slug,category,context_path,sandbox_upstream_url,published) VALUES($1,$2,'C','/sb','echo:8080',true) RETURNING id`, "SbProd "+suf, "sbprod-"+suf).Scan(&pid)
 	pool.QueryRow(ctx, `INSERT INTO plans(name,rate_limit_count,rate_limit_window_s) VALUES($1,5,60) RETURNING id`, "SbPlan "+suf).Scan(&planID)
 	pool.Exec(ctx, `INSERT INTO subscriptions(application_id,api_product_id,plan_id,status) VALUES($1,$2,$3,'active')`, appID, pid, planID)
