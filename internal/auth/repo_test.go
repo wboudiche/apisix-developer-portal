@@ -63,3 +63,35 @@ func TestCreateDuplicateEmailFails(t *testing.T) {
 		t.Fatalf("expected ErrEmailTaken, got %v", err)
 	}
 }
+
+func TestCreateAlsoCreatesPersonalTeam(t *testing.T) {
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		url = "postgres://portal:portal@localhost:5432/portal?sslmode=disable"
+	}
+	ctx := context.Background()
+	pool, err := db.Connect(ctx, url)
+	if err != nil {
+		t.Skipf("no database: %v", err)
+	}
+	defer pool.Close()
+	if err := db.Migrate(ctx, pool); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := NewRepo(pool)
+	suf := time.Now().Format("150405.000000000")
+	u, err := repo.Create(ctx, "reg+"+suf+"@e.com", "hash", "Reg User")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM users WHERE id=$1`, u.ID) })
+	var personalTeams int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM teams t JOIN team_members tm ON tm.team_id=t.id
+		 WHERE tm.user_id=$1 AND tm.role='owner' AND t.personal`, u.ID).Scan(&personalTeams); err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if personalTeams != 1 {
+		t.Errorf("personal teams for new user = %d, want 1", personalTeams)
+	}
+}
