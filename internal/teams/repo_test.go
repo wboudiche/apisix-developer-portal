@@ -106,6 +106,14 @@ func TestIsMemberOfAppAndOwnerEmails(t *testing.T) {
 	}
 }
 
+func TestOwnerEmailsForAppNotFound(t *testing.T) {
+	ctx, repo, _, _ := testRepo(t)
+	_, _, err := repo.OwnerEmailsForApp(ctx, 999999999)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("OwnerEmailsForApp(missing) err = %v, want ErrNotFound", err)
+	}
+}
+
 func TestDeleteRejectsTeamWithApps(t *testing.T) {
 	ctx, repo, u1, _ := testRepo(t)
 	team, _ := repo.Create(ctx, "Acme", u1)

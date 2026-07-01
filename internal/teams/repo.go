@@ -209,7 +209,7 @@ func (r *Repo) OwnerEmailsForApp(ctx context.Context, appID int64) ([]string, st
 	var appName string
 	if err := r.pool.QueryRow(ctx, `SELECT name FROM applications WHERE id=$1`, appID).Scan(&appName); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, "", nil
+			return nil, "", ErrNotFound
 		}
 		return nil, "", err
 	}
