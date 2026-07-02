@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { getApplications, createApplication } from '../../api/client'
+import { getApplications, createApplication, getTeams } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { TopBar } from '../../components/TopBar'
-import type { Application } from '../../api/types'
+import type { Application, Team } from '../../api/types'
 import { appRef, initials, frDate, glyphGradient } from './helpers'
 import '../../styles/appdetail.css'
 
@@ -14,10 +14,17 @@ export function ApplicationsIndex() {
   const [name, setName] = useState('')
   const [creating, setCreating] = useState(false)
   const [err, setErr] = useState('')
+  const [teams, setTeams] = useState<Team[]>([])
+  const [teamId, setTeamId] = useState<number | ''>('')
 
   useEffect(() => {
     if (!token) return
     getApplications(token).then(r => setApps(r.items)).catch(() => setErr('Impossible de charger les applications.'))
+    getTeams(token).then(ts => {
+      setTeams(ts)
+      const personal = ts.find(t => t.personal)
+      if (personal) setTeamId(personal.id)
+    }).catch(() => {})
   }, [token])
 
   if (!token) return <Navigate to="/login" replace />
@@ -26,7 +33,7 @@ export function ApplicationsIndex() {
     e.preventDefault()
     if (!token || !name.trim()) return
     try {
-      const a = await createApplication(token, name.trim(), '')
+      const a = await createApplication(token, name.trim(), '', typeof teamId === 'number' ? teamId : undefined)
       nav(`/applications/${a.id}`)
     } catch {
       setErr('Création impossible. Réessayez.')
@@ -39,6 +46,10 @@ export function ApplicationsIndex() {
         aria-label="Nom de la nouvelle application" placeholder="Nom de la nouvelle application"
         value={name} onChange={e => setName(e.target.value)} autoFocus
       />
+      <label htmlFor="app-team">Équipe</label>
+      <select id="app-team" value={teamId} onChange={e => setTeamId(Number(e.target.value))}>
+        {teams.map(t => <option key={t.id} value={t.id}>{t.name}{t.personal ? ' (personnelle)' : ''}</option>)}
+      </select>
       <button className="btn primary" type="submit">Créer</button>
     </form>
   )
@@ -88,6 +99,7 @@ export function ApplicationsIndex() {
                       <span>{subs} abonnement{subs > 1 ? 's' : ''}</span>
                       <span className="ac-sep">·</span>
                       <span>Créée le <span className="mono">{frDate(a.createdAt)}</span></span>
+                      {a.teamName && <span className="pill team">{a.teamName}</span>}
                     </div>
                   </div>
                   <span className="ac-go">Ouvrir →</span>

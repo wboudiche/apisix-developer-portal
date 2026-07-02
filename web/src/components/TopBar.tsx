@@ -193,6 +193,7 @@ export function TopBar({
       <nav className="nav-tabs">
         <Link className={tab(pathname === '/')} to="/"><IconGrid />APIs</Link>
         {user && <Link className={tab(pathname.startsWith('/applications'))} to="/applications"><IconDoc />Applications</Link>}
+        {user && <Link className={tab(pathname.startsWith('/teams'))} to="/teams"><IconDoc />Équipes</Link>}
         {user?.role === 'admin' && <Link className={tab(pathname.startsWith('/admin'))} to="/admin/products"><IconShield />Admin</Link>}
       </nav>
 

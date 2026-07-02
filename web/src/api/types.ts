@@ -51,6 +51,23 @@ export interface Application {
   // Populated by the list endpoint (GET /api/applications) so the index can show
   // each app's subscription count without an extra fetch. Absent on create responses.
   subscriptionCount?: number
+  teamId?: number
+  teamName?: string
+}
+
+export interface Team {
+  id: number
+  name: string
+  personal: boolean
+  role: 'owner' | 'member'
+  memberCount: number
+}
+
+export interface TeamMember {
+  userId: number
+  email: string
+  name: string
+  role: 'owner' | 'member'
 }
 
 export interface Credential {
