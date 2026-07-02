@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { AuthShell } from '../components/AuthShell'
+import { useT } from '../i18n/LanguageProvider'
 
 export function EyeIcon({ off }: { off: boolean }) {
   return off ? (
@@ -18,28 +19,31 @@ export function EyeIcon({ off }: { off: boolean }) {
 }
 
 export function EnterpriseRow() {
+  const t = useT()
   return (
     <div className="enterprise">
-      <span>Membre d'une équipe ?</span>
+      <span>{t('auth.teamMember')}</span>
       <a href="#">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
           <path d="M12 2 4 6v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-4Z" strokeLinejoin="round" />
         </svg>
-        Se connecter via votre entreprise
+        {t('auth.ssoLogin')}
       </a>
     </div>
   )
 }
 
 export function LegalLine() {
+  const t = useT()
   return (
     <p className="legal">
-      En continuant, vous acceptez nos <a href="#">Conditions</a> et notre <a href="#">Politique de confidentialité</a>.
+      {t('auth.legalPre')}<a href="#">{t('auth.legalTerms')}</a>{t('auth.legalMid')}<a href="#">{t('auth.legalPrivacy')}</a>.
     </p>
   )
 }
 
 export function LoginPage() {
+  const t = useT()
   const { login } = useAuth()
   const nav = useNavigate()
   const [email, setEmail] = useState('')
@@ -56,7 +60,7 @@ export function LoginPage() {
       await login(email, password)
       nav('/')
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Échec de connexion')
+      setErr(e instanceof Error ? e.message : t('auth.loginFailed'))
       setLoading(false)
     }
   }
@@ -65,32 +69,32 @@ export function LoginPage() {
     <AuthShell>
       <form onSubmit={onSubmit}>
         <div className="m-head">
-          <h2>Bon retour</h2>
-          <p>Pas encore de compte ? <Link to="/register">Créer un compte</Link></p>
+          <h2>{t('auth.loginHeading')}</h2>
+          <p>{t('auth.noAccountPrefix')}<Link to="/register">{t('auth.registerHeading')}</Link></p>
         </div>
 
         {err && <p className="form-err" role="alert">{err}</p>}
 
         <div className="field">
-          <label htmlFor="login-email">Adresse email</label>
+          <label htmlFor="login-email">{t('auth.emailLabel')}</label>
           <div className="wrap">
             <input
-              id="login-email" aria-label="Email" type="email" placeholder="vous@entreprise.com"
+              id="login-email" aria-label={t('auth.emailAriaLabel')} type="email" placeholder={t('auth.emailPlaceholder')}
               autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)}
             />
           </div>
         </div>
 
         <div className="field">
-          <label htmlFor="login-pw">Mot de passe</label>
+          <label htmlFor="login-pw">{t('auth.passwordLabel')}</label>
           <div className="wrap">
             <input
-              id="login-pw" aria-label="Mot de passe" type={showPw ? 'text' : 'password'} placeholder="••••••••"
+              id="login-pw" aria-label={t('auth.passwordLabel')} type={showPw ? 'text' : 'password'} placeholder="••••••••"
               autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)}
             />
             <button
               type="button" className="pw-toggle"
-              aria-label={showPw ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+              aria-label={showPw ? t('auth.hidePassword') : t('auth.showPassword')}
               onClick={() => setShowPw(s => !s)}
             >
               <EyeIcon off={showPw} />
@@ -99,12 +103,12 @@ export function LoginPage() {
         </div>
 
         <div className="row-between">
-          <label className="remember"><input type="checkbox" /> Rester connecté</label>
-          <a className="forgot" href="#">Mot de passe oublié ?</a>
+          <label className="remember"><input type="checkbox" /> {t('auth.rememberMe')}</label>
+          <a className="forgot" href="#">{t('auth.forgotPassword')}</a>
         </div>
 
         <button type="submit" className={`submit ${loading ? 'loading' : ''}`} disabled={loading}>
-          <span className="spin" /><span className="label">{loading ? 'Connexion…' : 'Se connecter'}</span>
+          <span className="spin" /><span className="label">{loading ? t('auth.loggingIn') : t('auth.login')}</span>
         </button>
 
         <EnterpriseRow />

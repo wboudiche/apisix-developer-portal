@@ -2,9 +2,11 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { AuthShell } from '../components/AuthShell'
+import { useT } from '../i18n/LanguageProvider'
 import { EyeIcon, EnterpriseRow, LegalLine } from './LoginPage'
 
 export function RegisterPage() {
+  const t = useT()
   const { register } = useAuth()
   const nav = useNavigate()
   const [name, setName] = useState('')
@@ -20,7 +22,7 @@ export function RegisterPage() {
     setErr('')
     setPwErr('')
     if (password.length < 8) {
-      setPwErr('Mot de passe : 8 caractères minimum')
+      setPwErr(t('auth.passwordMinLength'))
       return
     }
     setLoading(true)
@@ -28,7 +30,7 @@ export function RegisterPage() {
       await register(email, password, name)
       nav('/')
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Échec de l'inscription")
+      setErr(e instanceof Error ? e.message : t('auth.registerFailed'))
       setLoading(false)
     }
   }
@@ -37,43 +39,43 @@ export function RegisterPage() {
     <AuthShell>
       <form onSubmit={onSubmit}>
         <div className="m-head">
-          <h2>Créer un compte</h2>
-          <p>Déjà inscrit ? <Link to="/login">Se connecter</Link></p>
+          <h2>{t('auth.registerHeading')}</h2>
+          <p>{t('auth.alreadyRegisteredPrefix')}<Link to="/login">{t('auth.login')}</Link></p>
         </div>
 
         {err && <p className="form-err" role="alert">{err}</p>}
 
         <div className="field">
-          <label htmlFor="reg-name">Nom</label>
+          <label htmlFor="reg-name">{t('auth.nameLabel')}</label>
           <div className="wrap">
             <input
-              id="reg-name" aria-label="Nom" placeholder="Prénom Nom"
+              id="reg-name" aria-label={t('auth.nameLabel')} placeholder={t('auth.namePlaceholder')}
               autoComplete="name" value={name} onChange={e => setName(e.target.value)}
             />
           </div>
         </div>
 
         <div className="field">
-          <label htmlFor="reg-email">Adresse email</label>
+          <label htmlFor="reg-email">{t('auth.emailLabel')}</label>
           <div className="wrap">
             <input
-              id="reg-email" aria-label="Email" type="email" placeholder="vous@entreprise.com"
+              id="reg-email" aria-label={t('auth.emailAriaLabel')} type="email" placeholder={t('auth.emailPlaceholder')}
               autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)}
             />
           </div>
         </div>
 
         <div className={`field ${pwErr ? 'invalid' : ''}`}>
-          <label htmlFor="reg-pw">Mot de passe</label>
+          <label htmlFor="reg-pw">{t('auth.passwordLabel')}</label>
           <div className="wrap">
             <input
-              id="reg-pw" aria-label="Mot de passe" type={showPw ? 'text' : 'password'} placeholder="8 caractères minimum"
+              id="reg-pw" aria-label={t('auth.passwordLabel')} type={showPw ? 'text' : 'password'} placeholder={t('auth.passwordPlaceholderMin')}
               autoComplete="new-password" required value={password}
               onChange={e => { setPassword(e.target.value); if (pwErr) setPwErr('') }}
             />
             <button
               type="button" className="pw-toggle"
-              aria-label={showPw ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+              aria-label={showPw ? t('auth.hidePassword') : t('auth.showPassword')}
               onClick={() => setShowPw(s => !s)}
             >
               <EyeIcon off={showPw} />
@@ -83,7 +85,7 @@ export function RegisterPage() {
         </div>
 
         <button type="submit" className={`submit ${loading ? 'loading' : ''}`} disabled={loading}>
-          <span className="spin" /><span className="label">{loading ? 'Création…' : 'Créer le compte'}</span>
+          <span className="spin" /><span className="label">{loading ? t('auth.creatingAccount') : t('auth.createAccount')}</span>
         </button>
 
         <EnterpriseRow />
