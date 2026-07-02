@@ -152,6 +152,42 @@ describe('ProductsPage', () => {
     expect(create.mock.calls[0][1]).toMatchObject({ authType: 'oauth2' })
   })
 
+  it('sends lifecycleStatus + sunsetDate when creating', async () => {
+    const create = vi.spyOn(api, 'adminCreateProduct').mockResolvedValue({} as AdminProduct)
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getByRole('button', { name: /Nouveau produit/ }))
+    await userEvent.type(screen.getByLabelText('Nom'), 'OrdersAPI')
+    await userEvent.selectOptions(screen.getByLabelText(/Statut/i), 'sunset')
+    await userEvent.type(screen.getByLabelText(/Date de retrait/i), '2026-12-31')
+    await userEvent.click(screen.getByRole('button', { name: /Créer le produit/ }))
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0][1]).toMatchObject({ lifecycleStatus: 'sunset', sunsetDate: '2026-12-31' })
+  })
+
+  it('the changelog editor lists entries, deletes one, and adds a new one when editing', async () => {
+    vi.spyOn(api, 'getChangelog').mockResolvedValue([
+      { id: 11, version: '1.0.0', kind: 'added', notes: 'Initial release', date: '2026-01-01' },
+    ])
+    const del = vi.spyOn(api, 'deleteChangelogEntry').mockResolvedValue(undefined)
+    const add = vi.spyOn(api, 'addChangelogEntry').mockResolvedValue({ id: 12, version: '1.1.0', kind: 'fixed', notes: 'Bugfix', date: '2026-02-01' })
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getAllByRole('button', { name: 'Modifier' })[0])
+    expect(await screen.findByText('Journal des modifications')).toBeInTheDocument()
+    expect(await screen.findByText('Initial release')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Supprimer une entrée du journal' }))
+    await waitFor(() => expect(del).toHaveBeenCalledWith('jwt', 1, 11))
+
+    await userEvent.type(screen.getByLabelText(/Nouvelle version/i), '1.1.0')
+    await userEvent.selectOptions(screen.getByLabelText(/Type de changement/i), 'fixed')
+    await userEvent.type(screen.getByLabelText(/Date de publication/i), '2026-02-01')
+    await userEvent.type(screen.getByLabelText(/Notes du changelog/i), 'Bugfix')
+    await userEvent.click(screen.getByRole('button', { name: /^Ajouter$/i }))
+    await waitFor(() => expect(add).toHaveBeenCalledWith('jwt', 1, { version: '1.1.0', kind: 'fixed', notes: 'Bugfix', date: '2026-02-01' }))
+  })
+
   it('persists the imported spec in the create payload', async () => {
     const create = vi.spyOn(api, 'adminCreateProduct').mockResolvedValue({} as AdminProduct)
     vi.spyOn(api, 'adminImportProduct').mockResolvedValue({
