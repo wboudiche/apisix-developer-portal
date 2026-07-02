@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import type { Product, Application, Plan } from '../api/types'
 import { getApplications, getPlans, createApplication, subscribe } from '../api/client'
 import { useAuth } from '../auth/AuthProvider'
+import { useT } from '../i18n/LanguageProvider'
 
 export function SubscribeModal({ product, onClose }: { product: Product; onClose: () => void }) {
+  const t = useT()
   const { token } = useAuth()
   const [apps, setApps] = useState<Application[]>([])
   const [plans, setPlans] = useState<Plan[]>([])
@@ -23,7 +25,7 @@ export function SubscribeModal({ product, onClose }: { product: Product; onClose
         if (r.items.length) setAppId(r.items[0].id)
         if (p.items.length) setPlanId(p.items[0].id)
       })
-      .catch(() => setErr('Impossible de charger les applications et les plans.'))
+      .catch(() => setErr(t('subscribeModal.loadError')))
   }, [token])
 
   async function copyKey() {
@@ -38,13 +40,13 @@ export function SubscribeModal({ product, onClose }: { product: Product; onClose
     try {
       let targetApp = appId
       if (targetApp === 'new') {
-        const created = await createApplication(token, newName || 'Mon application', '')
+        const created = await createApplication(token, newName || t('subscribeModal.appNamePlaceholder'), '')
         targetApp = created.id
       }
       const cred = await subscribe(token, targetApp as number, product.id, planId)
       setApiKey(cred.apiKey)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Échec de l'abonnement")
+      setErr(e instanceof Error ? e.message : t('subscribeModal.subscribeError'))
     } finally {
       setBusy(false)
     }
@@ -52,37 +54,37 @@ export function SubscribeModal({ product, onClose }: { product: Product; onClose
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} role="dialog" aria-label="S'abonner">
-        <h2>S'abonner à {product.name}</h2>
+      <div className="modal" onClick={e => e.stopPropagation()} role="dialog" aria-label={t('subscribeModal.dialogLabel')}>
+        <h2>{t('subscribeModal.heading', { name: product.name })}</h2>
         {apiKey ? (
           <div className="keybox">
-            <p className="rescount">Votre clé d'API (copiez-la, elle ne sera plus affichée intégralement) :</p>
+            <p className="rescount">{t('subscribeModal.keyIntro')}</p>
             <code className="apikey">{apiKey}</code>
-            <button className="subbtn" onClick={copyKey}>{copied ? 'Copié ✓' : 'Copier'}</button>
-            <button className="subbtn ghost" onClick={onClose}>Fermer</button>
+            <button className="subbtn" onClick={copyKey}>{copied ? t('subscribeModal.copied') : t('subscribeModal.copy')}</button>
+            <button className="subbtn ghost" onClick={onClose}>{t('common.close')}</button>
           </div>
         ) : (
           <>
-            <label>Application
-              <select value={String(appId)} onChange={e => setAppId(e.target.value === 'new' ? 'new' : Number(e.target.value))} aria-label="Application">
+            <label>{t('subscribeModal.applicationLabel')}
+              <select value={String(appId)} onChange={e => setAppId(e.target.value === 'new' ? 'new' : Number(e.target.value))} aria-label={t('subscribeModal.applicationLabel')}>
                 {apps.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                <option value="new">+ Nouvelle application</option>
+                <option value="new">{t('subscribeModal.newApplication')}</option>
               </select>
             </label>
             {appId === 'new' && (
-              <label>Nom de l'application
-                <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Mon application" aria-label="Nom de l'application" />
+              <label>{t('subscribeModal.appNameLabel')}
+                <input value={newName} onChange={e => setNewName(e.target.value)} placeholder={t('subscribeModal.appNamePlaceholder')} aria-label={t('subscribeModal.appNameLabel')} />
               </label>
             )}
-            <label>Plan
-              <select value={planId ?? ''} onChange={e => setPlanId(Number(e.target.value))} aria-label="Plan">
+            <label>{t('subscribeModal.planLabel')}
+              <select value={planId ?? ''} onChange={e => setPlanId(Number(e.target.value))} aria-label={t('subscribeModal.planLabel')}>
                 {plans.map(p => <option key={p.id} value={p.id}>{p.name} — {p.rateLimit}/{p.windowSeconds}s</option>)}
               </select>
             </label>
             {err && <p className="autherr" role="alert">{err}</p>}
             <div className="modal-actions">
-              <button className="subbtn ghost" onClick={onClose}>Annuler</button>
-              <button className="subbtn" onClick={onSubmit} disabled={busy || planId == null}>{busy ? '…' : "Confirmer l'abonnement"}</button>
+              <button className="subbtn ghost" onClick={onClose}>{t('common.cancel')}</button>
+              <button className="subbtn" onClick={onSubmit} disabled={busy || planId == null}>{busy ? '…' : t('subscribeModal.confirmSubscribe')}</button>
             </div>
           </>
         )}

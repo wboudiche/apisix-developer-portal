@@ -1,5 +1,6 @@
 import '../styles/overlays.css'
 import { useEffect, useRef } from 'react'
+import { useT } from '../i18n/LanguageProvider'
 
 export interface ModalSpec {
   title: string
@@ -26,6 +27,7 @@ function RotateIcon() {
 }
 
 export function ConfirmModal({ spec, onClose }: { spec: ModalSpec | null; onClose: () => void }) {
+  const t = useT()
   const triggerRef = useRef<HTMLElement | null>(null)
   const prevSpecRef = useRef<ModalSpec | null>(null)
 
@@ -64,13 +66,13 @@ export function ConfirmModal({ spec, onClose }: { spec: ModalSpec | null; onClos
         <h3>{spec.title}</h3>
         <p>{spec.body}</p>
         <div className="ma">
-          <button className="btn ghost" onClick={onClose}>Annuler</button>
+          <button className="btn ghost" onClick={onClose}>{t('common.cancel')}</button>
           <button
             autoFocus
             className={`btn ${spec.danger ? 'danger' : 'primary'}`}
             onClick={() => { const fn = spec.onConfirm; onClose(); fn() }}
           >
-            {spec.confirmLabel ?? 'Confirmer'}
+            {spec.confirmLabel ?? t('common.confirm')}
           </button>
         </div>
       </div>

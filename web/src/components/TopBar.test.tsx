@@ -4,16 +4,19 @@ import { MemoryRouter } from 'react-router-dom'
 import { TopBar } from './TopBar'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { AuthProvider } from '../auth/AuthProvider'
+import { LanguageProvider } from '../i18n/LanguageProvider'
 
 function renderTopBar(searchValue = '', onMenu?: () => void) {
   const onSearch = vi.fn()
   const result = render(
     <MemoryRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <TopBar search={searchValue} onSearch={onSearch} onMenu={onMenu} />
-        </AuthProvider>
-      </ThemeProvider>
+      <LanguageProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <TopBar search={searchValue} onSearch={onSearch} onMenu={onMenu} />
+          </AuthProvider>
+        </ThemeProvider>
+      </LanguageProvider>
     </MemoryRouter>
   )
   return { ...result, onSearch }
@@ -21,17 +24,23 @@ function renderTopBar(searchValue = '', onMenu?: () => void) {
 
 beforeEach(() => {
   localStorage.clear()
+  // jsdom's navigator.language defaults to 'en-US', which would auto-detect
+  // to English; force French so existing assertions (written against the
+  // French strings) keep testing the default locale.
+  localStorage.setItem('lang', 'fr')
   vi.restoreAllMocks()
 })
 
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <ThemeProvider>
-        <AuthProvider>
-          <TopBar search="" onSearch={vi.fn()} />
-        </AuthProvider>
-      </ThemeProvider>
+      <LanguageProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <TopBar search="" onSearch={vi.fn()} />
+          </AuthProvider>
+        </ThemeProvider>
+      </LanguageProvider>
     </MemoryRouter>
   )
 }
@@ -305,5 +314,28 @@ describe('TopBar', () => {
     // Menu must be closed and user logged out
     expect(screen.queryByRole('menu')).toBeNull()
     expect(screen.getByText('Connexion')).toBeInTheDocument()
+  })
+
+  // ── NEW: FR/EN language toggle ─────────────────────────────────────────────
+
+  it('renders an EN toggle button by default (French locale)', () => {
+    renderTopBar()
+    expect(screen.getByRole('button', { name: /^EN$/ })).toBeInTheDocument()
+  })
+
+  it('switches nav labels to English via the toggle', () => {
+    renderTopBar()
+    const enBtn = screen.getByRole('button', { name: /^EN$/ })
+    fireEvent.click(enBtn)
+    expect(screen.getByRole('link', { name: /^APIs$/ })).toBeInTheDocument() // 'APIs' unchanged
+    expect(screen.getByText('Log in')).toBeInTheDocument() // was 'Connexion'
+    // the toggle now offers to switch back to French
+    expect(screen.getByRole('button', { name: /^FR$/ })).toBeInTheDocument()
+  })
+
+  it('toggling language persists the choice to localStorage', () => {
+    renderTopBar()
+    fireEvent.click(screen.getByRole('button', { name: /^EN$/ }))
+    expect(localStorage.getItem('lang')).toBe('en')
   })
 })

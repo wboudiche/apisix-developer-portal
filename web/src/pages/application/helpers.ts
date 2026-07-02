@@ -1,4 +1,5 @@
 import type { Plan } from '../../api/types'
+import { useLang } from '../../i18n/LanguageProvider'
 
 export const appRef = (id: number) => `app_${id}`
 
@@ -10,9 +11,14 @@ export function initials(name: string): string {
 export const frNum = (n: number) =>
   n.toLocaleString('fr-FR').replace(/ /g, ' ')
 
-export function frDate(iso: string): string {
+export function formatDate(iso: string, lang: 'fr' | 'en' = 'fr'): string {
   const d = new Date(iso)
-  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+export function useFormatDate() {
+  const { lang } = useLang()
+  return (iso: string) => formatDate(iso, lang)
 }
 
 export function rateLabel(plan: Plan | undefined): string {

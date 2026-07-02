@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SubscribeModal } from './SubscribeModal'
 import { AuthProvider } from '../auth/AuthProvider'
+import { LanguageProvider } from '../i18n/LanguageProvider'
 import * as api from '../api/client'
 import type { Product } from '../api/types'
 
@@ -12,11 +13,14 @@ beforeEach(() => {
   localStorage.clear()
   localStorage.setItem('token', 'tok')
   localStorage.setItem('user', JSON.stringify({ id: 5, email: 'a@b.c', name: '', role: 'developer' }))
+  // jsdom's navigator.language defaults to 'en-US', which would auto-detect to
+  // English; force French so existing assertions (against French strings) hold.
+  localStorage.setItem('lang', 'fr')
   vi.restoreAllMocks()
 })
 
 function renderModal() {
-  return render(<AuthProvider><SubscribeModal product={product} onClose={() => {}} /></AuthProvider>)
+  return render(<LanguageProvider><AuthProvider><SubscribeModal product={product} onClose={() => {}} /></AuthProvider></LanguageProvider>)
 }
 
 describe('SubscribeModal', () => {

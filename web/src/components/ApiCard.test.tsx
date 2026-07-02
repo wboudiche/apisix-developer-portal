@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ApiCard } from './ApiCard'
+import { LanguageProvider } from '../i18n/LanguageProvider'
 import type { Product } from '../api/types'
 
 const product: Product = {
@@ -94,7 +95,9 @@ describe('ApiCard', () => {
   })
 
   it('shows a lifecycle badge for a deprecated product', () => {
-    render(<MemoryRouter><ApiCard p={{ ...baseProduct, lifecycleStatus: 'deprecated' }} onSubscribe={() => {}} /></MemoryRouter>)
+    // LifecycleBadge is i18n'd (Task 2); force French so this default-locale assertion holds.
+    localStorage.setItem('lang', 'fr')
+    render(<MemoryRouter><LanguageProvider><ApiCard p={{ ...baseProduct, lifecycleStatus: 'deprecated' }} onSubscribe={() => {}} /></LanguageProvider></MemoryRouter>)
     expect(screen.getByText('Déprécié')).toBeInTheDocument()
   })
 

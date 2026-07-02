@@ -4,7 +4,7 @@ import { getApplications, getApplicationDetail, getPlans, createApplication, uns
 import { useAuth } from '../../auth/AuthProvider'
 import { TopBar } from '../../components/TopBar'
 import type { Application, AppDetail, Plan } from '../../api/types'
-import { appRef, initials, frDate, glyphGradient } from './helpers'
+import { appRef, initials, useFormatDate, glyphGradient } from './helpers'
 import { AppSwitcher, CreateAppModal } from './AppSwitcher'
 import { ConfirmModal, type ModalSpec } from '../../components/ConfirmModal'
 import { Toast } from '../../components/Toast'
@@ -33,6 +33,7 @@ export function AppDetailPage() {
   const { id } = useParams()
   const nav = useNavigate()
   const appId = Number(id)
+  const formatDate = useFormatDate()
 
   const [apps, setApps] = useState<Application[] | null>(null)
   const [detail, setDetail] = useState<AppDetail | null>(null)
@@ -138,7 +139,7 @@ export function AppDetailPage() {
                 <span className="sep" />
                 <span>{subs.length} abonnement{subs.length > 1 ? 's' : ''}</span>
                 <span className="sep" />
-                <span>Créée le <span className="mono">{frDate(app.createdAt)}</span></span>
+                <span>Créée le <span className="mono">{formatDate(app.createdAt)}</span></span>
                 <span className="sep" />
                 {apps && <AppSwitcher apps={apps} currentId={app.id} onCreate={() => setCreateOpen(true)} />}
               </div>

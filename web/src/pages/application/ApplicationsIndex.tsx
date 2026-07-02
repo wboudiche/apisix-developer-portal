@@ -4,12 +4,13 @@ import { getApplications, createApplication, getTeams } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { TopBar } from '../../components/TopBar'
 import type { Application, Team } from '../../api/types'
-import { appRef, initials, frDate, glyphGradient } from './helpers'
+import { appRef, initials, useFormatDate, glyphGradient } from './helpers'
 import '../../styles/appdetail.css'
 
 export function ApplicationsIndex() {
   const { token } = useAuth()
   const nav = useNavigate()
+  const formatDate = useFormatDate()
   const [apps, setApps] = useState<Application[] | null>(null)
   const [name, setName] = useState('')
   const [creating, setCreating] = useState(false)
@@ -98,7 +99,7 @@ export function ApplicationsIndex() {
                     <div className="ac-meta">
                       <span>{subs} abonnement{subs > 1 ? 's' : ''}</span>
                       <span className="ac-sep">·</span>
-                      <span>Créée le <span className="mono">{frDate(a.createdAt)}</span></span>
+                      <span>Créée le <span className="mono">{formatDate(a.createdAt)}</span></span>
                       {a.teamName && <span className="pill team">{a.teamName}</span>}
                     </div>
                   </div>

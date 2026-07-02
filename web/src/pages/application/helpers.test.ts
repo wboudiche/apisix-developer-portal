@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { appRef, initials, maskKey, rateLabel, statusPill, frDate } from './helpers'
+import { appRef, initials, maskKey, rateLabel, statusPill, formatDate } from './helpers'
 
 describe('helpers', () => {
   it('formats the app reference', () => expect(appRef(7)).toBe('app_7'))
@@ -23,7 +23,11 @@ describe('helpers', () => {
     expect(statusPill('rejected')).toEqual({ cls: 'muted', label: 'Rejeté' })
   })
   it('formats dates in french and tolerates garbage', () => {
-    expect(frDate('2026-03-12T10:00:00Z')).toMatch(/mars/)
-    expect(frDate('nope')).toBe('—')
+    expect(formatDate('2026-03-12T10:00:00Z')).toMatch(/mars/)
+    expect(formatDate('nope')).toBe('—')
+  })
+  it('formats dates in english when lang="en"', () => {
+    expect(formatDate('2026-03-12T10:00:00Z', 'en')).toMatch(/March/)
+    expect(formatDate('nope', 'en')).toBe('—')
   })
 })
