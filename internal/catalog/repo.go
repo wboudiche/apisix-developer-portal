@@ -151,7 +151,7 @@ func (r *Repo) ListChangelogBySlug(ctx context.Context, slug string) ([]Changelo
 		return nil, err
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT ce.version, ce.kind, ce.notes, to_char(ce.entry_date,'YYYY-MM-DD')
+		`SELECT ce.id, ce.version, ce.kind, ce.notes, to_char(ce.entry_date,'YYYY-MM-DD')
 		 FROM changelog_entries ce JOIN api_products p ON p.id = ce.product_id
 		 WHERE p.slug=$1 ORDER BY ce.entry_date DESC, ce.id DESC`, slug)
 	if err != nil {
@@ -161,7 +161,7 @@ func (r *Repo) ListChangelogBySlug(ctx context.Context, slug string) ([]Changelo
 	var out []ChangelogEntry
 	for rows.Next() {
 		var e ChangelogEntry
-		if err := rows.Scan(&e.Version, &e.Kind, &e.Notes, &e.Date); err != nil {
+		if err := rows.Scan(&e.ID, &e.Version, &e.Kind, &e.Notes, &e.Date); err != nil {
 			return nil, err
 		}
 		out = append(out, e)

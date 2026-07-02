@@ -152,6 +152,9 @@ func TestListChangelogBySlug(t *testing.T) {
 	if entries[0].Version != "v1.1" { // newest-first
 		t.Errorf("order wrong: %+v", entries)
 	}
+	if entries[0].ID == 0 {
+		t.Errorf("changelog entry ID not populated: %+v", entries[0])
+	}
 	if _, err := repo.ListChangelogBySlug(ctx, "no-such-slug"); err != ErrNotFound {
 		t.Errorf("unknown slug err = %v, want ErrNotFound", err)
 	}
