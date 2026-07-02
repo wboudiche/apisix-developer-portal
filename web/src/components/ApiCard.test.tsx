@@ -17,6 +17,7 @@ const product: Product = {
   rating: 4.5,
   ratingCount: 3,
 }
+const baseProduct = product
 
 describe('ApiCard', () => {
   it('renders an SVG icon inside .thumb .ico (not a text monogram)', () => {
@@ -90,5 +91,15 @@ describe('ApiCard', () => {
     const p = { id: 1, name: 'X', slug: 'x', category: 'C', version: '1', contextPath: '/x', description: '', tags: [], icon: '', rating: 0, ratingCount: 0, authType: 'key-auth' }
     render(<MemoryRouter><ApiCard p={p} onSubscribe={() => {}} /></MemoryRouter>)
     expect(screen.queryByText('OAuth2')).not.toBeInTheDocument()
+  })
+
+  it('shows a lifecycle badge for a deprecated product', () => {
+    render(<MemoryRouter><ApiCard p={{ ...baseProduct, lifecycleStatus: 'deprecated' }} onSubscribe={() => {}} /></MemoryRouter>)
+    expect(screen.getByText('Déprécié')).toBeInTheDocument()
+  })
+
+  it('shows no lifecycle badge for an active product', () => {
+    render(<MemoryRouter><ApiCard p={{ ...baseProduct, lifecycleStatus: 'active' }} onSubscribe={() => {}} /></MemoryRouter>)
+    expect(screen.queryByText('Déprécié')).not.toBeInTheDocument()
   })
 })

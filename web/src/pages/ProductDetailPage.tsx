@@ -1,11 +1,12 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { getProduct, getProductSpec, getTryContext } from '../api/client'
-import type { Product, TryApp } from '../api/types'
+import { getProduct, getProductSpec, getTryContext, getChangelog } from '../api/client'
+import type { ChangelogEntry, Product, TryApp } from '../api/types'
 import { useAuth } from '../auth/AuthProvider'
 import { TopBar } from '../components/TopBar'
 import { SubscribeModal } from '../components/SubscribeModal'
 import { ApiIcon, categoryDotColor } from '../components/apiIcons'
+import { LifecycleBadge } from '../components/LifecycleBadge'
 import { Reviews } from '../components/Reviews'
 import '../styles/productdetail.css'
 
@@ -17,6 +18,7 @@ export function ProductDetailPage() {
   const nav = useNavigate()
   const [product, setProduct] = useState<Product | null>(null)
   const [spec, setSpec] = useState<string | null>(null)
+  const [changelog, setChangelog] = useState<ChangelogEntry[]>([])
   const [loaded, setLoaded] = useState(false)
   const [err, setErr] = useState('')
   const [subOpen, setSubOpen] = useState(false)
@@ -33,6 +35,7 @@ export function ProductDetailPage() {
       .then(([p, s]) => { if (alive) { setProduct(p); setSpec(s) } })
       .catch(() => { if (alive) setErr('Produit introuvable.') })
       .finally(() => { if (alive) setLoaded(true) })
+    getChangelog(slug).then(c => { if (alive) setChangelog(c) }).catch(() => {})
     return () => { alive = false }
   }, [slug])
 
@@ -51,6 +54,8 @@ export function ProductDetailPage() {
     ? `/api/try/${slug}/${appId}${tryMode === 'sandbox' && sandboxAvailable ? '/sandbox' : ''}`
     : undefined
 
+  const blocked = product?.lifecycleStatus === 'deprecated' || product?.lifecycleStatus === 'sunset'
+
   return (
     <>
       <TopBar search="" onSearch={() => {}} />
@@ -63,12 +68,15 @@ export function ProductDetailPage() {
               <span className="glyph" style={{ background: categoryDotColor(product.category) }}><ApiIcon name={product.icon} /></span>
               <div className="htext">
                 <h1>{product.name}</h1>
-                <p className="sub"><span className="cat">{product.category}</span> · v{product.version} · {product.ratingCount > 0 ? <>★ {product.rating.toFixed(1)} ({product.ratingCount})</> : 'Pas encore noté'}{product.authType === 'oauth2' && <> · <span className="pill oauth">OAuth2</span></>}</p>
+                <p className="sub"><span className="cat">{product.category}</span> · v{product.version} · {product.ratingCount > 0 ? <>★ {product.rating.toFixed(1)} ({product.ratingCount})</> : 'Pas encore noté'}{product.authType === 'oauth2' && <> · <span className="pill oauth">OAuth2</span></>}{product.lifecycleStatus && product.lifecycleStatus !== 'active' && <> · <LifecycleBadge status={product.lifecycleStatus} /></>}</p>
                 {product.description && <p className="desc">{product.description}</p>}
                 <div className="tags">{product.tags.map(t => <span key={t} className="tag">{t}</span>)}</div>
               </div>
-              <button className="btn btn-primary" onClick={() => user ? setSubOpen(true) : nav('/login')}>S'abonner</button>
+              <button className="btn btn-primary" disabled={blocked} title={blocked ? "Cette API n'accepte plus de nouveaux abonnements" : undefined}
+                onClick={() => { if (blocked) return; user ? setSubOpen(true) : nav('/login') }}>S'abonner</button>
             </header>
+            {product.lifecycleStatus === 'deprecated' && <div className="notice deprecated">Cette API est dépréciée et n'accepte plus de nouveaux abonnements.</div>}
+            {product.lifecycleStatus === 'sunset' && <div className="notice sunset">Cette API sera retirée{product.sunsetDate ? ` le ${product.sunsetDate}` : ''}.</div>}
 
             {token && apps.length > 1 && (
               <div className="try-picker">
@@ -96,6 +104,18 @@ export function ProductDetailPage() {
             {loaded && !spec && (
               <div className="docs-empty"><h3>Documentation bientôt disponible</h3>
                 <p>Aucune spécification OpenAPI n'est encore attachée à cette API.</p></div>
+            )}
+            {changelog.length > 0 && (
+              <section className="changelog">
+                <h2>Journal des modifications</h2>
+                <ul>{changelog.map(e => (
+                  <li key={e.id}>
+                    <span className={`ctag ${e.kind}`}>{e.kind}</span>
+                    <b>{e.version}</b> <span className="cdate mono">{e.date}</span>
+                    {e.notes && <p>{e.notes}</p>}
+                  </li>
+                ))}</ul>
+              </section>
             )}
             <Reviews slug={slug} token={token} />
           </>

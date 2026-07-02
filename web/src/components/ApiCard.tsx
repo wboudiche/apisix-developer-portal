@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { Product } from '../api/types'
 import { ApiIcon, categoryTint } from './apiIcons'
+import { LifecycleBadge } from './LifecycleBadge'
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -49,6 +50,7 @@ export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Produ
           <span className="pill">v<b>{p.version}</b></span>
           <span className="pill ctx">{p.contextPath}</span>
           {p.authType === 'oauth2' && <span className="pill oauth">OAuth2</span>}
+          <LifecycleBadge status={p.lifecycleStatus} />
         </div>
         <div className="cfoot">
           <div className="ctags">{p.tags.slice(0, 2).map(t => <span key={t} className="ctag">{t}</span>)}</div>
