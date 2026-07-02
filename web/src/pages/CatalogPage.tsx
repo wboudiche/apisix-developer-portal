@@ -8,10 +8,12 @@ import { ApiCard } from '../components/ApiCard'
 import { SubscribeModal } from '../components/SubscribeModal'
 import { Pagination } from '../components/Pagination'
 import { useAuth } from '../auth/AuthProvider'
+import { useT } from '../i18n/LanguageProvider'
 import '../styles/catalog.css'
 
 export function CatalogPage() {
   const { user } = useAuth()
+  const t = useT()
   const nav = useNavigate()
   const [products, setProducts] = useState<Product[]>([])
   const [allProducts, setAllProducts] = useState<Product[]>([])
@@ -48,7 +50,7 @@ export function CatalogPage() {
     setError('')
     getProducts({ search: search || undefined, category: category || undefined, tag: tag || undefined, sort }, { page, pageSize })
       .then(r => { if (alive) { setProducts(r.items); setTotal(r.total) } })
-      .catch(() => { if (alive) { setProducts([]); setTotal(0); setError('Impossible de charger le catalogue. Vérifiez que le service est démarré.') } })
+      .catch(() => { if (alive) { setProducts([]); setTotal(0); setError(t('catalog.loadError')) } })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [search, category, tag, sort, page])
@@ -70,28 +72,28 @@ export function CatalogPage() {
         <main className="content">
           <div className="chead">
             <div className="titlewrap">
-              <h1>Catalogue d'API</h1>
+              <h1>{t('catalog.title')}</h1>
               <p className="rescount"><b>{total}</b> API{total > 1 ? 's' : ''}</p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
               <select
-                aria-label="Trier"
+                aria-label={t('catalog.sortLabel')}
                 value={sort}
                 onChange={e => setSort(e.target.value as 'rating' | 'alpha')}
                 style={{ fontSize: '13px', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-2)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
               >
-                <option value="rating">Note</option>
-                <option value="alpha">Alphabétique</option>
+                <option value="rating">{t('catalog.sortRating')}</option>
+                <option value="alpha">{t('catalog.sortAlpha')}</option>
               </select>
               <button
-                aria-label="Vue grille"
+                aria-label={t('catalog.gridView')}
                 onClick={() => setView('grid')}
                 style={{ width: '32px', height: '32px', borderRadius: '8px', border: '1px solid var(--border-2)', background: view === 'grid' ? 'var(--accent-soft)' : 'var(--surface)', color: view === 'grid' ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
               >
                 <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor"/><rect x="9" y="1" width="5" height="5" rx="1" fill="currentColor"/><rect x="1" y="9" width="5" height="5" rx="1" fill="currentColor"/><rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor"/></svg>
               </button>
               <button
-                aria-label="Vue liste"
+                aria-label={t('catalog.listView')}
                 onClick={() => setView('list')}
                 style={{ width: '32px', height: '32px', borderRadius: '8px', border: '1px solid var(--border-2)', background: view === 'list' ? 'var(--accent-soft)' : 'var(--surface)', color: view === 'list' ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
               >
@@ -103,7 +105,7 @@ export function CatalogPage() {
           <div className={`grid ${view === 'list' ? 'list' : ''}`}>
             {products.map(p => <ApiCard key={p.id} p={p} onSubscribe={handleSubscribe} />)}
           </div>
-          {!loading && !error && products.length === 0 && <p className="rescount">Aucune API ne correspond.</p>}
+          {!loading && !error && products.length === 0 && <p className="rescount">{t('catalog.noResults')}</p>}
           <Pagination page={page} pageSize={pageSize} total={total} onPage={setPage} />
         </main>
       </div>

@@ -5,6 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ProductDetailPage } from './ProductDetailPage'
 import { AuthProvider } from '../auth/AuthProvider'
 import { ThemeProvider } from '../theme/ThemeProvider'
+import { LanguageProvider } from '../i18n/LanguageProvider'
 import * as api from '../api/client'
 import type { Product } from '../api/types'
 
@@ -23,6 +24,9 @@ const baseProduct = product
 
 beforeEach(() => {
   localStorage.clear()
+  // jsdom's navigator.language defaults to 'en-US', which would auto-detect to
+  // English; force French so existing assertions (against French strings) hold.
+  localStorage.setItem('lang', 'fr')
   vi.spyOn(api, 'getProduct').mockResolvedValue(product)
   vi.spyOn(api, 'getChangelog').mockResolvedValue([])
 })
@@ -31,9 +35,9 @@ afterEach(() => vi.restoreAllMocks())
 function renderAt(slug: string) {
   return render(
     <MemoryRouter initialEntries={[`/catalog/${slug}`]}>
-      <ThemeProvider><AuthProvider>
+      <LanguageProvider><ThemeProvider><AuthProvider>
         <Routes><Route path="/catalog/:slug" element={<ProductDetailPage />} /></Routes>
-      </AuthProvider></ThemeProvider>
+      </AuthProvider></ThemeProvider></LanguageProvider>
     </MemoryRouter>
   )
 }

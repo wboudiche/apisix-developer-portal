@@ -74,12 +74,12 @@ describe('CatalogPage', () => {
     vi.spyOn(api, 'getProducts').mockResolvedValue(envelope)
     render(
       <MemoryRouter initialEntries={['/']}>
-        <ThemeProvider><AuthProvider>
+        <LanguageProvider><ThemeProvider><AuthProvider>
           <Routes>
             <Route path="/" element={<CatalogPage />} />
             <Route path="/login" element={<div>LOGIN PAGE</div>} />
           </Routes>
-        </AuthProvider></ThemeProvider>
+        </AuthProvider></ThemeProvider></LanguageProvider>
       </MemoryRouter>
     )
     await waitFor(() => expect(screen.getAllByTestId('api-card').length).toBeGreaterThan(0))
