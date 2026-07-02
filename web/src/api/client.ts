@@ -1,7 +1,7 @@
 import type {
   Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail,
   AdminProduct, AdminSubscription, Usage, UsageRange, Paginated, TryApp, Quota,
-  RatingsView,
+  RatingsView, Team, TeamMember,
 } from './types'
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. 409 when
@@ -136,9 +136,11 @@ export async function getApplications(token: string, page?: PageOpts): Promise<P
   return parse<Paginated<Application>>(await fetch(url, { headers: authHeaders(token) }), url)
 }
 
-export async function createApplication(token: string, name: string, description: string): Promise<Application> {
+export async function createApplication(token: string, name: string, description: string, teamId?: number): Promise<Application> {
+  const body: { name: string; description: string; teamId?: number } = { name, description }
+  if (teamId != null) body.teamId = teamId
   return parse<Application>(await fetch('/api/applications', {
-    method: 'POST', headers: authHeaders(token), body: JSON.stringify({ name, description }),
+    method: 'POST', headers: authHeaders(token), body: JSON.stringify(body),
   }), '/api/applications')
 }
 
@@ -203,6 +205,38 @@ async function sendAuthed(method: string, url: string, token: string, body?: unk
     handle401(res.status, url)
     throw new ApiError((b as { error?: string }).error || `request failed (${res.status})`, res.status)
   }
+}
+
+// --- Teams ---
+export async function getTeams(token: string): Promise<Team[]> {
+  const url = '/api/teams'
+  return parse<Team[]>(await fetch(url, { headers: authHeaders(token) }), url)
+}
+
+export async function createTeam(token: string, name: string): Promise<Team> {
+  const url = '/api/teams'
+  return parse<Team>(await fetch(url, { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ name }) }), url)
+}
+
+export async function getTeamMembers(token: string, teamId: number): Promise<TeamMember[]> {
+  const url = `/api/teams/${teamId}/members`
+  return parse<TeamMember[]>(await fetch(url, { headers: authHeaders(token) }), url)
+}
+
+export async function addTeamMember(token: string, teamId: number, email: string): Promise<void> {
+  return sendAuthed('POST', `/api/teams/${teamId}/members`, token, { email })
+}
+
+export async function removeTeamMember(token: string, teamId: number, userId: number): Promise<void> {
+  return sendAuthed('DELETE', `/api/teams/${teamId}/members/${userId}`, token)
+}
+
+export async function renameTeam(token: string, teamId: number, name: string): Promise<void> {
+  return sendAuthed('PATCH', `/api/teams/${teamId}`, token, { name })
+}
+
+export async function deleteTeam(token: string, teamId: number): Promise<void> {
+  return sendAuthed('DELETE', `/api/teams/${teamId}`, token)
 }
 
 export async function getTryContext(token: string, slug: string): Promise<{ apps: TryApp[]; sandboxAvailable?: boolean }> {
