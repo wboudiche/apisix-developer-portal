@@ -14,6 +14,17 @@ type Product struct {
 	Rating      float64  `json:"rating"`
 	RatingCount int      `json:"ratingCount"`
 	AuthType    string   `json:"authType"`
+
+	LifecycleStatus string  `json:"lifecycleStatus"`
+	SunsetDate      *string `json:"sunsetDate"`
+}
+
+// ChangelogEntry is one published change for a catalog product.
+type ChangelogEntry struct {
+	Version string `json:"version"`
+	Kind    string `json:"kind"`
+	Notes   string `json:"notes"`
+	Date    string `json:"date"`
 }
 
 // Query holds catalog filter/search/sort parameters.

@@ -133,6 +133,30 @@ func TestListExposesRatingCount(t *testing.T) {
 	}
 }
 
+func TestListChangelogBySlug(t *testing.T) {
+	ctx, repo := testPool(t)
+	var pid int64
+	if err := repo.pool.QueryRow(ctx,
+		`INSERT INTO api_products(name,slug,category,context_path,published,lifecycle_status)
+		 VALUES('CL','cl-slug','C','/cl',true,'deprecated') RETURNING id`).Scan(&pid); err != nil {
+		t.Fatalf("seed product: %v", err)
+	}
+	t.Cleanup(func() { _, _ = repo.pool.Exec(ctx, `DELETE FROM api_products WHERE id=$1`, pid) })
+	_, _ = repo.pool.Exec(ctx,
+		`INSERT INTO changelog_entries(product_id,version,kind,notes,entry_date) VALUES
+		 ($1,'v1.0','added','first','2026-01-01'),($1,'v1.1','fixed','patch','2026-02-01')`, pid)
+	entries, err := repo.ListChangelogBySlug(ctx, "cl-slug")
+	if err != nil || len(entries) != 2 {
+		t.Fatalf("entries=%d err=%v", len(entries), err)
+	}
+	if entries[0].Version != "v1.1" { // newest-first
+		t.Errorf("order wrong: %+v", entries)
+	}
+	if _, err := repo.ListChangelogBySlug(ctx, "no-such-slug"); err != ErrNotFound {
+		t.Errorf("unknown slug err = %v, want ErrNotFound", err)
+	}
+}
+
 func TestGetSpecBySlugPublishedOnly(t *testing.T) {
 	ctx, repo := testPool(t)
 	// Clean up first so a re-run on a persistent dev DB doesn't hit the unique

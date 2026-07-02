@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -17,6 +18,7 @@ type Lister interface {
 	List(ctx context.Context, q Query, p paging.Params) ([]Product, int, error)
 	GetBySlug(ctx context.Context, slug string) (Product, error)
 	GetSpecBySlug(ctx context.Context, slug string) (string, error)
+	ListChangelogBySlug(ctx context.Context, slug string) ([]ChangelogEntry, error)
 }
 
 type Handler struct {
@@ -29,6 +31,7 @@ func NewHandler(repo Lister) *Handler {
 	h.router.Get("/api/products", h.list)
 	h.router.Get("/api/products/{slug}", h.getBySlug)
 	h.router.Get("/api/products/{slug}/spec", h.getSpec)
+	h.router.Get("/api/products/{slug}/changelog", h.getChangelog)
 	return h
 }
 
@@ -76,6 +79,22 @@ func (h *Handler) getSpec(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", specContentType(spec))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(spec))
+}
+
+func (h *Handler) getChangelog(w http.ResponseWriter, r *http.Request) {
+	entries, err := h.repo.ListChangelogBySlug(r.Context(), chi.URLParam(r, "slug"))
+	if errors.Is(err, ErrNotFound) {
+		httpx.Error(w, http.StatusNotFound, "product not found")
+		return
+	}
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "could not load changelog")
+		return
+	}
+	if entries == nil {
+		entries = []ChangelogEntry{}
+	}
+	httpx.JSON(w, http.StatusOK, entries)
 }
 
 // specContentType guesses JSON vs YAML from the first non-space byte.

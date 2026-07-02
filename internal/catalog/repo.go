@@ -24,7 +24,7 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
-const baseSelect = `SELECT id, name, slug, category, version, context_path, description, tags, icon, rating, rating_count, auth_type
+const baseSelect = `SELECT id, name, slug, category, version, context_path, description, tags, icon, rating, rating_count, auth_type, lifecycle_status, to_char(sunset_date,'YYYY-MM-DD')
 	FROM api_products WHERE published = true`
 
 // filterClause builds the shared WHERE tail (after "published = true") and its
@@ -139,6 +139,36 @@ func (r *Repo) SandboxUpstreamBySlug(ctx context.Context, slug string) (bool, er
 	return has, err
 }
 
+// ListChangelogBySlug returns the changelog entries for a published product,
+// newest-first, or ErrNotFound when the product doesn't exist or isn't published.
+func (r *Repo) ListChangelogBySlug(ctx context.Context, slug string) ([]ChangelogEntry, error) {
+	var exists bool
+	if err := r.pool.QueryRow(ctx,
+		`SELECT true FROM api_products WHERE slug=$1 AND published=true`, slug).Scan(&exists); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT ce.version, ce.kind, ce.notes, to_char(ce.entry_date,'YYYY-MM-DD')
+		 FROM changelog_entries ce JOIN api_products p ON p.id = ce.product_id
+		 WHERE p.slug=$1 ORDER BY ce.entry_date DESC, ce.id DESC`, slug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ChangelogEntry
+	for rows.Next() {
+		var e ChangelogEntry
+		if err := rows.Scan(&e.Version, &e.Kind, &e.Notes, &e.Date); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
 // scanProducts collects all rows into a slice of Product.
 func scanProducts(rows pgx.Rows) ([]Product, error) {
 	var products []Product
@@ -157,6 +187,8 @@ func scanProducts(rows pgx.Rows) ([]Product, error) {
 			&p.Rating,
 			&p.RatingCount,
 			&p.AuthType,
+			&p.LifecycleStatus,
+			&p.SunsetDate,
 		); err != nil {
 			return nil, err
 		}

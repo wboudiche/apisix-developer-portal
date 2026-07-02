@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"apisix-portal/internal/paging"
@@ -12,9 +13,10 @@ import (
 
 // fakeLister implements the Lister interface without a database.
 type fakeLister struct {
-	items []Product
-	err   error
-	specs map[string]string
+	items     []Product
+	err       error
+	specs     map[string]string
+	changelog map[string][]ChangelogEntry
 }
 
 func (f fakeLister) List(_ context.Context, q Query, p paging.Params) ([]Product, int, error) {
@@ -41,6 +43,13 @@ func (f fakeLister) GetSpecBySlug(_ context.Context, slug string) (string, error
 		return "", ErrNotFound
 	}
 	return s, nil
+}
+func (f fakeLister) ListChangelogBySlug(_ context.Context, slug string) ([]ChangelogEntry, error) {
+	entries, ok := f.changelog[slug]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return entries, nil
 }
 
 func TestProductsEndpointReturnsJSON(t *testing.T) {
@@ -119,5 +128,19 @@ func TestGetSpecBySlug(t *testing.T) {
 	h.ServeHTTP(rec2, httptest.NewRequest(http.MethodGet, "/api/products/missing/spec", nil))
 	if rec2.Code != http.StatusNotFound {
 		t.Fatalf("missing slug: status=%d", rec2.Code)
+	}
+}
+
+func TestChangelogEndpoint(t *testing.T) {
+	h := NewHandler(fakeLister{changelog: map[string][]ChangelogEntry{
+		"cl-slug": {{Version: "v1.1", Kind: "fixed", Notes: "patch", Date: "2026-02-01"}},
+	}})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/api/products/cl-slug/changelog", nil))
+	if rec.Code != 200 {
+		t.Fatalf("code=%d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "v1.1") {
+		t.Errorf("body missing entry: %s", rec.Body.String())
 	}
 }
