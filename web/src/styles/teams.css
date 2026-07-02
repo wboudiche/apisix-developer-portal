@@ -1,0 +1,55 @@
+/* Teams page — scoped under .teams-page, mirrors the Atlas look used by
+   appdetail.css (.appdetail) and admin.css (.adminpage): same button,
+   card/list and form treatment, just applied to team create/list/detail. */
+
+.teams-page{max-width:880px;margin:0 auto;padding:26px 28px 80px}
+.teams-page .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+.teams-page h1{font-family:var(--font-display);font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:20px}
+.teams-page h2{font-family:var(--font-display);font-size:18px;font-weight:600;letter-spacing:-.01em}
+
+.teams-page .err{font-size:13px;color:var(--danger);background:var(--danger-soft);border-radius:9px;padding:9px 13px;margin-bottom:14px}
+
+/* buttons (same recipe as .appdetail .btn) */
+.teams-page .btn{height:40px;padding:0 16px;border-radius:11px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:8px;transition:.16s;border:1px solid var(--border-2);background:var(--surface);color:var(--fg)}
+.teams-page .btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.teams-page .btn.primary{background:linear-gradient(150deg,var(--accent),var(--accent-d));color:#fff;border-color:transparent;box-shadow:0 5px 16px oklch(55% 0.205 27 /.3)}
+.teams-page .btn.primary:hover{transform:translateY(-1px);box-shadow:0 9px 24px oklch(55% 0.205 27 /.4);color:#fff;background:linear-gradient(150deg,var(--accent),var(--accent-d))}
+.teams-page .btn.ghost{background:var(--surface);border-color:var(--border-2);color:var(--fg);height:34px;padding:0 13px;font-size:13px;border-radius:9px}
+.teams-page .btn.ghost:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.teams-page .btn.danger{background:var(--surface);border-color:var(--border-2);color:var(--danger)}
+.teams-page .btn.danger:hover{background:var(--danger-soft);border-color:var(--danger)}
+
+/* create-team form: input + Créer button inline */
+.teams-page .team-create{display:flex;gap:10px;margin-bottom:22px}
+.teams-page .team-create input{flex:1;height:40px;padding:0 13px;border:1px solid var(--border-2);border-radius:11px;background:var(--bg);font-size:14px;font-family:inherit;color:var(--fg);transition:.16s}
+.teams-page .team-create input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);background:var(--surface)}
+
+/* team list */
+.teams-page .team-list{list-style:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;margin-bottom:28px}
+.teams-page .team-list li{border-bottom:1px solid var(--border)}
+.teams-page .team-list li:last-child{border-bottom:0}
+.teams-page .team-row{
+  width:100%;display:flex;align-items:center;gap:12px;padding:15px 20px;
+  background:none;border:0;text-align:left;font:inherit;color:var(--fg);cursor:pointer;transition:background .14s;
+}
+.teams-page .team-row:hover{background:var(--raise)}
+.teams-page .team-row b{font-family:var(--font-display);font-size:15px;font-weight:600;letter-spacing:-.01em}
+.teams-page .team-row .team-role{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.teams-page .team-row .team-count{font-size:12.5px;color:var(--faint);min-width:80px;text-align:right}
+
+/* team detail panel */
+.teams-page .team-detail{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:22px}
+.teams-page .team-detail h2{margin-bottom:14px}
+
+.teams-page .member-list{list-style:none;margin-bottom:18px;border:1px solid var(--border);border-radius:11px;overflow:hidden}
+.teams-page .member-list li{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:14px}
+.teams-page .member-list li:last-child{border-bottom:0}
+.teams-page .member-list .team-role{margin-left:auto;font-size:12.5px;color:var(--muted)}
+
+/* add-member form */
+.teams-page .member-add{display:flex;gap:10px;margin-bottom:16px}
+.teams-page .member-add input{flex:1;height:40px;padding:0 13px;border:1px solid var(--border-2);border-radius:11px;background:var(--bg);font-size:14px;font-family:inherit;color:var(--fg);transition:.16s}
+.teams-page .member-add input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);background:var(--surface)}
+
+.teams-page .team-detail > .btn.danger{margin-top:4px}

@@ -56,4 +56,16 @@ describe('TeamsPage', () => {
     await screen.findByText('boss@e.com')
     expect(screen.queryByPlaceholderText(/email/i)).not.toBeInTheDocument()
   })
+
+  it('clears the detail panel after an owner deletes the selected team', async () => {
+    vi.spyOn(client, 'getTeams').mockResolvedValue([{ id: 2, name: 'Acme', personal: false, role: 'owner', memberCount: 1 }])
+    vi.spyOn(client, 'getTeamMembers').mockResolvedValue([{ userId: 1, email: 'me@e.com', name: 'Me', role: 'owner' }])
+    const del = vi.spyOn(client, 'deleteTeam').mockResolvedValue()
+    renderPage()
+    fireEvent.click(await screen.findByText('Acme'))
+    const deleteBtn = await screen.findByRole('button', { name: /supprimer l'équipe/i })
+    fireEvent.click(deleteBtn)
+    await waitFor(() => expect(del).toHaveBeenCalledWith('jwt', 2))
+    await waitFor(() => expect(screen.queryByRole('button', { name: /supprimer l'équipe/i })).not.toBeInTheDocument())
+  })
 })

@@ -5,6 +5,7 @@ import {
   getTeams, createTeam, getTeamMembers, addTeamMember, removeTeamMember, deleteTeam,
 } from '../../api/client'
 import type { Team, TeamMember } from '../../api/types'
+import '../../styles/teams.css'
 
 export default function TeamsPage() {
   const { token, user } = useAuth()
@@ -15,7 +16,7 @@ export default function TeamsPage() {
 
   const reload = () => {
     if (!token) return
-    getTeams(token).then(setTeams).catch(() => setErr('Impossible de charger les équipes.'))
+    getTeams(token).then(t => { setTeams(t); setErr('') }).catch(() => setErr('Impossible de charger les équipes.'))
   }
   useEffect(reload, [token])
 
@@ -24,6 +25,7 @@ export default function TeamsPage() {
   const onCreate = async (e: FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
+    setErr('')
     try {
       await createTeam(token, name.trim())
       setName('')
@@ -58,13 +60,14 @@ export default function TeamsPage() {
           token={token}
           meId={user?.id ?? 0}
           onChanged={reload}
+          onDeleted={() => { setSelected(null); reload() }}
         />
       )}
     </div>
   )
 }
 
-function TeamDetail({ team, token, meId, onChanged }: { team: Team; token: string; meId: number; onChanged: () => void }) {
+function TeamDetail({ team, token, meId, onChanged, onDeleted }: { team: Team; token: string; meId: number; onChanged: () => void; onDeleted: () => void }) {
   const [members, setMembers] = useState<TeamMember[] | null>(null)
   const [email, setEmail] = useState('')
   const [err, setErr] = useState('')
@@ -90,7 +93,7 @@ function TeamDetail({ team, token, meId, onChanged }: { team: Team; token: strin
   }
   const onDelete = async () => {
     setErr('')
-    try { await deleteTeam(token, team.id); onChanged() }
+    try { await deleteTeam(token, team.id); onDeleted() }
     catch (x) { setErr((x as Error).message) }
   }
 
