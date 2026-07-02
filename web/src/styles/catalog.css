@@ -203,8 +203,36 @@
 .pill b{color:var(--fg);font-weight:600}
 .pill.ctx{color:var(--accent-d);background:var(--accent-soft);border-color:transparent}
 .pill.oauth{background:var(--accent);color:#fff;font-weight:600}
+.pill.lifecycle{font-weight:600;border-color:transparent}
+.pill.lifecycle.deprecated{color:oklch(48% 0.12 75);background:var(--warn-soft)}
+.pill.lifecycle.sunset{color:var(--danger);background:var(--danger-soft)}
 .cby{font-size:12.5px;color:var(--faint)}
 .cby b{color:var(--muted);font-weight:600}
+
+/* ===================== LIFECYCLE NOTICE (product detail) ===================== */
+.notice{
+  display:flex;align-items:center;gap:8px;font-size:13.5px;line-height:1.4;
+  padding:11px 16px;border-radius:10px;margin-bottom:20px;border:1px solid transparent;
+}
+.notice.deprecated{color:oklch(48% 0.12 75);background:var(--warn-soft);border-color:color-mix(in oklab,var(--warn) 40%,transparent)}
+.notice.sunset{color:var(--danger);background:var(--danger-soft);border-color:color-mix(in oklab,var(--danger) 40%,transparent)}
+
+/* ===================== CHANGELOG TIMELINE (product detail) ===================== */
+.changelog{margin-top:28px;border-top:1px solid var(--border-2);padding-top:22px}
+.changelog h2{font-family:var(--font-display);font-size:18px;font-weight:700;margin-bottom:14px}
+.changelog ul{list-style:none;display:flex;flex-direction:column;gap:12px}
+.changelog li{border:1px solid var(--border-2);border-radius:12px;padding:12px 14px;font-size:13.5px}
+.changelog li b{font-family:var(--font-mono)}
+.changelog .cdate{color:var(--faint);font-size:12px}
+.changelog p{margin-top:6px;color:var(--muted);line-height:1.5}
+.changelog .ctag{
+  display:inline-flex;align-items:center;font-size:11px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;
+  padding:2px 8px;border-radius:20px;margin-right:8px;background:var(--accent-soft);color:var(--accent-d);
+}
+.changelog .ctag::before{content:none}
+.changelog .ctag.deprecated,.changelog .ctag.sunset{background:var(--warn-soft);color:oklch(48% 0.12 75)}
+.changelog .ctag.fixed{background:var(--danger-soft);color:var(--danger)}
+.changelog .ctag.added{background:var(--accent-soft);color:var(--accent-d)}
 
 .cfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px;padding-top:13px;border-top:1px solid var(--border)}
 .ctags{display:flex;gap:6px;flex-wrap:wrap}

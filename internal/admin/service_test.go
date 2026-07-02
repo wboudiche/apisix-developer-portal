@@ -76,6 +76,9 @@ func (f *fakeStore) AddChangelog(_ context.Context, _ int64, e ChangelogEntry) (
 	e.ID = 1
 	return e, nil
 }
+func (f *fakeStore) ListChangelog(_ context.Context, _ int64) ([]ChangelogEntry, error) {
+	return nil, nil
+}
 func (f *fakeStore) DeleteChangelog(_ context.Context, _, _ int64) error { return nil }
 
 type fakeProv struct {

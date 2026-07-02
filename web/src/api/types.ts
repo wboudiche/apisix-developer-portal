@@ -11,6 +11,8 @@ export interface Product {
   rating: number
   ratingCount: number
   authType?: string
+  lifecycleStatus?: 'active' | 'deprecated' | 'sunset'
+  sunsetDate?: string | null
 }
 
 export interface Review { stars: number; comment: string; author: string; createdAt: string }
@@ -102,6 +104,16 @@ export interface AdminProduct {
   openapiSpec?: string
   sandboxUpstreamUrl?: string
   authType?: string
+  lifecycleStatus?: 'active' | 'deprecated' | 'sunset'
+  sunsetDate?: string | null
+}
+
+export interface ChangelogEntry {
+  id: number
+  version: string
+  kind: string
+  notes: string
+  date: string
 }
 
 export interface AdminSubscription {

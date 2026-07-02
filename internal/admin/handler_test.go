@@ -20,8 +20,10 @@ type fakeService struct {
 
 	addChangelogErr    error
 	deleteChangelogErr error
+	listChangelogErr   error
 	lastChangelog      ChangelogEntry
 	lastChangelogPID   int64
+	changelogEntries   map[int64][]ChangelogEntry
 }
 
 func (f *fakeService) List(_ context.Context, _ paging.Params) ([]Product, int, error) {
@@ -61,6 +63,12 @@ func (f *fakeService) AddChangelog(_ context.Context, productID int64, e Changel
 	e.ID = 1
 	f.lastChangelog = e
 	return e, nil
+}
+func (f *fakeService) ListChangelog(_ context.Context, productID int64) ([]ChangelogEntry, error) {
+	if f.listChangelogErr != nil {
+		return nil, f.listChangelogErr
+	}
+	return f.changelogEntries[productID], nil
 }
 func (f *fakeService) DeleteChangelog(_ context.Context, productID, entryID int64) error {
 	return f.deleteChangelogErr
@@ -303,6 +311,39 @@ func TestAddChangelogInvalidDateReturns400(t *testing.T) {
 		ChangelogEntry{Version: "v2", Kind: "changed", Date: "not-a-date"})
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+}
+
+func TestListChangelogReturnsEntriesForDraftProduct(t *testing.T) {
+	entries := []ChangelogEntry{{ID: 11, Version: "1.0.0", Kind: "added", Notes: "Initial", Date: "2026-01-01"}}
+	// Product is unpublished (a draft) — the admin listing must still see it,
+	// unlike the public published-only changelog endpoint.
+	svc := &fakeService{
+		products:         map[int64]Product{1: {ID: 1, Published: false}},
+		changelogEntries: map[int64][]ChangelogEntry{1: entries},
+	}
+	h := newTestHandler(svc)
+	rec := do(h, http.MethodGet, "/api/admin/products/1/changelog", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body: %s)", rec.Code, rec.Body.String())
+	}
+	var got []ChangelogEntry
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("body not a changelog entry list: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != 11 {
+		t.Fatalf("got %+v, want the seeded entry", got)
+	}
+}
+
+func TestListChangelogReturnsEmptyArrayNotNull(t *testing.T) {
+	h := newTestHandler(&fakeService{products: map[int64]Product{1: {ID: 1}}})
+	rec := do(h, http.MethodGet, "/api/admin/products/1/changelog", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if body := rec.Body.String(); body != "[]\n" && body != "[]" {
+		t.Fatalf("body = %q, want an empty JSON array", body)
 	}
 }
 

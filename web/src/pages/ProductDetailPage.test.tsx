@@ -19,10 +19,12 @@ const product: Product = {
   id: 1, name: 'Orders API', slug: 'orders', category: 'Data', version: '2.1.0',
   contextPath: '/orders', description: 'Gère les commandes.', tags: ['data'], icon: '', rating: 4, ratingCount: 0,
 }
+const baseProduct = product
 
 beforeEach(() => {
   localStorage.clear()
   vi.spyOn(api, 'getProduct').mockResolvedValue(product)
+  vi.spyOn(api, 'getChangelog').mockResolvedValue([])
 })
 afterEach(() => vi.restoreAllMocks())
 
@@ -90,4 +92,16 @@ it('does not show sandbox toggle when sandboxAvailable is false', async () => {
   renderAt('orders')
   await waitFor(() => expect(screen.getByTestId('scalar')).toHaveAttribute('data-server', '/api/try/orders/3'))
   expect(screen.queryByRole('button', { name: /Sandbox/i })).not.toBeInTheDocument()
+})
+
+it('shows the deprecation notice, changelog, and a disabled subscribe for a deprecated product', async () => {
+  vi.spyOn(api, 'getProduct').mockResolvedValue({ ...baseProduct, slug: 'dep', lifecycleStatus: 'deprecated' })
+  vi.spyOn(api, 'getChangelog').mockResolvedValue([{ id: 1, version: 'v1.2', kind: 'deprecated', notes: 'moved to v2', date: '2026-07-01' }])
+  vi.spyOn(api, 'getProductSpec').mockResolvedValue(null)
+  renderAt('dep')
+  expect(await screen.findByText(/n'accepte plus de nouveaux abonnements/i)).toBeInTheDocument()
+  expect(screen.getByText('v1.2')).toBeInTheDocument()
+  expect(screen.getByText(/moved to v2/)).toBeInTheDocument()
+  const subBtn = screen.getByRole('button', { name: /S'abonner/i })
+  expect(subBtn).toBeDisabled()
 })

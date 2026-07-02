@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AdminProduct } from '../../api/types'
-import { adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, ApiError } from '../../api/client'
+import type { AdminProduct, ChangelogEntry } from '../../api/types'
+import { adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminGetChangelog, addChangelogEntry, deleteChangelogEntry, ApiError } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { AdminShell } from './AdminShell'
 import { Composer } from './Composer'
@@ -13,8 +13,96 @@ import { ImportModal } from './ImportModal'
 interface FormState {
   name: string; slug: string; category: string; contextPath: string
   upstreamUrl: string; sandboxUpstreamUrl: string; authType: string; version: string; published: boolean; openapiSpec: string
+  lifecycleStatus: string; sunsetDate: string
 }
-const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', upstreamUrl: '', sandboxUpstreamUrl: '', authType: 'key-auth', version: '1.0.0', published: true, openapiSpec: '' }
+const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', upstreamUrl: '', sandboxUpstreamUrl: '', authType: 'key-auth', version: '1.0.0', published: true, openapiSpec: '', lifecycleStatus: 'active', sunsetDate: '' }
+
+const CHANGELOG_KINDS = ['added', 'changed', 'fixed', 'removed', 'deprecated', 'security'] as const
+
+// Editor for a product's changelog: shown only while editing an existing
+// product (needs its numeric id). Owns its own fetch/add/delete cycle,
+// independent from the surrounding product-form state. Uses the ADMIN list
+// endpoint (not the public published-only one) so drafts show their entries too.
+function ChangelogEditor({ productId, token, notify }: {
+  productId: number
+  token: string
+  notify: (msg: string, kind?: 'ok' | 'warn') => void
+}) {
+  const [entries, setEntries] = useState<ChangelogEntry[]>([])
+  const [cVersion, setCVersion] = useState('')
+  const [cKind, setCKind] = useState<string>('added')
+  const [cDate, setCDate] = useState('')
+  const [cNotes, setCNotes] = useState('')
+
+  const reload = useCallback(() => {
+    adminGetChangelog(token, productId).then(setEntries).catch(() => {})
+  }, [token, productId])
+  useEffect(reload, [reload])
+
+  async function add() {
+    if (!cVersion.trim() || !cDate.trim()) return
+    try {
+      await addChangelogEntry(token, productId, { version: cVersion.trim(), kind: cKind, notes: cNotes.trim(), date: cDate })
+      setCVersion(''); setCNotes(''); setCDate(''); setCKind('added')
+      reload()
+    } catch (e) { notify(e instanceof Error ? e.message : "Échec de l'ajout au journal.", 'warn') }
+  }
+
+  async function del(entryId: number) {
+    try {
+      await deleteChangelogEntry(token, productId, entryId)
+      reload()
+    } catch (e) { notify(e instanceof Error ? e.message : 'Échec de la suppression.', 'warn') }
+  }
+
+  // Enter in an add-form field must add the changelog entry, not implicitly
+  // submit the surrounding product <form> (which would save+close the
+  // composer and discard the half-typed entry).
+  function onEntryKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') { e.preventDefault(); add() }
+  }
+
+  return (
+    <div className="field" style={{ gridColumn: '1 / -1' }}>
+      <label>Journal des modifications</label>
+      {entries.length > 0 && (
+        <div className="changelog">
+          <ul>
+            {entries.map(e => (
+              <li key={e.id}>
+                <span className={`ctag ${e.kind}`}>{e.kind}</span>
+                <b>{e.version}</b> <span className="cdate mono">{e.date}</span>
+                {e.notes && <p>{e.notes}</p>}
+                <button type="button" className="btn btn-ghost btn-sm" aria-label="Supprimer une entrée du journal" onClick={() => del(e.id)}>Supprimer</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="grid2">
+        <div className="field">
+          <label htmlFor="cl-version">Nouvelle version</label>
+          <input id="cl-version" className="ipt mono" autoComplete="off" value={cVersion} onChange={e => setCVersion(e.target.value)} onKeyDown={onEntryKeyDown} />
+        </div>
+        <div className="field">
+          <label htmlFor="cl-kind">Type de changement</label>
+          <select id="cl-kind" className="ipt" value={cKind} onChange={e => setCKind(e.target.value)}>
+            {CHANGELOG_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="cl-date">Date de publication</label>
+          <input id="cl-date" type="date" className="ipt" value={cDate} onChange={e => setCDate(e.target.value)} onKeyDown={onEntryKeyDown} />
+        </div>
+        <div className="field" style={{ gridColumn: '1 / -1' }}>
+          <label htmlFor="cl-notes">Notes du changelog</label>
+          <input id="cl-notes" className="ipt" autoComplete="off" value={cNotes} onChange={e => setCNotes(e.target.value)} onKeyDown={onEntryKeyDown} />
+        </div>
+      </div>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={add}>Ajouter</button>
+    </div>
+  )
+}
 
 function PlusIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M12 5v14M5 12h14" strokeLinecap="round" /></svg>
@@ -64,6 +152,7 @@ export function ProductsPage() {
       sandboxUpstreamUrl: draft.sandboxUpstreamUrl ?? '',
       authType: draft.authType ?? 'key-auth',
       version: draft.version, published: false, openapiSpec: draft.openapiSpec ?? '',
+      lifecycleStatus: 'active', sunsetDate: '',
     })
     setSlugTouched(true)
     setOpen(true)
@@ -71,7 +160,7 @@ export function ProductsPage() {
 
   function openEdit(p: AdminProduct) {
     setEditing(p)
-    setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, sandboxUpstreamUrl: p.sandboxUpstreamUrl ?? '', authType: p.authType ?? 'key-auth', version: p.version, published: p.published, openapiSpec: '' })
+    setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, sandboxUpstreamUrl: p.sandboxUpstreamUrl ?? '', authType: p.authType ?? 'key-auth', version: p.version, published: p.published, openapiSpec: '', lifecycleStatus: p.lifecycleStatus ?? 'active', sunsetDate: p.sunsetDate ?? '' })
     setSlugTouched(true)
     setOpen(true)
   }
@@ -91,6 +180,8 @@ export function ProductsPage() {
       version: form.version.trim() || '1.0.0',
       published: form.published,
       openapiSpec: form.openapiSpec,
+      lifecycleStatus: form.lifecycleStatus as AdminProduct['lifecycleStatus'],
+      sunsetDate: form.sunsetDate || null,
     }
     try {
       if (editing?.id != null) {
@@ -216,6 +307,20 @@ export function ProductsPage() {
             <input id="f-ver" className="ipt mono" autoComplete="off"
               value={form.version} onChange={e => set('version', e.target.value)} />
           </div>
+          <div className="field">
+            <label htmlFor="f-lifecycle">Statut</label>
+            <select id="f-lifecycle" className="ipt" value={form.lifecycleStatus} onChange={e => set('lifecycleStatus', e.target.value)}>
+              <option value="active">Actif</option>
+              <option value="deprecated">Déprécié</option>
+              <option value="sunset">Sunset</option>
+            </select>
+          </div>
+          {form.lifecycleStatus === 'sunset' && (
+            <div className="field">
+              <label htmlFor="f-sunset">Date de retrait</label>
+              <input id="f-sunset" type="date" className="ipt" value={form.sunsetDate} onChange={e => set('sunsetDate', e.target.value)} />
+            </div>
+          )}
           <div className="field" style={{ gridColumn: '1 / -1' }}>
             <label htmlFor="f-spec">Spécification OpenAPI <span className="opt">optionnel</span></label>
             <input id="f-spec-file" type="file" accept=".json,.yaml,.yml"
@@ -224,6 +329,9 @@ export function ProductsPage() {
               value={form.openapiSpec} onChange={e => set('openapiSpec', e.target.value)} />
             <div className="help">{editing ? 'Laissez vide pour conserver la spécification existante.' : 'Alimente la documentation et le « Essayer » du produit.'}</div>
           </div>
+          {editing?.id != null && token && (
+            <ChangelogEditor key={editing.id} productId={editing.id} token={token} notify={notify} />
+          )}
         </div>
       </Composer>
 

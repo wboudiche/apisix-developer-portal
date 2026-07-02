@@ -21,6 +21,7 @@ type Product struct {
 
 // ChangelogEntry is one published change for a catalog product.
 type ChangelogEntry struct {
+	ID      int64  `json:"id"`
 	Version string `json:"version"`
 	Kind    string `json:"kind"`
 	Notes   string `json:"notes"`
