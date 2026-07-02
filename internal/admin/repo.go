@@ -24,12 +24,13 @@ type Repo struct{ pool *pgxpool.Pool }
 
 func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
-const productCols = `id, name, slug, category, version, context_path, description, tags, icon, upstream_url, sandbox_upstream_url, published, auth_type`
+const productCols = `id, name, slug, category, version, context_path, description, tags, icon, upstream_url, sandbox_upstream_url, published, auth_type, lifecycle_status, to_char(sunset_date,'YYYY-MM-DD')`
 
 func scanProduct(row pgx.Row) (Product, error) {
 	var p Product
 	err := row.Scan(&p.ID, &p.Name, &p.Slug, &p.Category, &p.Version,
-		&p.ContextPath, &p.Description, &p.Tags, &p.Icon, &p.UpstreamURL, &p.SandboxUpstreamURL, &p.Published, &p.AuthType)
+		&p.ContextPath, &p.Description, &p.Tags, &p.Icon, &p.UpstreamURL, &p.SandboxUpstreamURL, &p.Published, &p.AuthType,
+		&p.LifecycleStatus, &p.SunsetDate)
 	return p, err
 }
 
@@ -66,10 +67,10 @@ func (r *Repo) Get(ctx context.Context, id int64) (Product, error) {
 
 func (r *Repo) Create(ctx context.Context, p Product) (Product, error) {
 	created, err := scanProduct(r.pool.QueryRow(ctx,
-		`INSERT INTO api_products(name, slug, category, version, context_path, description, tags, icon, upstream_url, sandbox_upstream_url, published, openapi_spec, auth_type)
-		 VALUES($1,$2,$3,COALESCE(NULLIF($4,''),'1.0.0'),$5,$6,$7,$8,$9,$10,$11,$12,COALESCE(NULLIF($13,''),'key-auth'))
+		`INSERT INTO api_products(name, slug, category, version, context_path, description, tags, icon, upstream_url, sandbox_upstream_url, published, openapi_spec, auth_type, lifecycle_status, sunset_date)
+		 VALUES($1,$2,$3,COALESCE(NULLIF($4,''),'1.0.0'),$5,$6,$7,$8,$9,$10,$11,$12,COALESCE(NULLIF($13,''),'key-auth'),COALESCE(NULLIF($14,''),'active'),NULLIF($15,'')::date)
 		 RETURNING `+productCols,
-		p.Name, p.Slug, p.Category, p.Version, p.ContextPath, p.Description, p.Tags, p.Icon, p.UpstreamURL, p.SandboxUpstreamURL, p.Published, p.OpenAPISpec, p.AuthType))
+		p.Name, p.Slug, p.Category, p.Version, p.ContextPath, p.Description, p.Tags, p.Icon, p.UpstreamURL, p.SandboxUpstreamURL, p.Published, p.OpenAPISpec, p.AuthType, p.LifecycleStatus, derefStr(p.SunsetDate)))
 	if err != nil {
 		return Product{}, uniqueErr(err)
 	}
@@ -81,10 +82,11 @@ func (r *Repo) Update(ctx context.Context, p Product) (Product, error) {
 		`UPDATE api_products SET name=$2, slug=$3, category=$4, version=COALESCE(NULLIF($5,''),'1.0.0'),
 		   context_path=$6, description=$7, tags=$8, icon=$9, upstream_url=$10, sandbox_upstream_url=$11, published=$12,
 		   openapi_spec=COALESCE(NULLIF($13,''), openapi_spec),
-		   auth_type=COALESCE(NULLIF($14,''),'key-auth')
+		   auth_type=COALESCE(NULLIF($14,''),'key-auth'),
+		   lifecycle_status=COALESCE(NULLIF($15,''),'active'), sunset_date=NULLIF($16,'')::date
 		 WHERE id=$1
 		 RETURNING `+productCols,
-		p.ID, p.Name, p.Slug, p.Category, p.Version, p.ContextPath, p.Description, p.Tags, p.Icon, p.UpstreamURL, p.SandboxUpstreamURL, p.Published, p.OpenAPISpec, p.AuthType))
+		p.ID, p.Name, p.Slug, p.Category, p.Version, p.ContextPath, p.Description, p.Tags, p.Icon, p.UpstreamURL, p.SandboxUpstreamURL, p.Published, p.OpenAPISpec, p.AuthType, p.LifecycleStatus, derefStr(p.SunsetDate)))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Product{}, ErrNotFound
 	}
@@ -115,6 +117,41 @@ func (r *Repo) ContextPathOverlaps(ctx context.Context, p string, exceptID int64
 
 func (r *Repo) Delete(ctx context.Context, id int64) error {
 	tag, err := r.pool.Exec(ctx, `DELETE FROM api_products WHERE id=$1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// derefStr returns "" for a nil pointer, otherwise the pointed-to value —
+// used to pass a nullable *string date field as a query param.
+func derefStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// AddChangelog inserts a changelog entry for productID and returns it with its
+// generated id.
+func (r *Repo) AddChangelog(ctx context.Context, productID int64, e ChangelogEntry) (ChangelogEntry, error) {
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO changelog_entries(product_id, version, kind, notes, entry_date)
+		 VALUES($1,$2,$3,$4,$5::date)
+		 RETURNING id, version, kind, notes, to_char(entry_date,'YYYY-MM-DD')`,
+		productID, e.Version, e.Kind, e.Notes, e.Date).
+		Scan(&e.ID, &e.Version, &e.Kind, &e.Notes, &e.Date)
+	return e, err
+}
+
+// DeleteChangelog removes a changelog entry, scoped to productID so one
+// product's admin can't delete another product's entries by id guessing.
+// ErrNotFound when no matching row exists.
+func (r *Repo) DeleteChangelog(ctx context.Context, productID, entryID int64) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM changelog_entries WHERE id=$1 AND product_id=$2`, entryID, productID)
 	if err != nil {
 		return err
 	}

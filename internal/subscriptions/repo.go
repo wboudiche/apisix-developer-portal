@@ -65,8 +65,8 @@ func (r *Repo) GetOrCreateCredential(ctx context.Context, appID int64, genKey fu
 func (r *Repo) GetProduct(ctx context.Context, id int64) (ProductInfo, error) {
 	var p ProductInfo
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, context_path, upstream_url, sandbox_upstream_url, published, auth_type FROM api_products WHERE id=$1`, id,
-	).Scan(&p.ID, &p.ContextPath, &p.Upstream, &p.SandboxUpstream, &p.Published, &p.AuthType)
+		`SELECT id, context_path, upstream_url, sandbox_upstream_url, published, auth_type, lifecycle_status FROM api_products WHERE id=$1`, id,
+	).Scan(&p.ID, &p.ContextPath, &p.Upstream, &p.SandboxUpstream, &p.Published, &p.AuthType, &p.LifecycleStatus)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ProductInfo{}, ErrNotFound
 	}

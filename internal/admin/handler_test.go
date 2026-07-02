@@ -17,6 +17,11 @@ type fakeService struct {
 	createErr error
 	updateErr error
 	deleteErr error
+
+	addChangelogErr    error
+	deleteChangelogErr error
+	lastChangelog      ChangelogEntry
+	lastChangelogPID   int64
 }
 
 func (f *fakeService) List(_ context.Context, _ paging.Params) ([]Product, int, error) {
@@ -47,6 +52,19 @@ func (f *fakeService) Update(_ context.Context, p Product) (Product, error) {
 	return p, nil
 }
 func (f *fakeService) Delete(_ context.Context, id int64) error { return f.deleteErr }
+
+func (f *fakeService) AddChangelog(_ context.Context, productID int64, e ChangelogEntry) (ChangelogEntry, error) {
+	if f.addChangelogErr != nil {
+		return ChangelogEntry{}, f.addChangelogErr
+	}
+	f.lastChangelogPID = productID
+	e.ID = 1
+	f.lastChangelog = e
+	return e, nil
+}
+func (f *fakeService) DeleteChangelog(_ context.Context, productID, entryID int64) error {
+	return f.deleteChangelogErr
+}
 
 func newTestHandler(svc ProductService) *Handler { return NewHandler(svc, true, false) }
 
@@ -207,5 +225,99 @@ func TestUpdateOAuth2ProductReturns400WhenOIDCUnconfigured(t *testing.T) {
 		Product{Name: "Orders", Slug: "orders", Category: "Commerce", ContextPath: "/orders", AuthType: "oauth2"})
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400 (OAuth2 without OIDC configured); body: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCreateAcceptsLifecycleStatusAndSunsetDate(t *testing.T) {
+	svc := &fakeService{products: map[int64]Product{}}
+	h := newTestHandler(svc)
+	sunset := "2026-12-31"
+	rec := do(h, http.MethodPost, "/api/admin/products",
+		Product{Name: "Pizza", Slug: "pizza", Category: "Food", ContextPath: "/pizza", LifecycleStatus: "sunset", SunsetDate: &sunset})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201 (body: %s)", rec.Code, rec.Body.String())
+	}
+	var got Product
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("body not a product: %v", err)
+	}
+	if got.LifecycleStatus != "sunset" || got.SunsetDate == nil || *got.SunsetDate != sunset {
+		t.Fatalf("lifecycle fields not passed through: %+v", got)
+	}
+}
+
+func TestCreateInvalidLifecycleStatusReturns400(t *testing.T) {
+	h := newTestHandler(&fakeService{products: map[int64]Product{}})
+	rec := do(h, http.MethodPost, "/api/admin/products",
+		Product{Name: "Pizza", Slug: "pizza", Category: "Food", ContextPath: "/pizza", LifecycleStatus: "retired"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+}
+
+func TestCreateInvalidSunsetDateReturns400(t *testing.T) {
+	h := newTestHandler(&fakeService{products: map[int64]Product{}})
+	bad := "not-a-date"
+	rec := do(h, http.MethodPost, "/api/admin/products",
+		Product{Name: "Pizza", Slug: "pizza", Category: "Food", ContextPath: "/pizza", SunsetDate: &bad})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+}
+
+func TestAddChangelogReturns201AndCallsService(t *testing.T) {
+	svc := &fakeService{products: map[int64]Product{1: {ID: 1}}}
+	h := newTestHandler(svc)
+	rec := do(h, http.MethodPost, "/api/admin/products/1/changelog",
+		ChangelogEntry{Version: "v2", Kind: "changed", Notes: "n", Date: "2026-03-01"})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201 (body: %s)", rec.Code, rec.Body.String())
+	}
+	if svc.lastChangelogPID != 1 {
+		t.Fatalf("service not called with product id 1, got %d", svc.lastChangelogPID)
+	}
+	if svc.lastChangelog.Version != "v2" || svc.lastChangelog.Kind != "changed" {
+		t.Fatalf("service called with unexpected entry: %+v", svc.lastChangelog)
+	}
+	var got ChangelogEntry
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("body not a changelog entry: %v", err)
+	}
+	if got.ID == 0 {
+		t.Fatalf("expected a generated id, got %+v", got)
+	}
+}
+
+func TestAddChangelogInvalidKindReturns400(t *testing.T) {
+	h := newTestHandler(&fakeService{products: map[int64]Product{1: {ID: 1}}})
+	rec := do(h, http.MethodPost, "/api/admin/products/1/changelog",
+		ChangelogEntry{Version: "v2", Kind: "bogus", Date: "2026-03-01"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+}
+
+func TestAddChangelogInvalidDateReturns400(t *testing.T) {
+	h := newTestHandler(&fakeService{products: map[int64]Product{1: {ID: 1}}})
+	rec := do(h, http.MethodPost, "/api/admin/products/1/changelog",
+		ChangelogEntry{Version: "v2", Kind: "changed", Date: "not-a-date"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+}
+
+func TestDeleteChangelogReturns204(t *testing.T) {
+	h := newTestHandler(&fakeService{products: map[int64]Product{1: {ID: 1}}})
+	rec := do(h, http.MethodDelete, "/api/admin/products/1/changelog/5", nil)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204 (body: %s)", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDeleteChangelogNotFoundReturns404(t *testing.T) {
+	h := newTestHandler(&fakeService{products: map[int64]Product{1: {ID: 1}}, deleteChangelogErr: ErrNotFound})
+	rec := do(h, http.MethodDelete, "/api/admin/products/1/changelog/5", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
 	}
 }

@@ -21,6 +21,8 @@ type Store interface {
 	Delete(ctx context.Context, id int64) error
 	CountActiveSubscriptions(ctx context.Context, productID int64) (int, error)
 	ContextPathOverlaps(ctx context.Context, p string, exceptID int64) (bool, error)
+	AddChangelog(ctx context.Context, productID int64, e ChangelogEntry) (ChangelogEntry, error)
+	DeleteChangelog(ctx context.Context, productID, entryID int64) error
 }
 
 // Provisioner triggers APISIX route changes (satisfied by *subscriptions.Service).
@@ -95,6 +97,16 @@ func (s *Service) Update(ctx context.Context, p Product) (Product, error) {
 		}
 	}
 	return updated, nil
+}
+
+// AddChangelog records a changelog entry for a product.
+func (s *Service) AddChangelog(ctx context.Context, productID int64, e ChangelogEntry) (ChangelogEntry, error) {
+	return s.store.AddChangelog(ctx, productID, e)
+}
+
+// DeleteChangelog removes a changelog entry from a product.
+func (s *Service) DeleteChangelog(ctx context.Context, productID, entryID int64) error {
+	return s.store.DeleteChangelog(ctx, productID, entryID)
 }
 
 // Delete refuses (ErrHasSubscriptions) while active subscriptions exist; otherwise
