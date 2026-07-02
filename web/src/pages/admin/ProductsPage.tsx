@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AdminProduct, ChangelogEntry } from '../../api/types'
-import { adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, getChangelog, addChangelogEntry, deleteChangelogEntry, ApiError } from '../../api/client'
+import { adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminGetChangelog, addChangelogEntry, deleteChangelogEntry, ApiError } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { AdminShell } from './AdminShell'
 import { Composer } from './Composer'
@@ -20,11 +20,11 @@ const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', up
 const CHANGELOG_KINDS = ['added', 'changed', 'fixed', 'removed', 'deprecated', 'security'] as const
 
 // Editor for a product's changelog: shown only while editing an existing
-// product (needs its numeric id + slug). Owns its own fetch/add/delete cycle,
-// independent from the surrounding product-form state.
-function ChangelogEditor({ productId, slug, token, notify }: {
+// product (needs its numeric id). Owns its own fetch/add/delete cycle,
+// independent from the surrounding product-form state. Uses the ADMIN list
+// endpoint (not the public published-only one) so drafts show their entries too.
+function ChangelogEditor({ productId, token, notify }: {
   productId: number
-  slug: string
   token: string
   notify: (msg: string, kind?: 'ok' | 'warn') => void
 }) {
@@ -35,8 +35,8 @@ function ChangelogEditor({ productId, slug, token, notify }: {
   const [cNotes, setCNotes] = useState('')
 
   const reload = useCallback(() => {
-    getChangelog(slug).then(setEntries).catch(() => {})
-  }, [slug])
+    adminGetChangelog(token, productId).then(setEntries).catch(() => {})
+  }, [token, productId])
   useEffect(reload, [reload])
 
   async function add() {
@@ -330,7 +330,7 @@ export function ProductsPage() {
             <div className="help">{editing ? 'Laissez vide pour conserver la spécification existante.' : 'Alimente la documentation et le « Essayer » du produit.'}</div>
           </div>
           {editing?.id != null && token && (
-            <ChangelogEditor key={editing.id} productId={editing.id} slug={editing.slug} token={token} notify={notify} />
+            <ChangelogEditor key={editing.id} productId={editing.id} token={token} notify={notify} />
           )}
         </div>
       </Composer>

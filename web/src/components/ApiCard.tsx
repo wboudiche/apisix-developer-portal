@@ -30,6 +30,9 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Product) => void }) {
+  // Mirrors ProductDetailPage: deprecated/sunset products no longer accept
+  // new subscriptions (the backend 409s), so keep the catalog card consistent.
+  const blocked = p.lifecycleStatus === 'deprecated' || p.lifecycleStatus === 'sunset'
   return (
     <article className="card in" data-testid="api-card" style={categoryTint(p.category)}>
       <div className="thumb">
@@ -54,7 +57,8 @@ export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Produ
         </div>
         <div className="cfoot">
           <div className="ctags">{p.tags.slice(0, 2).map(t => <span key={t} className="ctag">{t}</span>)}</div>
-          <button className="subbtn" onClick={() => onSubscribe(p)}>
+          <button className="subbtn" onClick={() => onSubscribe(p)} disabled={blocked}
+            title={blocked ? "Cette API n'accepte plus de nouveaux abonnements" : undefined}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path d="M12 5v14M5 12h14" strokeLinecap="round"/>
             </svg>

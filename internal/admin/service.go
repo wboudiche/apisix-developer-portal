@@ -22,6 +22,7 @@ type Store interface {
 	CountActiveSubscriptions(ctx context.Context, productID int64) (int, error)
 	ContextPathOverlaps(ctx context.Context, p string, exceptID int64) (bool, error)
 	AddChangelog(ctx context.Context, productID int64, e ChangelogEntry) (ChangelogEntry, error)
+	ListChangelog(ctx context.Context, productID int64) ([]ChangelogEntry, error)
 	DeleteChangelog(ctx context.Context, productID, entryID int64) error
 }
 
@@ -102,6 +103,12 @@ func (s *Service) Update(ctx context.Context, p Product) (Product, error) {
 // AddChangelog records a changelog entry for a product.
 func (s *Service) AddChangelog(ctx context.Context, productID int64, e ChangelogEntry) (ChangelogEntry, error) {
 	return s.store.AddChangelog(ctx, productID, e)
+}
+
+// ListChangelog returns all changelog entries for a product, including ones
+// on unpublished/draft products (unlike the public catalog listing).
+func (s *Service) ListChangelog(ctx context.Context, productID int64) ([]ChangelogEntry, error) {
+	return s.store.ListChangelog(ctx, productID)
 }
 
 // DeleteChangelog removes a changelog entry from a product.

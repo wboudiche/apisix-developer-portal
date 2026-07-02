@@ -281,6 +281,13 @@ export async function deleteChangelogEntry(token: string, productId: number, ent
   return sendAuthed('DELETE', `/api/admin/products/${productId}/changelog/${entryId}`, token)
 }
 
+// Admin listing: unlike the public getChangelog (published-only), this shows
+// entries for draft/unpublished products too.
+export async function adminGetChangelog(token: string, productId: number): Promise<ChangelogEntry[]> {
+  const url = `/api/admin/products/${productId}/changelog`
+  return parse<ChangelogEntry[]>(await fetch(url, { headers: authHeaders(token) }), url)
+}
+
 // --- Admin: plans ---
 export async function adminGetPlans(token: string, page?: PageOpts): Promise<Paginated<Plan>> {
   const params = new URLSearchParams()

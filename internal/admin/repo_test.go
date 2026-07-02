@@ -90,3 +90,31 @@ func TestChangelogAddDelete(t *testing.T) {
 		t.Fatalf("delete missing err = %v, want ErrNotFound", err)
 	}
 }
+
+// TestListChangelogReturnsEntryForUnpublishedProduct guards against the admin
+// changelog editor going blind on a draft: ListChangelog must not filter on
+// published, unlike the public catalog changelog listing.
+func TestListChangelogReturnsEntryForUnpublishedProduct(t *testing.T) {
+	ctx, repo := adminTestRepo(t)
+	p, err := repo.Create(ctx, Product{
+		Name: "ClList", Slug: "cl-list-" + time.Now().Format("150405.000000000"), Category: "C",
+		ContextPath: "/cl-list", Published: false, Tags: []string{},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	t.Cleanup(func() { _, _ = repo.pool.Exec(ctx, `DELETE FROM api_products WHERE id=$1`, p.ID) })
+
+	seeded, err := repo.AddChangelog(ctx, p.ID, ChangelogEntry{Version: "v1", Kind: "added", Notes: "seed", Date: "2026-01-01"})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	got, err := repo.ListChangelog(ctx, p.ID)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != seeded.ID || got[0].Version != "v1" || got[0].Kind != "added" || got[0].Notes != "seed" || got[0].Date != "2026-01-01" {
+		t.Fatalf("list changelog for draft product = %+v, want the seeded entry", got)
+	}
+}

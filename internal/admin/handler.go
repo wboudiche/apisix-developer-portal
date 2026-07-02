@@ -24,6 +24,7 @@ type ProductService interface {
 	Update(ctx context.Context, p Product) (Product, error)
 	Delete(ctx context.Context, id int64) error
 	AddChangelog(ctx context.Context, productID int64, e ChangelogEntry) (ChangelogEntry, error)
+	ListChangelog(ctx context.Context, productID int64) ([]ChangelogEntry, error)
 	DeleteChangelog(ctx context.Context, productID, entryID int64) error
 }
 
@@ -43,6 +44,7 @@ func NewHandler(svc ProductService, allowPrivate bool, oidcConfigured bool) *Han
 	h.router.Put("/api/admin/products/{id}", h.update)
 	h.router.Delete("/api/admin/products/{id}", h.delete)
 	h.router.Post("/api/admin/products/{id}/changelog", h.addChangelog)
+	h.router.Get("/api/admin/products/{id}/changelog", h.listChangelog)
 	h.router.Delete("/api/admin/products/{id}/changelog/{entryId}", h.deleteChangelog)
 	return h
 }
@@ -226,6 +228,26 @@ func (h *Handler) addChangelog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, created)
+}
+
+// listChangelog returns all changelog entries for a product, including
+// drafts/unpublished — unlike the public GET /api/products/{slug}/changelog,
+// which is published-only.
+func (h *Handler) listChangelog(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r)
+	if !ok {
+		return
+	}
+	entries, err := h.svc.ListChangelog(r.Context(), id)
+	if err != nil {
+		log.Printf("admin list changelog for product %d: %v", id, err)
+		httpx.Error(w, http.StatusInternalServerError, "failed to list changelog entries")
+		return
+	}
+	if entries == nil {
+		entries = []ChangelogEntry{}
+	}
+	httpx.JSON(w, http.StatusOK, entries)
 }
 
 func (h *Handler) deleteChangelog(w http.ResponseWriter, r *http.Request) {

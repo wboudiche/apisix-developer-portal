@@ -166,7 +166,7 @@ describe('ProductsPage', () => {
   })
 
   it('the changelog editor lists entries, deletes one, and adds a new one when editing', async () => {
-    vi.spyOn(api, 'getChangelog').mockResolvedValue([
+    const list = vi.spyOn(api, 'adminGetChangelog').mockResolvedValue([
       { id: 11, version: '1.0.0', kind: 'added', notes: 'Initial release', date: '2026-01-01' },
     ])
     const del = vi.spyOn(api, 'deleteChangelogEntry').mockResolvedValue(undefined)
@@ -176,6 +176,7 @@ describe('ProductsPage', () => {
     await userEvent.click(screen.getAllByRole('button', { name: 'Modifier' })[0])
     expect(await screen.findByText('Journal des modifications')).toBeInTheDocument()
     expect(await screen.findByText('Initial release')).toBeInTheDocument()
+    expect(list).toHaveBeenCalledWith('jwt', 1)
 
     await userEvent.click(screen.getByRole('button', { name: 'Supprimer une entrée du journal' }))
     await waitFor(() => expect(del).toHaveBeenCalledWith('jwt', 1, 11))
@@ -188,8 +189,23 @@ describe('ProductsPage', () => {
     await waitFor(() => expect(add).toHaveBeenCalledWith('jwt', 1, { version: '1.1.0', kind: 'fixed', notes: 'Bugfix', date: '2026-02-01' }))
   })
 
+  it('shows changelog entries for an unpublished (draft) product via the admin listing endpoint', async () => {
+    // Regression test: the admin editor must use the ADMIN changelog endpoint
+    // (adminGetChangelog), not the public published-only one, or a draft's
+    // entries would always appear empty.
+    const list = vi.spyOn(api, 'adminGetChangelog').mockResolvedValue([
+      { id: 21, version: '0.9.0', kind: 'added', notes: 'Draft entry', date: '2026-01-05' },
+    ])
+    renderPage()
+    await screen.findByText('PizzaShackAPI')
+    await userEvent.click(screen.getAllByRole('button', { name: 'Modifier' })[1])
+    expect(await screen.findByText('Journal des modifications')).toBeInTheDocument()
+    expect(await screen.findByText('Draft entry')).toBeInTheDocument()
+    expect(list).toHaveBeenCalledWith('jwt', 2)
+  })
+
   it('pressing Enter in a changelog field adds the entry instead of submitting the product form', async () => {
-    vi.spyOn(api, 'getChangelog').mockResolvedValue([])
+    vi.spyOn(api, 'adminGetChangelog').mockResolvedValue([])
     const add = vi.spyOn(api, 'addChangelogEntry').mockResolvedValue({ id: 12, version: '1.1.0', kind: 'added', notes: '', date: '2026-02-01' })
     const update = vi.spyOn(api, 'adminUpdateProduct').mockResolvedValue(products[0])
     renderPage()

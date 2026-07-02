@@ -147,6 +147,29 @@ func (r *Repo) AddChangelog(ctx context.Context, productID int64, e ChangelogEnt
 	return e, err
 }
 
+// ListChangelog returns all changelog entries for productID, newest first.
+// Unlike the public catalog listing, this is not filtered to published
+// products/entries — admins need to see (and delete) entries on drafts too.
+func (r *Repo) ListChangelog(ctx context.Context, productID int64) ([]ChangelogEntry, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, version, kind, notes, to_char(entry_date,'YYYY-MM-DD') FROM changelog_entries
+		 WHERE product_id=$1 ORDER BY entry_date DESC, id DESC`,
+		productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ChangelogEntry
+	for rows.Next() {
+		var e ChangelogEntry
+		if err := rows.Scan(&e.ID, &e.Version, &e.Kind, &e.Notes, &e.Date); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
 // DeleteChangelog removes a changelog entry, scoped to productID so one
 // product's admin can't delete another product's entries by id guessing.
 // ErrNotFound when no matching row exists.
