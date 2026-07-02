@@ -1,7 +1,7 @@
 import type {
   Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail,
   AdminProduct, AdminSubscription, Usage, UsageRange, Paginated, TryApp, Quota,
-  RatingsView, Team, TeamMember,
+  RatingsView, Team, TeamMember, ChangelogEntry,
 } from './types'
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. 409 when
@@ -98,6 +98,11 @@ export async function getProductSpec(slug: string): Promise<string | null> {
   if (res.status === 404) return null
   if (!res.ok) throw new ApiError(`spec fetch failed (${res.status})`, res.status)
   return res.text()
+}
+
+export async function getChangelog(slug: string): Promise<ChangelogEntry[]> {
+  const url = `/api/products/${slug}/changelog`
+  return parse<ChangelogEntry[]>(await fetch(url, {}), url)
 }
 
 function postJSON(url: string, body: unknown): Promise<Response> {
@@ -265,6 +270,15 @@ export async function adminDeleteProduct(token: string, id: number): Promise<voi
 export async function adminImportProduct(token: string, src: { spec: string } | { url: string }): Promise<AdminProduct> {
   const url = '/api/admin/products/import'
   return parse<AdminProduct>(await fetch(url, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(src) }), url)
+}
+
+export async function addChangelogEntry(token: string, productId: number, entry: { version: string; kind: string; notes: string; date: string }): Promise<ChangelogEntry> {
+  const url = `/api/admin/products/${productId}/changelog`
+  return parse<ChangelogEntry>(await fetch(url, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(entry) }), url)
+}
+
+export async function deleteChangelogEntry(token: string, productId: number, entryId: number): Promise<void> {
+  return sendAuthed('DELETE', `/api/admin/products/${productId}/changelog/${entryId}`, token)
 }
 
 // --- Admin: plans ---
