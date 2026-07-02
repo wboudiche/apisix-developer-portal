@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -22,6 +23,8 @@ type ProductService interface {
 	Create(ctx context.Context, p Product) (Product, error)
 	Update(ctx context.Context, p Product) (Product, error)
 	Delete(ctx context.Context, id int64) error
+	AddChangelog(ctx context.Context, productID int64, e ChangelogEntry) (ChangelogEntry, error)
+	DeleteChangelog(ctx context.Context, productID, entryID int64) error
 }
 
 type Handler struct {
@@ -39,6 +42,8 @@ func NewHandler(svc ProductService, allowPrivate bool, oidcConfigured bool) *Han
 	h.router.Get("/api/admin/products/{id}", h.get)
 	h.router.Put("/api/admin/products/{id}", h.update)
 	h.router.Delete("/api/admin/products/{id}", h.delete)
+	h.router.Post("/api/admin/products/{id}/changelog", h.addChangelog)
+	h.router.Delete("/api/admin/products/{id}/changelog/{entryId}", h.deleteChangelog)
 	return h
 }
 
@@ -181,6 +186,65 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("admin delete product %d: %v", id, err)
 		httpx.Error(w, http.StatusInternalServerError, "failed to delete product")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// validChangelogKinds mirrors the changelog_entries.kind CHECK constraint.
+var validChangelogKinds = map[string]bool{
+	"added": true, "changed": true, "fixed": true,
+	"removed": true, "deprecated": true, "security": true,
+}
+
+func (h *Handler) addChangelog(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r)
+	if !ok {
+		return
+	}
+	var e ChangelogEntry
+	if err := json.NewDecoder(r.Body).Decode(&e); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	if strings.TrimSpace(e.Version) == "" {
+		httpx.Error(w, http.StatusBadRequest, "version is required")
+		return
+	}
+	if !validChangelogKinds[e.Kind] {
+		httpx.Error(w, http.StatusBadRequest, "kind must be one of added, changed, fixed, removed, deprecated, security")
+		return
+	}
+	if _, err := time.Parse("2006-01-02", e.Date); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "date must be a valid YYYY-MM-DD date")
+		return
+	}
+	created, err := h.svc.AddChangelog(r.Context(), id, e)
+	if err != nil {
+		log.Printf("admin add changelog for product %d: %v", id, err)
+		httpx.Error(w, http.StatusInternalServerError, "failed to add changelog entry")
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, created)
+}
+
+func (h *Handler) deleteChangelog(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r)
+	if !ok {
+		return
+	}
+	entryID, err := strconv.ParseInt(chi.URLParam(r, "entryId"), 10, 64)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "bad changelog entry id")
+		return
+	}
+	if err := h.svc.DeleteChangelog(r.Context(), id, entryID); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			httpx.Error(w, http.StatusNotFound, "changelog entry not found")
+			return
+		}
+		log.Printf("admin delete changelog entry %d for product %d: %v", entryID, id, err)
+		httpx.Error(w, http.StatusInternalServerError, "failed to delete changelog entry")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

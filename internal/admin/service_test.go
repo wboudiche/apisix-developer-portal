@@ -72,6 +72,11 @@ func (f *fakeStore) ContextPathOverlaps(_ context.Context, p string, exceptID in
 	}
 	return false, nil
 }
+func (f *fakeStore) AddChangelog(_ context.Context, _ int64, e ChangelogEntry) (ChangelogEntry, error) {
+	e.ID = 1
+	return e, nil
+}
+func (f *fakeStore) DeleteChangelog(_ context.Context, _, _ int64) error { return nil }
 
 type fakeProv struct {
 	reprovisioned        []int64

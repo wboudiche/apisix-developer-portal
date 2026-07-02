@@ -4,6 +4,7 @@ import (
 	"net"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // Product is an API product as managed by an admin: the full field set, including
@@ -26,6 +27,20 @@ type Product struct {
 	// product's docs + Try-it. Empty = no docs. omitempty so list/update
 	// responses (which don't re-select it) don't echo an empty string.
 	OpenAPISpec string `json:"openapiSpec,omitempty"`
+
+	// LifecycleStatus is one of "active" (default), "deprecated", "sunset".
+	LifecycleStatus string `json:"lifecycleStatus"`
+	// SunsetDate is the YYYY-MM-DD date the product is/will be retired, when set.
+	SunsetDate *string `json:"sunsetDate"`
+}
+
+// ChangelogEntry is one recorded change for a product, managed by an admin.
+type ChangelogEntry struct {
+	ID      int64  `json:"id"`
+	Version string `json:"version"`
+	Kind    string `json:"kind"`
+	Notes   string `json:"notes"`
+	Date    string `json:"date"`
 }
 
 // validate returns "" when the product is valid, otherwise a human-readable reason.
@@ -55,6 +70,14 @@ func (p Product) validate(allowPrivate bool) string {
 	}
 	if p.AuthType != "" && p.AuthType != "key-auth" && p.AuthType != "oauth2" {
 		return "authType must be key-auth or oauth2"
+	}
+	if p.LifecycleStatus != "" && p.LifecycleStatus != "active" && p.LifecycleStatus != "deprecated" && p.LifecycleStatus != "sunset" {
+		return "lifecycleStatus must be active, deprecated, or sunset"
+	}
+	if p.SunsetDate != nil && *p.SunsetDate != "" {
+		if _, err := time.Parse("2006-01-02", *p.SunsetDate); err != nil {
+			return "sunsetDate must be a valid YYYY-MM-DD date"
+		}
 	}
 	return ""
 }
