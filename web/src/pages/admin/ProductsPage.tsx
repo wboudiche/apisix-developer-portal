@@ -55,25 +55,34 @@ function ChangelogEditor({ productId, slug, token, notify }: {
     } catch (e) { notify(e instanceof Error ? e.message : 'Échec de la suppression.', 'warn') }
   }
 
+  // Enter in an add-form field must add the changelog entry, not implicitly
+  // submit the surrounding product <form> (which would save+close the
+  // composer and discard the half-typed entry).
+  function onEntryKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') { e.preventDefault(); add() }
+  }
+
   return (
     <div className="field" style={{ gridColumn: '1 / -1' }}>
       <label>Journal des modifications</label>
       {entries.length > 0 && (
-        <ul className="changelog">
-          {entries.map(e => (
-            <li key={e.id}>
-              <span className={`ctag ${e.kind}`}>{e.kind}</span>
-              <b>{e.version}</b> <span className="cdate mono">{e.date}</span>
-              {e.notes && <p>{e.notes}</p>}
-              <button type="button" className="btn btn-ghost btn-sm" aria-label="Supprimer une entrée du journal" onClick={() => del(e.id)}>Supprimer</button>
-            </li>
-          ))}
-        </ul>
+        <div className="changelog">
+          <ul>
+            {entries.map(e => (
+              <li key={e.id}>
+                <span className={`ctag ${e.kind}`}>{e.kind}</span>
+                <b>{e.version}</b> <span className="cdate mono">{e.date}</span>
+                {e.notes && <p>{e.notes}</p>}
+                <button type="button" className="btn btn-ghost btn-sm" aria-label="Supprimer une entrée du journal" onClick={() => del(e.id)}>Supprimer</button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       <div className="grid2">
         <div className="field">
           <label htmlFor="cl-version">Nouvelle version</label>
-          <input id="cl-version" className="ipt mono" autoComplete="off" value={cVersion} onChange={e => setCVersion(e.target.value)} />
+          <input id="cl-version" className="ipt mono" autoComplete="off" value={cVersion} onChange={e => setCVersion(e.target.value)} onKeyDown={onEntryKeyDown} />
         </div>
         <div className="field">
           <label htmlFor="cl-kind">Type de changement</label>
@@ -83,11 +92,11 @@ function ChangelogEditor({ productId, slug, token, notify }: {
         </div>
         <div className="field">
           <label htmlFor="cl-date">Date de publication</label>
-          <input id="cl-date" type="date" className="ipt" value={cDate} onChange={e => setCDate(e.target.value)} />
+          <input id="cl-date" type="date" className="ipt" value={cDate} onChange={e => setCDate(e.target.value)} onKeyDown={onEntryKeyDown} />
         </div>
         <div className="field" style={{ gridColumn: '1 / -1' }}>
           <label htmlFor="cl-notes">Notes du changelog</label>
-          <input id="cl-notes" className="ipt" autoComplete="off" value={cNotes} onChange={e => setCNotes(e.target.value)} />
+          <input id="cl-notes" className="ipt" autoComplete="off" value={cNotes} onChange={e => setCNotes(e.target.value)} onKeyDown={onEntryKeyDown} />
         </div>
       </div>
       <button type="button" className="btn btn-ghost btn-sm" onClick={add}>Ajouter</button>
@@ -321,7 +330,7 @@ export function ProductsPage() {
             <div className="help">{editing ? 'Laissez vide pour conserver la spécification existante.' : 'Alimente la documentation et le « Essayer » du produit.'}</div>
           </div>
           {editing?.id != null && token && (
-            <ChangelogEditor productId={editing.id} slug={editing.slug} token={token} notify={notify} />
+            <ChangelogEditor key={editing.id} productId={editing.id} slug={editing.slug} token={token} notify={notify} />
           )}
         </div>
       </Composer>

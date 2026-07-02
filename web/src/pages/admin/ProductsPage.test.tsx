@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { ProductsPage } from './ProductsPage'
@@ -186,6 +186,24 @@ describe('ProductsPage', () => {
     await userEvent.type(screen.getByLabelText(/Notes du changelog/i), 'Bugfix')
     await userEvent.click(screen.getByRole('button', { name: /^Ajouter$/i }))
     await waitFor(() => expect(add).toHaveBeenCalledWith('jwt', 1, { version: '1.1.0', kind: 'fixed', notes: 'Bugfix', date: '2026-02-01' }))
+  })
+
+  it('pressing Enter in a changelog field adds the entry instead of submitting the product form', async () => {
+    vi.spyOn(api, 'getChangelog').mockResolvedValue([])
+    const add = vi.spyOn(api, 'addChangelogEntry').mockResolvedValue({ id: 12, version: '1.1.0', kind: 'added', notes: '', date: '2026-02-01' })
+    const update = vi.spyOn(api, 'adminUpdateProduct').mockResolvedValue(products[0])
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getAllByRole('button', { name: 'Modifier' })[0])
+    expect(await screen.findByText('Journal des modifications')).toBeInTheDocument()
+
+    const versionInput = screen.getByLabelText(/Nouvelle version/i)
+    await userEvent.type(versionInput, '1.1.0')
+    await userEvent.type(screen.getByLabelText(/Date de publication/i), '2026-02-01')
+    fireEvent.keyDown(versionInput, { key: 'Enter' })
+
+    await waitFor(() => expect(add).toHaveBeenCalledWith('jwt', 1, { version: '1.1.0', kind: 'added', notes: '', date: '2026-02-01' }))
+    expect(update).not.toHaveBeenCalled()
   })
 
   it('persists the imported spec in the create payload', async () => {
