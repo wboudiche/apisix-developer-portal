@@ -133,6 +133,10 @@ func (h *Handler) subscribe(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusConflict, "already subscribed to this product")
 		return
 	}
+	if errors.Is(err, ErrProductDeprecated) {
+		httpx.Error(w, http.StatusConflict, "This API no longer accepts new subscriptions.")
+		return
+	}
 	if err != nil {
 		log.Printf("subscribe failed (app=%d product=%d): %v", appID, body.ProductID, err)
 		httpx.Error(w, http.StatusInternalServerError, "subscription failed")

@@ -37,6 +37,10 @@ const (
 // an active subscription to the product (re-subscribing would bypass the approval gate).
 var ErrAlreadySubscribed = errors.New("already subscribed")
 
+// ErrProductDeprecated is returned when a NEW subscription is attempted on a
+// deprecated or sunset product. Existing subscriptions are unaffected.
+var ErrProductDeprecated = errors.New("product no longer accepts new subscriptions")
+
 // ErrInvalidTransition is returned when a status change is not allowed from the
 // subscription's current state (e.g. approving a rejected subscription).
 var ErrInvalidTransition = errors.New("invalid status transition")
@@ -73,6 +77,7 @@ type ProductInfo struct {
 	SandboxUpstream string // product's sandbox backend, "" = no sandbox
 	Published       bool
 	AuthType        string
+	LifecycleStatus string
 }
 
 // PlanInfo is the rate limit for a subscription.
@@ -320,6 +325,9 @@ func (s *Service) ReprovisionPlan(ctx context.Context, planID int64) error {
 // An unpublished product or unknown plan is rejected with ErrNotFound (unpublished
 // products are treated as non-existent to callers, so their existence is not leaked).
 //
+// A deprecated or sunset product refuses NEW subscriptions with ErrProductDeprecated;
+// existing active subscriptions are unaffected.
+//
 // Re-subscribing a product the app is ALREADY ACTIVE on is refused with
 // ErrAlreadySubscribed — this prevents both the approval-gate bypass and an
 // involuntary mid-flight revocation of a live subscription.
@@ -333,6 +341,9 @@ func (s *Service) Subscribe(ctx context.Context, appID, productID, planID int64)
 	}
 	if !prod.Published {
 		return Credential{}, ErrNotFound // unpublished products are not subscribable; don't leak existence
+	}
+	if prod.LifecycleStatus == "deprecated" || prod.LifecycleStatus == "sunset" {
+		return Credential{}, ErrProductDeprecated
 	}
 	if _, err := s.store.GetPlan(ctx, planID); err != nil {
 		return Credential{}, err

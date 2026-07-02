@@ -829,3 +829,20 @@ func TestReprovisionOAuth2EmptyClientIDDoesNotCreateRoute(t *testing.T) {
 		t.Fatal("empty-whitelist oauth route must be deleted, not created")
 	}
 }
+
+func TestSubscribeRejectsDeprecated(t *testing.T) {
+	store := newMemStore()
+	store.products[3] = ProductInfo{ID: 3, ContextPath: "/p", Upstream: "echo:8080", Published: true, LifecycleStatus: "deprecated"}
+	svc := NewService(store, apisix.NewFake(), nil, func() string { return "k" }, nil)
+	if _, err := svc.Subscribe(context.Background(), 1, 3, 2); !errors.Is(err, ErrProductDeprecated) {
+		t.Fatalf("subscribe deprecated err = %v, want ErrProductDeprecated", err)
+	}
+	store.products[3] = ProductInfo{ID: 3, ContextPath: "/p", Upstream: "echo:8080", Published: true, LifecycleStatus: "sunset"}
+	if _, err := svc.Subscribe(context.Background(), 1, 3, 2); !errors.Is(err, ErrProductDeprecated) {
+		t.Fatalf("subscribe sunset err = %v, want ErrProductDeprecated", err)
+	}
+	store.products[3] = ProductInfo{ID: 3, ContextPath: "/p", Upstream: "echo:8080", Published: true, LifecycleStatus: "active"}
+	if _, err := svc.Subscribe(context.Background(), 1, 3, 2); err != nil {
+		t.Fatalf("subscribe active err = %v, want nil", err)
+	}
+}
