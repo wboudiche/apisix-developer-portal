@@ -12,6 +12,7 @@ export const en: Messages = {
     applications: 'Applications',
     teams: 'Teams',
     admin: 'Admin',
+    billing: 'Billing',
     searchPlaceholder: 'Search an API, a tag, a context…',
     searchLabel: 'Search',
     toggleTheme: 'Toggle theme',
@@ -422,6 +423,9 @@ export const en: Messages = {
     deleteTeam: 'Delete team',
   },
   billing: {
+    title: 'Billing',
+    hint: 'An invoice is issued when a paid subscription is approved.',
+    none: 'No invoices.',
     free: 'Free',
     perMonthSuffix: '/mo',
     filterAll: 'All',

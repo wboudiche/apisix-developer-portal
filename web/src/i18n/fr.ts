@@ -11,6 +11,7 @@ export const fr = {
     applications: 'Applications',
     teams: 'Équipes',
     admin: 'Admin',
+    billing: 'Facturation',
     searchPlaceholder: 'Rechercher une API, un tag, un contexte…',
     searchLabel: 'Rechercher',
     toggleTheme: 'Basculer le thème',
@@ -421,6 +422,9 @@ export const fr = {
     deleteTeam: "Supprimer l'équipe",
   },
   billing: {
+    title: 'Facturation',
+    hint: "Une facture est émise lorsqu'un abonnement payant est approuvé.",
+    none: 'Aucune facture.',
     free: 'Gratuit',
     perMonthSuffix: '/mois',
     filterAll: 'Toutes',

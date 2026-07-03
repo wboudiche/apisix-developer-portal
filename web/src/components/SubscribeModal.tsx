@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import type { Product, Application, Plan } from '../api/types'
 import { getApplications, getPlans, createApplication, subscribe } from '../api/client'
 import { useAuth } from '../auth/AuthProvider'
-import { useT } from '../i18n/LanguageProvider'
+import { useT, useLang } from '../i18n/LanguageProvider'
+import { priceLabel } from '../money'
 
 export function SubscribeModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const t = useT()
+  const { lang } = useLang()
   const { token } = useAuth()
   const [apps, setApps] = useState<Application[]>([])
   const [plans, setPlans] = useState<Plan[]>([])
@@ -78,7 +80,11 @@ export function SubscribeModal({ product, onClose }: { product: Product; onClose
             )}
             <label>{t('subscribeModal.planLabel')}
               <select value={planId ?? ''} onChange={e => setPlanId(Number(e.target.value))} aria-label={t('subscribeModal.planLabel')}>
-                {plans.map(p => <option key={p.id} value={p.id}>{p.name} — {p.rateLimit}/{p.windowSeconds}s</option>)}
+                {plans.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — {p.rateLimit}/{p.windowSeconds}s · {priceLabel(p.priceCents, p.currency, lang, t('billing.free'), t('billing.perMonthSuffix'))}
+                  </option>
+                ))}
               </select>
             </label>
             {err && <p className="autherr" role="alert">{err}</p>}
