@@ -35,7 +35,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.S
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	ts, err := h.store.ListForUser(r.Context(), auth.UserID(r.Context()))
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "could not list teams")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "teams.listFailed")
 		return
 	}
 	if ts == nil {
@@ -49,12 +49,12 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Name) == "" {
-		httpx.Error(w, http.StatusBadRequest, "name is required")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "common.nameRequired")
 		return
 	}
 	t, err := h.store.Create(r.Context(), strings.TrimSpace(body.Name), auth.UserID(r.Context()))
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "could not create team")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "teams.createFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, t)
@@ -67,7 +67,7 @@ func (h *Handler) members(w http.ResponseWriter, r *http.Request) {
 	}
 	ms, err := h.store.Members(r.Context(), teamID)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "could not list members")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "teams.membersListFailed")
 		return
 	}
 	if ms == nil {
@@ -85,19 +85,19 @@ func (h *Handler) addMember(w http.ResponseWriter, r *http.Request) {
 		Email string `json:"email"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Email) == "" {
-		httpx.Error(w, http.StatusBadRequest, "email is required")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "teams.emailRequired")
 		return
 	}
 	err := h.store.AddMemberByEmail(r.Context(), teamID, strings.TrimSpace(body.Email))
 	switch {
 	case errors.Is(err, ErrUserNotFound):
-		httpx.Error(w, http.StatusNotFound, "no user with that email")
+		httpx.ErrorT(w, r, http.StatusNotFound, "teams.userNotFound")
 	case errors.Is(err, ErrAlreadyMember):
-		httpx.Error(w, http.StatusConflict, "already a member")
+		httpx.ErrorT(w, r, http.StatusConflict, "teams.alreadyMember")
 	case errors.Is(err, ErrPersonalTeam):
-		httpx.Error(w, http.StatusConflict, "cannot add members to a personal team")
+		httpx.ErrorT(w, r, http.StatusConflict, "teams.personalTeamNoAddMember")
 	case err != nil:
-		httpx.Error(w, http.StatusInternalServerError, "could not add member")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "teams.addMemberFailed")
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}
@@ -110,17 +110,17 @@ func (h *Handler) removeMember(w http.ResponseWriter, r *http.Request) {
 	}
 	userID, err := strconv.ParseInt(chi.URLParam(r, "userId"), 10, 64)
 	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "bad user id")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "teams.badUserID")
 		return
 	}
 	err = h.store.RemoveMember(r.Context(), teamID, userID)
 	switch {
 	case errors.Is(err, ErrLastOwner):
-		httpx.Error(w, http.StatusConflict, "cannot remove the last owner")
+		httpx.ErrorT(w, r, http.StatusConflict, "teams.lastOwner")
 	case errors.Is(err, ErrPersonalTeam):
-		httpx.Error(w, http.StatusConflict, "cannot modify a personal team")
+		httpx.ErrorT(w, r, http.StatusConflict, "teams.personalTeamNoModify")
 	case err != nil:
-		httpx.Error(w, http.StatusInternalServerError, "could not remove member")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "teams.removeMemberFailed")
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}
@@ -135,15 +135,15 @@ func (h *Handler) rename(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Name) == "" {
-		httpx.Error(w, http.StatusBadRequest, "name is required")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "common.nameRequired")
 		return
 	}
 	err := h.store.Rename(r.Context(), teamID, strings.TrimSpace(body.Name))
 	switch {
 	case errors.Is(err, ErrPersonalTeam):
-		httpx.Error(w, http.StatusConflict, "cannot rename a personal team")
+		httpx.ErrorT(w, r, http.StatusConflict, "teams.personalTeamNoRename")
 	case err != nil:
-		httpx.Error(w, http.StatusInternalServerError, "could not rename team")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "teams.renameFailed")
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}
@@ -157,11 +157,11 @@ func (h *Handler) deleteTeam(w http.ResponseWriter, r *http.Request) {
 	err := h.store.Delete(r.Context(), teamID)
 	switch {
 	case errors.Is(err, ErrTeamHasApps):
-		httpx.Error(w, http.StatusConflict, "team still has applications")
+		httpx.ErrorT(w, r, http.StatusConflict, "teams.hasApplications")
 	case errors.Is(err, ErrPersonalTeam):
-		httpx.Error(w, http.StatusConflict, "cannot delete a personal team")
+		httpx.ErrorT(w, r, http.StatusConflict, "teams.personalTeamNoDelete")
 	case err != nil:
-		httpx.Error(w, http.StatusInternalServerError, "could not delete team")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "teams.deleteFailed")
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}
@@ -175,16 +175,16 @@ func (h *Handler) teamID(r *http.Request) (int64, bool) {
 func (h *Handler) requireMember(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	teamID, ok := h.teamID(r)
 	if !ok {
-		httpx.Error(w, http.StatusBadRequest, "bad team id")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "teams.badTeamID")
 		return 0, false
 	}
 	_, isMember, err := h.store.Role(r.Context(), teamID, auth.UserID(r.Context()))
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "could not check membership")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "teams.membershipCheckFailed")
 		return 0, false
 	}
 	if !isMember {
-		httpx.Error(w, http.StatusForbidden, "not a team member")
+		httpx.ErrorT(w, r, http.StatusForbidden, "teams.notMember")
 		return 0, false
 	}
 	return teamID, true
@@ -193,16 +193,16 @@ func (h *Handler) requireMember(w http.ResponseWriter, r *http.Request) (int64, 
 func (h *Handler) requireOwner(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	teamID, ok := h.teamID(r)
 	if !ok {
-		httpx.Error(w, http.StatusBadRequest, "bad team id")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "teams.badTeamID")
 		return 0, false
 	}
 	role, isMember, err := h.store.Role(r.Context(), teamID, auth.UserID(r.Context()))
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "could not check membership")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "teams.membershipCheckFailed")
 		return 0, false
 	}
 	if !isMember || role != "owner" {
-		httpx.Error(w, http.StatusForbidden, "owner only")
+		httpx.ErrorT(w, r, http.StatusForbidden, "teams.ownerOnly")
 		return 0, false
 	}
 	return teamID, true
