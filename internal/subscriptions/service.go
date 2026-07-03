@@ -26,6 +26,12 @@ type Notifier interface {
 	SubscriptionRejected(appID, productID int64)
 }
 
+// Biller records billing for a newly-activated paid subscription. Left unset
+// (nil) = disabled. Synchronous; a returned error fails the approval.
+type Biller interface {
+	SubscriptionActivated(ctx context.Context, appID, subID, planID int64) error
+}
+
 // Subscription lifecycle states.
 const (
 	StatusPending  = "pending"
@@ -172,6 +178,7 @@ type Service struct {
 	genKey     func() string
 	events     EventLogger
 	notifier   Notifier
+	biller     Biller
 	oidcIssuer string
 	oidcClaim  string
 }
@@ -182,6 +189,9 @@ func (s *Service) ConfigureOIDC(issuer, claim string) { s.oidcIssuer, s.oidcClai
 
 // SetNotifier wires email notifications. Left unset (nil) = disabled.
 func (s *Service) SetNotifier(n Notifier) { s.notifier = n }
+
+// SetBiller wires billing. Left unset (nil) = disabled.
+func (s *Service) SetBiller(b Biller) { s.biller = b }
 
 func NewService(store Store, gw, sandboxGW apisix.Gateway, genKey func() string, eventLog EventLogger) *Service {
 	return &Service{store: store, gw: gw, sandboxGW: sandboxGW, genKey: genKey, events: eventLog}
@@ -425,6 +435,11 @@ func (s *Service) Approve(ctx context.Context, subID int64) error {
 		if s.notifier != nil {
 			s.notifier.SubscriptionApproved(rec.AppID, rec.ProductID, rec.PlanID)
 		}
+		if s.biller != nil {
+			if err := s.biller.SubscriptionActivated(ctx, rec.AppID, subID, rec.PlanID); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 	plan, err := s.store.GetPlan(ctx, rec.PlanID)
@@ -459,6 +474,11 @@ func (s *Service) Approve(ctx context.Context, subID int64) error {
 	s.logEvent(ctx, rec.AppID, events.KindApproved, &rec.ProductID, &rec.PlanID)
 	if s.notifier != nil {
 		s.notifier.SubscriptionApproved(rec.AppID, rec.ProductID, rec.PlanID)
+	}
+	if s.biller != nil {
+		if err := s.biller.SubscriptionActivated(ctx, rec.AppID, subID, rec.PlanID); err != nil {
+			return err
+		}
 	}
 	return nil
 }

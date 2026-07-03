@@ -12,6 +12,7 @@ import (
 	"apisix-portal/internal/apisix"
 	"apisix-portal/internal/applications"
 	"apisix-portal/internal/auth"
+	"apisix-portal/internal/billing"
 	"apisix-portal/internal/catalog"
 	"apisix-portal/internal/config"
 	"apisix-portal/internal/crypto"
@@ -68,6 +69,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	}
 	subSvc := subscriptions.NewService(subRepo, gw, sandboxGW, subscriptions.GenerateKey, eventRepo)
 	subSvc.ConfigureOIDC(cfg.OIDCIssuer, cfg.OIDCClientIDClaim)
+	subSvc.SetBiller(billing.NewService(billing.NewRepo(pool), billing.ManualProvider{}))
 	if cfg.SMTPConfigured() {
 		sender := notify.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFrom)
 		subSvc.SetNotifier(notify.NewNotifier(sender, notify.NewRepo(pool), cfg.PortalBaseURL))
