@@ -132,6 +132,8 @@ var fr = map[string]string{
 	"admin.plan.badID":            "identifiant d'offre invalide",
 	"admin.plan.badRateLimit":     "rateLimit doit être supérieur à zéro",
 	"admin.plan.badWindowSeconds": "windowSeconds doit être supérieur à zéro",
+	"admin.plan.badPrice":         "le prix doit être positif ou nul",
+	"admin.plan.badCurrency":      "la devise doit être un code à 3 lettres",
 
 	// tryit
 	"tryit.unauthenticated":            "non authentifié",

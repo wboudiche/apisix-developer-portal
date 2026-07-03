@@ -57,7 +57,7 @@ func doPlan(h *PlanHandler, method, target string, body any) *httptest.ResponseR
 func TestPlanCreateValid(t *testing.T) {
 	h := NewPlanHandler(&fakePlanService{plans: map[int64]Plan{}})
 	rec := doPlan(h, http.MethodPost, "/api/admin/plans",
-		Plan{Name: "Gold", RateLimit: 500, WindowSeconds: 60})
+		Plan{Name: "Gold", RateLimit: 500, WindowSeconds: 60, Currency: "EUR"})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201 (body: %s)", rec.Code, rec.Body.String())
 	}
@@ -98,7 +98,7 @@ func TestPlanList(t *testing.T) {
 func TestPlanCreateNameTakenReturns409(t *testing.T) {
 	h := NewPlanHandler(&fakePlanService{plans: map[int64]Plan{}, createErr: ErrPlanNameTaken})
 	rec := doPlan(h, http.MethodPost, "/api/admin/plans",
-		Plan{Name: "Silver", RateLimit: 100, WindowSeconds: 60})
+		Plan{Name: "Silver", RateLimit: 100, WindowSeconds: 60, Currency: "EUR"})
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want 409", rec.Code)
 	}
@@ -107,7 +107,7 @@ func TestPlanCreateNameTakenReturns409(t *testing.T) {
 func TestPlanUpdateNotFoundReturns404(t *testing.T) {
 	h := NewPlanHandler(&fakePlanService{plans: map[int64]Plan{}, updateErr: ErrPlanNotFound})
 	rec := doPlan(h, http.MethodPut, "/api/admin/plans/9",
-		Plan{Name: "Silver", RateLimit: 100, WindowSeconds: 60})
+		Plan{Name: "Silver", RateLimit: 100, WindowSeconds: 60, Currency: "EUR"})
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rec.Code)
 	}

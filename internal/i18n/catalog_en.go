@@ -131,6 +131,8 @@ var en = map[string]string{
 	"admin.plan.badID":            "bad plan id",
 	"admin.plan.badRateLimit":     "rateLimit must be greater than zero",
 	"admin.plan.badWindowSeconds": "windowSeconds must be greater than zero",
+	"admin.plan.badPrice":         "price must be zero or positive",
+	"admin.plan.badCurrency":      "currency must be a 3-letter code",
 
 	// tryit
 	"tryit.unauthenticated":            "unauthenticated",

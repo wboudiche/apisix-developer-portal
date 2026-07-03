@@ -22,11 +22,11 @@ type PlanRepo struct{ pool *pgxpool.Pool }
 
 func NewPlanRepo(pool *pgxpool.Pool) *PlanRepo { return &PlanRepo{pool: pool} }
 
-const planCols = `id, name, rate_limit_count, rate_limit_window_s`
+const planCols = `id, name, rate_limit_count, rate_limit_window_s, price_cents, currency`
 
 func scanPlan(row pgx.Row) (Plan, error) {
 	var p Plan
-	err := row.Scan(&p.ID, &p.Name, &p.RateLimit, &p.WindowSeconds)
+	err := row.Scan(&p.ID, &p.Name, &p.RateLimit, &p.WindowSeconds, &p.PriceCents, &p.Currency)
 	return p, err
 }
 
@@ -63,9 +63,9 @@ func (r *PlanRepo) GetPlan(ctx context.Context, id int64) (Plan, error) {
 
 func (r *PlanRepo) CreatePlan(ctx context.Context, p Plan) (Plan, error) {
 	created, err := scanPlan(r.pool.QueryRow(ctx,
-		`INSERT INTO plans(name, rate_limit_count, rate_limit_window_s)
-		 VALUES($1,$2,$3) RETURNING `+planCols,
-		p.Name, p.RateLimit, p.WindowSeconds))
+		`INSERT INTO plans(name, rate_limit_count, rate_limit_window_s, price_cents, currency)
+		 VALUES($1,$2,$3,$4,$5) RETURNING `+planCols,
+		p.Name, p.RateLimit, p.WindowSeconds, p.PriceCents, p.Currency))
 	if isUniqueViolation(err) {
 		return Plan{}, ErrPlanNameTaken
 	}
@@ -74,9 +74,9 @@ func (r *PlanRepo) CreatePlan(ctx context.Context, p Plan) (Plan, error) {
 
 func (r *PlanRepo) UpdatePlan(ctx context.Context, p Plan) (Plan, error) {
 	updated, err := scanPlan(r.pool.QueryRow(ctx,
-		`UPDATE plans SET name=$2, rate_limit_count=$3, rate_limit_window_s=$4
+		`UPDATE plans SET name=$2, rate_limit_count=$3, rate_limit_window_s=$4, price_cents=$5, currency=$6
 		 WHERE id=$1 RETURNING `+planCols,
-		p.ID, p.Name, p.RateLimit, p.WindowSeconds))
+		p.ID, p.Name, p.RateLimit, p.WindowSeconds, p.PriceCents, p.Currency))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Plan{}, ErrPlanNotFound
 	}

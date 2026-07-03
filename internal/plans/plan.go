@@ -6,4 +6,6 @@ type Plan struct {
 	Name          string `json:"name"`
 	RateLimit     int    `json:"rateLimit"`
 	WindowSeconds int    `json:"windowSeconds"`
+	PriceCents    int    `json:"priceCents"`
+	Currency      string `json:"currency"`
 }

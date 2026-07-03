@@ -22,7 +22,7 @@ func (r *Repo) List(ctx context.Context, p paging.Params) ([]Plan, int, error) {
 		return nil, 0, err
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, name, rate_limit_count, rate_limit_window_s FROM plans
+		`SELECT id, name, rate_limit_count, rate_limit_window_s, price_cents, currency FROM plans
 		 ORDER BY rate_limit_count ASC LIMIT $1 OFFSET $2`, p.Limit(), p.Offset())
 	if err != nil {
 		return nil, 0, err
@@ -31,7 +31,7 @@ func (r *Repo) List(ctx context.Context, p paging.Params) ([]Plan, int, error) {
 	var out []Plan
 	for rows.Next() {
 		var pl Plan
-		if err := rows.Scan(&pl.ID, &pl.Name, &pl.RateLimit, &pl.WindowSeconds); err != nil {
+		if err := rows.Scan(&pl.ID, &pl.Name, &pl.RateLimit, &pl.WindowSeconds, &pl.PriceCents, &pl.Currency); err != nil {
 			return nil, 0, err
 		}
 		out = append(out, pl)
@@ -42,8 +42,8 @@ func (r *Repo) List(ctx context.Context, p paging.Params) ([]Plan, int, error) {
 func (r *Repo) GetByID(ctx context.Context, id int64) (Plan, error) {
 	var p Plan
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, name, rate_limit_count, rate_limit_window_s FROM plans WHERE id=$1`, id,
-	).Scan(&p.ID, &p.Name, &p.RateLimit, &p.WindowSeconds)
+		`SELECT id, name, rate_limit_count, rate_limit_window_s, price_cents, currency FROM plans WHERE id=$1`, id,
+	).Scan(&p.ID, &p.Name, &p.RateLimit, &p.WindowSeconds, &p.PriceCents, &p.Currency)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Plan{}, ErrNotFound
 	}
