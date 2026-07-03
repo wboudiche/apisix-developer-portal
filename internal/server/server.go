@@ -69,7 +69,8 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	}
 	subSvc := subscriptions.NewService(subRepo, gw, sandboxGW, subscriptions.GenerateKey, eventRepo)
 	subSvc.ConfigureOIDC(cfg.OIDCIssuer, cfg.OIDCClientIDClaim)
-	subSvc.SetBiller(billing.NewService(billing.NewRepo(pool), billing.ManualProvider{}))
+	billingSvc := billing.NewService(billing.NewRepo(pool), billing.ManualProvider{})
+	subSvc.SetBiller(billingSvc)
 	if cfg.SMTPConfigured() {
 		sender := notify.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFrom)
 		subSvc.SetNotifier(notify.NewNotifier(sender, notify.NewRepo(pool), cfg.PortalBaseURL))
@@ -91,6 +92,8 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	planAdminH := admin.NewPlanHandler(planAdminSvc)
 	subAdminH := subscriptions.NewAdminHandler(subSvc)
 	teamsH := teams.NewHandler(teamsRepo)
+	billingTeamH := billing.NewTeamHandler(billingSvc)
+	billingAdminH := billing.NewAdminHandler(billingSvc)
 
 	requireAuth := auth.RequireAuth(tok)
 	requireAdmin := auth.RequireAdmin(tok, authRepo.GetRole)
@@ -111,6 +114,9 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	mux.Handle("/api/admin/subscriptions/", requireAdmin(subAdminH))
 	mux.Handle("/api/teams", requireAuth(teamsH))
 	mux.Handle("/api/teams/", requireAuth(teamsH))
+	mux.Handle("/api/billing/invoices", requireAuth(billingTeamH))
+	mux.Handle("/api/admin/invoices", requireAdmin(billingAdminH))
+	mux.Handle("/api/admin/invoices/", requireAdmin(billingAdminH))
 	mux.Handle("/api/me/language", requireAuth(http.HandlerFunc(authH.PutLanguage)))
 	tryProducts := tryitProductsAdapter{repo: catRepo}
 	tryAccess := tryitAccessAdapter{teams: teamsRepo, subs: subRepo}

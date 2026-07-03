@@ -90,6 +90,12 @@ var fr = map[string]string{
 	"subscribe.admin.invalidTransition": "l'abonnement ne peut pas changer depuis son état actuel",
 	"subscribe.admin.actionFailed":      "échec de l'action %s",
 
+	"billing.listFailed":        "impossible de lister les factures",
+	"billing.badInvoiceID":      "identifiant de facture invalide",
+	"billing.invoiceNotFound":   "facture introuvable",
+	"billing.invalidTransition": "la facture ne peut pas passer à ce statut",
+	"billing.actionFailed":      "l'action sur la facture a échoué",
+
 	// admin (product/plan/changelog CRUD)
 	"admin.product.slugTaken":           "ce slug existe déjà",
 	"admin.product.contextPathTaken":    "le contextPath entre en conflit avec un produit existant",
