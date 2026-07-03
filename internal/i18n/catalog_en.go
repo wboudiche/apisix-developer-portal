@@ -16,6 +16,22 @@ var en = map[string]string{
 	"auth.middleware.adminOnly":         "admin only",
 	"auth.middleware.roleCheckFailed":   "could not verify role",
 
+	// catalog
+	"catalog.list.failed":      "failed to list products",
+	"catalog.productNotFound":  "product not found",
+	"catalog.get.failed":       "failed to load product",
+	"catalog.specNotFound":     "spec not found",
+	"catalog.spec.failed":      "failed to load spec",
+	"catalog.changelog.failed": "could not load changelog",
+
+	// app
+	"app.create.nameRequired":          "name is required",
+	"app.create.noPersonalTeam":        "no personal team",
+	"app.create.membershipCheckFailed": "membership check failed",
+	"app.create.notMember":             "not a member of that team",
+	"app.create.failed":                "failed to create application",
+	"app.list.failed":                  "failed to list applications",
+
 	// common
 	"common.invalidBody": "invalid body",
 }

@@ -17,6 +17,22 @@ var fr = map[string]string{
 	"auth.middleware.adminOnly":         "réservé aux administrateurs",
 	"auth.middleware.roleCheckFailed":   "impossible de vérifier le rôle",
 
+	// catalog
+	"catalog.list.failed":      "impossible de lister les produits",
+	"catalog.productNotFound":  "produit introuvable",
+	"catalog.get.failed":       "impossible de charger le produit",
+	"catalog.specNotFound":     "spécification introuvable",
+	"catalog.spec.failed":      "impossible de charger la spécification",
+	"catalog.changelog.failed": "impossible de charger le journal des modifications",
+
+	// app
+	"app.create.nameRequired":          "le nom est requis",
+	"app.create.noPersonalTeam":        "aucune équipe personnelle",
+	"app.create.membershipCheckFailed": "échec de la vérification d'appartenance",
+	"app.create.notMember":             "vous n'êtes pas membre de cette équipe",
+	"app.create.failed":                "impossible de créer l'application",
+	"app.list.failed":                  "impossible de lister les applications",
+
 	// common
 	"common.invalidBody": "corps de requête invalide",
 }

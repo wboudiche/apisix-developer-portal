@@ -47,7 +47,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	p := paging.Parse(r.URL.Query())
 	items, total, err := h.repo.List(r.Context(), q, p)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to list products")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "catalog.list.failed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, paging.New(items, total, p))
@@ -56,11 +56,11 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getBySlug(w http.ResponseWriter, r *http.Request) {
 	p, err := h.repo.GetBySlug(r.Context(), chi.URLParam(r, "slug"))
 	if err == ErrNotFound {
-		httpx.Error(w, http.StatusNotFound, "product not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.productNotFound")
 		return
 	}
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to load product")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "catalog.get.failed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, p)
@@ -69,11 +69,11 @@ func (h *Handler) getBySlug(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getSpec(w http.ResponseWriter, r *http.Request) {
 	spec, err := h.repo.GetSpecBySlug(r.Context(), chi.URLParam(r, "slug"))
 	if err == ErrNotFound {
-		httpx.Error(w, http.StatusNotFound, "spec not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.specNotFound")
 		return
 	}
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to load spec")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "catalog.spec.failed")
 		return
 	}
 	w.Header().Set("Content-Type", specContentType(spec))
@@ -84,11 +84,11 @@ func (h *Handler) getSpec(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getChangelog(w http.ResponseWriter, r *http.Request) {
 	entries, err := h.repo.ListChangelogBySlug(r.Context(), chi.URLParam(r, "slug"))
 	if errors.Is(err, ErrNotFound) {
-		httpx.Error(w, http.StatusNotFound, "product not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.productNotFound")
 		return
 	}
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "could not load changelog")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "catalog.changelog.failed")
 		return
 	}
 	if entries == nil {
