@@ -21,7 +21,7 @@ type Invoice struct {
 	ID               int64      `json:"id"`
 	BillingAccountID int64      `json:"-"`
 	TeamID           int64      `json:"teamId"`
-	SubscriptionID   int64      `json:"subscriptionId"`
+	SubscriptionID   *int64     `json:"subscriptionId"`
 	PlanName         string     `json:"planName"`
 	PriceCents       int        `json:"priceCents"`
 	Currency         string     `json:"currency"`

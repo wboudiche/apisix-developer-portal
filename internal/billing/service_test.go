@@ -65,6 +65,54 @@ func TestSubscriptionActivatedFreePlanNoInvoice(t *testing.T) {
 	}
 }
 
+// TestInvoiceSurvivesSubscriptionDeletion is the regression test for the
+// whole-branch-review finding: unsubscribing (which deletes the subscription
+// row) must NOT erase the invoice ledger, even for paid invoices. Migration
+// 0017 changes invoices.subscription_id's FK from ON DELETE CASCADE to
+// ON DELETE SET NULL and drops the NOT NULL constraint so the invoice row
+// detaches instead of disappearing.
+func TestInvoiceSurvivesSubscriptionDeletion(t *testing.T) {
+	pool := dial(t)
+	ctx := context.Background()
+	teamID, appID, subID := seedTeamAppSub(t, pool)
+	pname := planName("SurvivorPlan")
+	planID := seedPlan(t, pool, pname, 3300, "USD")
+	linkSubToPlan(t, pool, subID, planID)
+
+	svc := billing.NewService(billing.NewRepo(pool), billing.ManualProvider{})
+	if err := svc.SubscriptionActivated(ctx, appID, subID, planID); err != nil {
+		t.Fatalf("activate: %v", err)
+	}
+	inv := onlyInvoiceForSub(t, pool, subID)
+	if err := svc.MarkPaid(ctx, inv.ID); err != nil {
+		t.Fatalf("markpaid: %v", err)
+	}
+
+	// seedTeamAppSub's cleanup deletes invoices by subscription_id, which
+	// will no longer match this invoice once the subscription is detached
+	// below, so explicitly clean up the invoice row by id ourselves.
+	t.Cleanup(func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM invoices WHERE id=$1`, inv.ID)
+	})
+
+	// Simulate an unsubscribe: delete the subscription row directly, the
+	// same way the subscriptions package does on unsubscribe.
+	if _, err := pool.Exec(ctx, `DELETE FROM subscriptions WHERE id=$1`, subID); err != nil {
+		t.Fatalf("delete subscription: %v", err)
+	}
+
+	got, err := svc.Get(ctx, inv.ID)
+	if err != nil {
+		t.Fatalf("Get after unsubscribe: %v (invoice should survive)", err)
+	}
+	if got.SubscriptionID != nil {
+		t.Fatalf("SubscriptionID = %v, want nil after subscription deletion", *got.SubscriptionID)
+	}
+	if got.TeamID != teamID || got.PlanName != pname || got.PriceCents != 3300 || got.Status != billing.StatusPaid {
+		t.Fatalf("invoice ledger not preserved: %+v", got)
+	}
+}
+
 func TestMarkPaidAndVoidTransitions(t *testing.T) {
 	pool := dial(t)
 	ctx := context.Background()

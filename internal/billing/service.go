@@ -51,7 +51,7 @@ func (s *Service) SubscriptionActivated(ctx context.Context, appID, subID, planI
 	if err != nil {
 		return err
 	}
-	inv := Invoice{TeamID: teamID, SubscriptionID: subID, PlanName: name, PriceCents: priceCents, Currency: currency}
+	inv := Invoice{TeamID: teamID, SubscriptionID: &subID, PlanName: name, PriceCents: priceCents, Currency: currency}
 	if _, err := s.provider.Charge(ctx, inv); err != nil {
 		return err
 	}
