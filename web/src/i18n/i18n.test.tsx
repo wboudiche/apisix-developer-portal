@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import { LanguageProvider, useLang, useT } from './LanguageProvider'
+import { translate } from './t'
 import { fr } from './fr'
 import { en } from './en'
 
@@ -33,7 +34,12 @@ describe('i18n core', () => {
   })
 
   it('falls back active→fr→key', () => {
-    // a key present in fr but (hypothetically) missing in en resolves to the fr value;
-    // an entirely unknown key resolves to itself. (Uses the real catalogs.)
+    // active-lang hit
+    expect(translate('en', 'test.hello', { name: 'Ada' })).toBe(en.test.hello.replace('{name}', 'Ada'))
+    // an entirely unknown key resolves to the key string itself (never blank/undefined)
+    expect(translate('en', 'does.not.exist')).toBe('does.not.exist')
+    expect(translate('fr', 'does.not.exist')).toBe('does.not.exist')
+    // interpolation of an unknown var leaves the placeholder intact (never "undefined")
+    expect(translate('en', 'test.hello', {})).toBe('Hello {name}')
   })
 })
