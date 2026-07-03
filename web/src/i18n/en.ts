@@ -377,6 +377,10 @@ export const en: Messages = {
     planSavedNotify: 'Plan {name} saved',
     planCreatedNotify: 'Plan {name} created',
     loadPlansError: 'Unable to load plans.',
+    plan: {
+      priceLabel: 'Price (cents)',
+      currencyLabel: 'Currency',
+    },
     // ApprovalsPage
     approvalsDescription: 'Approve or reject application subscription requests. On approval, APISIX creates the consumer and activates the chosen plan’s rate policy.',
     loadSubscriptionsError: 'Unable to load subscriptions.',
@@ -415,6 +419,10 @@ export const en: Messages = {
     remove: 'Remove',
     addMemberEmailPlaceholder: "A user's email",
     deleteTeam: 'Delete team',
+  },
+  billing: {
+    free: 'Free',
+    perMonthSuffix: '/mo',
   },
   activity: {
     justNow: 'just now',

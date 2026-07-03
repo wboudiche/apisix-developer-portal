@@ -376,6 +376,10 @@ export const fr = {
     planSavedNotify: 'Plan {name} enregistré',
     planCreatedNotify: 'Plan {name} créé',
     loadPlansError: 'Impossible de charger les plans.',
+    plan: {
+      priceLabel: 'Prix (centimes)',
+      currencyLabel: 'Devise',
+    },
     // ApprovalsPage
     approvalsDescription: "Validez ou refusez les demandes d'abonnement des applications. À l'approbation, APISIX crée le consumer et active la politique de débit du plan choisi.",
     loadSubscriptionsError: 'Impossible de charger les abonnements.',
@@ -414,6 +418,10 @@ export const fr = {
     remove: 'Retirer',
     addMemberEmailPlaceholder: "Email d'un utilisateur",
     deleteTeam: "Supprimer l'équipe",
+  },
+  billing: {
+    free: 'Gratuit',
+    perMonthSuffix: '/mois',
   },
   activity: {
     justNow: "à l'instant",

@@ -36,6 +36,8 @@ describe('PlansPage', () => {
     expect(screen.getByText('60 req / 60s')).toBeInTheDocument()
     expect(screen.getByText(/≈ 1 req\/s soutenu/)).toBeInTheDocument()
     expect(screen.getByText(/≈ 17 req\/s soutenu/)).toBeInTheDocument()
+    expect(screen.getByText('Gratuit')).toBeInTheDocument()
+    expect(screen.getByText(/29,00/)).toBeInTheDocument()
   })
 
   it('creates a plan and shows the live preview', async () => {
@@ -47,7 +49,21 @@ describe('PlansPage', () => {
     expect(screen.getByText('≈ 1.7 req/s soutenu')).toBeInTheDocument() // 100/60 default
     await userEvent.click(screen.getByRole('button', { name: /Créer le plan/ }))
     await waitFor(() => expect(create).toHaveBeenCalled())
-    expect(create.mock.calls[0][1]).toMatchObject({ name: 'Platinum', rateLimit: 100, windowSeconds: 60 })
+    expect(create.mock.calls[0][1]).toMatchObject({ name: 'Platinum', rateLimit: 100, windowSeconds: 60, priceCents: 0, currency: 'EUR' })
+  })
+
+  it('creates a plan with a price and currency', async () => {
+    const create = vi.spyOn(api, 'adminCreatePlan').mockResolvedValue(plans[1])
+    renderPage()
+    await screen.findByText('Free')
+    await userEvent.click(screen.getByRole('button', { name: /Nouveau plan/ }))
+    await userEvent.type(screen.getByLabelText('Nom du plan'), 'Gold')
+    await userEvent.clear(screen.getByLabelText('Prix (centimes)'))
+    await userEvent.type(screen.getByLabelText('Prix (centimes)'), '2900')
+    await userEvent.click(screen.getByRole('button', { name: /Créer le plan/ }))
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create).toHaveBeenCalledWith(expect.any(String),
+      expect.objectContaining({ name: 'Gold', rateLimit: 100, windowSeconds: 60, priceCents: 2900, currency: 'EUR' }))
   })
 
   it('edit opens prefilled and saves with PUT', async () => {
@@ -61,6 +77,14 @@ describe('PlansPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /Enregistrer/ }))
     await waitFor(() => expect(update).toHaveBeenCalled())
     expect(update.mock.calls[0][2]).toMatchObject({ name: 'Free', rateLimit: 120 })
+  })
+
+  it('edit opens prefilled with the priced plan price and currency', async () => {
+    renderPage()
+    await screen.findByText('Free')
+    await userEvent.click(screen.getAllByRole('button', { name: 'Modifier' })[1])
+    expect(screen.getByLabelText('Prix (centimes)')).toHaveValue(2900)
+    expect(screen.getByLabelText('Devise')).toHaveValue('EUR')
   })
 
   it('a 409 delete shows the plan-in-use toast', async () => {
