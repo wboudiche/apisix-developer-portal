@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { UsageCards } from './UsageCards'
+import { LanguageProvider } from '../../i18n/LanguageProvider'
 import type { Usage } from '../../api/types'
 
 const usage: Usage = {
@@ -8,9 +9,18 @@ const usage: Usage = {
   series: [],
 }
 
+beforeEach(() => {
+  localStorage.clear()
+  localStorage.setItem('lang', 'fr')
+})
+
+function renderCards(state: Parameters<typeof UsageCards>[0]['state']) {
+  return render(<LanguageProvider><UsageCards state={state} /></LanguageProvider>)
+}
+
 describe('UsageCards', () => {
   it('shows the four card labels in every state', () => {
-    render(<UsageCards state={{ status: 'loading' }} />)
+    renderCards({ status: 'loading' })
     expect(screen.getByText("Requêtes · aujourd'hui")).toBeInTheDocument()
     expect(screen.getByText('Ce mois-ci')).toBeInTheDocument()
     expect(screen.getByText('Latence p95')).toBeInTheDocument()
@@ -18,12 +28,12 @@ describe('UsageCards', () => {
   })
 
   it('renders skeletons while loading (no numbers yet)', () => {
-    render(<UsageCards state={{ status: 'loading' }} />)
+    renderCards({ status: 'loading' })
     expect(screen.getAllByTestId('stat-skeleton')).toHaveLength(4)
   })
 
   it('renders the real values when ready', () => {
-    render(<UsageCards state={{ status: 'ready', usage }} />)
+    renderCards({ status: 'ready', usage })
     expect(screen.getByText(/18\s*402/)).toBeInTheDocument()
     expect(screen.getByText(/421\s*K/)).toBeInTheDocument()
     expect(screen.getByText('86')).toBeInTheDocument()
@@ -32,7 +42,7 @@ describe('UsageCards', () => {
   })
 
   it('shows an explicit unavailable state on error, never demo numbers', () => {
-    render(<UsageCards state={{ status: 'error' }} />)
+    renderCards({ status: 'error' })
     expect(screen.getByText(/indisponibles?/i)).toBeInTheDocument()
   })
 })

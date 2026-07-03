@@ -1,4 +1,5 @@
 import { categoryDotColor } from './apiIcons'
+import { useT } from '../i18n/LanguageProvider'
 
 export function CategoryRail({
   categories, active, onPick,
@@ -14,12 +15,13 @@ export function CategoryRail({
   open?: boolean
   onClose?: () => void
 }) {
+  const t = useT()
   const total = categories.reduce((n, c) => n + c.count, 0)
   return (
     <aside className={`rail ${open ? 'open' : 'closed'}`}>
       <div className="rail-head">
-        <h2>Catégories d'API</h2>
-        <button className="collapse" aria-label="Fermer" onClick={onClose}>
+        <h2>{t('categoryRail.title')}</h2>
+        <button className="collapse" aria-label={t('common.close')} onClick={onClose}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
             <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -28,7 +30,7 @@ export function CategoryRail({
       <nav>
         <button className={`cat ${active === null ? 'active' : ''}`} onClick={() => onPick(null)}>
           <span className="dot" style={{ background: 'var(--accent)' }} />
-          <span className="clabel">Toutes les catégories</span>
+          <span className="clabel">{t('categoryRail.allCategories')}</span>
           <span className="cnt">{total}</span>
         </button>
         {categories.map(c => (
@@ -40,15 +42,15 @@ export function CategoryRail({
       </nav>
       {tags.length > 0 && (
         <>
-          <div className="rail-sec">Tags</div>
+          <div className="rail-sec">{t('categoryRail.tagsHeading')}</div>
           <div className="tags">
-            {tags.map(t => (
-              <button key={t} className={`tag ${activeTag === t ? 'active' : ''}`} onClick={() => onPickTag(activeTag === t ? null : t)}>{t}</button>
+            {tags.map(tg => (
+              <button key={tg} className={`tag ${activeTag === tg ? 'active' : ''}`} onClick={() => onPickTag(activeTag === tg ? null : tg)}>{tg}</button>
             ))}
           </div>
         </>
       )}
-      <p className="rail-note">{total} APIs publiées · sandbox &amp; production disponibles. Abonnez-vous pour générer vos clés.</p>
+      <p className="rail-note">{t('categoryRail.note', { total })}</p>
     </aside>
   )
 }

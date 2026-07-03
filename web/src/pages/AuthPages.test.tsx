@@ -5,25 +5,31 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { LoginPage } from './LoginPage'
 import { RegisterPage } from './RegisterPage'
 import { AuthProvider } from '../auth/AuthProvider'
+import { LanguageProvider } from '../i18n/LanguageProvider'
 import * as api from '../api/client'
 
 beforeEach(() => {
   localStorage.clear()
   vi.restoreAllMocks()
+  // jsdom's navigator.language defaults to 'en-US', which would auto-detect to
+  // English; force French so existing assertions (against French strings) hold.
+  localStorage.setItem('lang', 'fr')
   // AuthShell fetches catalog stats on mount; neutralize it for page tests.
   vi.spyOn(api, 'getProducts').mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 })
 })
 
 function renderLogin() {
   return render(
-    <MemoryRouter initialEntries={['/login']}>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<div>CATALOG HOME</div>} />
-        </Routes>
-      </AuthProvider>
-    </MemoryRouter>
+    <LanguageProvider>
+      <MemoryRouter initialEntries={['/login']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<div>CATALOG HOME</div>} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    </LanguageProvider>
   )
 }
 
@@ -80,14 +86,16 @@ describe('LoginPage', () => {
 
 function renderRegister() {
   return render(
-    <MemoryRouter initialEntries={['/register']}>
-      <AuthProvider>
-        <Routes>
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/" element={<div>CATALOG HOME</div>} />
-        </Routes>
-      </AuthProvider>
-    </MemoryRouter>
+    <LanguageProvider>
+      <MemoryRouter initialEntries={['/register']}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/" element={<div>CATALOG HOME</div>} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    </LanguageProvider>
   )
 }
 

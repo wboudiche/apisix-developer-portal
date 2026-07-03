@@ -5,6 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { CatalogPage } from './CatalogPage'
 import { ThemeProvider } from '../theme/ThemeProvider'
 import { AuthProvider } from '../auth/AuthProvider'
+import { LanguageProvider } from '../i18n/LanguageProvider'
 import * as api from '../api/client'
 import type { Product } from '../api/types'
 
@@ -15,11 +16,17 @@ const sample: Product[] = [
 
 function renderPage() {
   return render(
-    <MemoryRouter><ThemeProvider><AuthProvider><CatalogPage /></AuthProvider></ThemeProvider></MemoryRouter>
+    <MemoryRouter><LanguageProvider><ThemeProvider><AuthProvider><CatalogPage /></AuthProvider></ThemeProvider></LanguageProvider></MemoryRouter>
   )
 }
 
-beforeEach(() => { localStorage.clear(); vi.restoreAllMocks() })
+beforeEach(() => {
+  localStorage.clear()
+  // jsdom's navigator.language defaults to 'en-US', which would auto-detect to
+  // English; force French so existing assertions (against French strings) hold.
+  localStorage.setItem('lang', 'fr')
+  vi.restoreAllMocks()
+})
 
 const envelope = { items: sample, total: sample.length, page: 1, pageSize: 20 }
 
@@ -67,12 +74,12 @@ describe('CatalogPage', () => {
     vi.spyOn(api, 'getProducts').mockResolvedValue(envelope)
     render(
       <MemoryRouter initialEntries={['/']}>
-        <ThemeProvider><AuthProvider>
+        <LanguageProvider><ThemeProvider><AuthProvider>
           <Routes>
             <Route path="/" element={<CatalogPage />} />
             <Route path="/login" element={<div>LOGIN PAGE</div>} />
           </Routes>
-        </AuthProvider></ThemeProvider>
+        </AuthProvider></ThemeProvider></LanguageProvider>
       </MemoryRouter>
     )
     await waitFor(() => expect(screen.getAllByTestId('api-card').length).toBeGreaterThan(0))

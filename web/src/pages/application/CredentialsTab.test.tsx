@@ -1,7 +1,9 @@
+import type { ReactElement } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, act, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CredentialsTab } from './CredentialsTab'
+import { LanguageProvider } from '../../i18n/LanguageProvider'
 import type { ModalSpec } from '../../components/ConfirmModal'
 import * as api from '../../api/client'
 
@@ -13,16 +15,22 @@ const base = {
 }
 
 beforeEach(() => {
+  localStorage.clear()
+  localStorage.setItem('lang', 'fr')
   Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } })
   vi.restoreAllMocks()
 })
+
+function renderCreds(ui: ReactElement) {
+  return render(<LanguageProvider>{ui}</LanguageProvider>)
+}
 
 function setup() {
   const notify = vi.fn()
   const onRotated = vi.fn()
   let lastModal: ModalSpec | null = null
   const openModal = vi.fn((s: ModalSpec) => { lastModal = s })
-  render(<CredentialsTab apiKey={KEY} appId={7} token="jwt" notify={notify} openModal={openModal} onRotated={onRotated} sandboxEligible={false} />)
+  renderCreds(<CredentialsTab apiKey={KEY} appId={7} token="jwt" notify={notify} openModal={openModal} onRotated={onRotated} sandboxEligible={false} />)
   return { notify, openModal, onRotated, getModal: () => lastModal }
 }
 
@@ -59,27 +67,27 @@ describe('CredentialsTab', () => {
 
 it('shows an enable button when sandbox-eligible but not enabled, and reveals the key', async () => {
   const spy = vi.spyOn(api, 'enableSandbox').mockResolvedValue({ sandboxApiKey: 'sb-new' })
-  render(<CredentialsTab {...base} sandboxEligible sandboxEnabled={false} sandboxGatewayUrl="http://localhost:9081" />)
+  renderCreds(<CredentialsTab {...base} sandboxEligible sandboxEnabled={false} sandboxGatewayUrl="http://localhost:9081" />)
   await userEvent.click(screen.getByRole('button', { name: /Activer le sandbox/i }))
   await waitFor(() => expect(spy).toHaveBeenCalledWith('jwt', 7))
   expect(await screen.findByText('sb-new')).toBeInTheDocument()
 })
 
 it('shows the sandbox base URL + Régénérer when already enabled', () => {
-  render(<CredentialsTab {...base} sandboxEligible sandboxEnabled sandboxGatewayUrl="http://localhost:9081" />)
+  renderCreds(<CredentialsTab {...base} sandboxEligible sandboxEnabled sandboxGatewayUrl="http://localhost:9081" />)
   expect(screen.getByText(/localhost:9081/)).toBeInTheDocument()
   const sandboxCard = screen.getByText('Sandbox').closest('.keycard')!
   expect(within(sandboxCard as HTMLElement).getByRole('button', { name: /Régénérer/i })).toBeInTheDocument()
 })
 
 it('hides the sandbox card entirely when not eligible', () => {
-  render(<CredentialsTab {...base} sandboxEligible={false} sandboxEnabled={false} sandboxGatewayUrl="" />)
+  renderCreds(<CredentialsTab {...base} sandboxEligible={false} sandboxEnabled={false} sandboxGatewayUrl="" />)
   expect(screen.queryByText(/sandbox/i)).not.toBeInTheDocument()
 })
 
 it('shows the OAuth2 card when oauthEligible and saves the client id', async () => {
   const spy = vi.spyOn(api, 'setOidcClient').mockResolvedValue(undefined)
-  render(<CredentialsTab {...base} sandboxEligible={false} oauthEligible oidcIssuer="https://idp.example" oidcClientId="" />)
+  renderCreds(<CredentialsTab {...base} sandboxEligible={false} oauthEligible oidcIssuer="https://idp.example" oidcClientId="" />)
   expect(screen.getByText(/https:\/\/idp.example/)).toBeInTheDocument()
   await userEvent.type(screen.getByLabelText(/Client ID/i), 'client-abc')
   await userEvent.click(screen.getByRole('button', { name: /Enregistrer/i }))
@@ -87,11 +95,11 @@ it('shows the OAuth2 card when oauthEligible and saves the client id', async () 
 })
 
 it('prefills the client id input from oidcClientId', () => {
-  render(<CredentialsTab {...base} sandboxEligible={false} oauthEligible oidcIssuer="https://idp.example" oidcClientId="existing-client" />)
+  renderCreds(<CredentialsTab {...base} sandboxEligible={false} oauthEligible oidcIssuer="https://idp.example" oidcClientId="existing-client" />)
   expect((screen.getByLabelText(/Client ID/i) as HTMLInputElement).value).toBe('existing-client')
 })
 
 it('hides the OAuth2 card when not oauthEligible', () => {
-  render(<CredentialsTab {...base} sandboxEligible={false} oauthEligible={false} />)
+  renderCreds(<CredentialsTab {...base} sandboxEligible={false} oauthEligible={false} />)
   expect(screen.queryByLabelText(/Client ID/i)).not.toBeInTheDocument()
 })

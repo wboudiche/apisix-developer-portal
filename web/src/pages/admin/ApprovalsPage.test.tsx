@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { ApprovalsPage } from './ApprovalsPage'
 import { AuthProvider } from '../../auth/AuthProvider'
+import { LanguageProvider } from '../../i18n/LanguageProvider'
 import * as api from '../../api/client'
 import type { AdminSubscription } from '../../api/types'
 
@@ -14,6 +15,7 @@ const subs: AdminSubscription[] = [
 
 beforeEach(() => {
   localStorage.clear()
+  localStorage.setItem('lang', 'fr')
   localStorage.setItem('token', 'jwt')
   localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'Admin', role: 'admin' }))
   vi.restoreAllMocks()
@@ -23,7 +25,7 @@ beforeEach(() => {
 })
 
 const renderPage = () => render(
-  <MemoryRouter><AuthProvider><ApprovalsPage /></AuthProvider></MemoryRouter>
+  <MemoryRouter><LanguageProvider><AuthProvider><ApprovalsPage /></AuthProvider></LanguageProvider></MemoryRouter>
 )
 
 describe('ApprovalsPage', () => {

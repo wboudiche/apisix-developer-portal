@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import type { Product } from '../api/types'
 import { ApiIcon, categoryTint } from './apiIcons'
 import { LifecycleBadge } from './LifecycleBadge'
+import { useT } from '../i18n/LanguageProvider'
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -30,6 +31,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Product) => void }) {
+  const t = useT()
   // Mirrors ProductDetailPage: deprecated/sunset products no longer accept
   // new subscriptions (the backend 409s), so keep the catalog card consistent.
   const blocked = p.lifecycleStatus === 'deprecated' || p.lifecycleStatus === 'sunset'
@@ -46,7 +48,7 @@ export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Produ
           <Link className="cname" to={`/catalog/${p.slug}`}>{p.name}</Link>
           {p.ratingCount > 0
             ? <span className="ratewrap"><Stars rating={p.rating} /> <span className="ratecount">({p.ratingCount})</span></span>
-            : <span className="ratecount norate">Pas encore noté</span>}
+            : <span className="ratecount norate">{t('catalog.notYetRated')}</span>}
         </div>
         <p className="cdesc">{p.description}</p>
         <div className="cmeta">
@@ -56,13 +58,13 @@ export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Produ
           <LifecycleBadge status={p.lifecycleStatus} />
         </div>
         <div className="cfoot">
-          <div className="ctags">{p.tags.slice(0, 2).map(t => <span key={t} className="ctag">{t}</span>)}</div>
+          <div className="ctags">{p.tags.slice(0, 2).map(tag => <span key={tag} className="ctag">{tag}</span>)}</div>
           <button className="subbtn" onClick={() => onSubscribe(p)} disabled={blocked}
-            title={blocked ? "Cette API n'accepte plus de nouveaux abonnements" : undefined}>
+            title={blocked ? t('catalog.subscribeBlockedTitle') : undefined}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path d="M12 5v14M5 12h14" strokeLinecap="round"/>
             </svg>
-            S'abonner
+            {t('catalog.subscribeCta')}
           </button>
         </div>
       </div>

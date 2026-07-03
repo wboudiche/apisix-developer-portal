@@ -1,17 +1,28 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { ConfirmModal, type ModalSpec } from './ConfirmModal'
+import { LanguageProvider } from '../i18n/LanguageProvider'
+
+beforeEach(() => {
+  // jsdom's navigator.language defaults to 'en-US', which would auto-detect to
+  // English; force French so existing assertions (against French strings) hold.
+  localStorage.setItem('lang', 'fr')
+})
+
+function renderModal(props: Parameters<typeof ConfirmModal>[0]) {
+  return render(<LanguageProvider><ConfirmModal {...props} /></LanguageProvider>)
+}
 
 describe('ConfirmModal', () => {
   it('renders nothing when spec is null', () => {
-    const { container } = render(<ConfirmModal spec={null} onClose={() => {}} />)
+    const { container } = renderModal({ spec: null, onClose: () => {} })
     expect(container.firstChild).toBeNull()
   })
   it('confirms then closes', async () => {
     const onConfirm = vi.fn(); const onClose = vi.fn()
-    render(<ConfirmModal spec={{ title: 'Résilier ?', body: 'corps', confirmLabel: 'Résilier', danger: true, onConfirm }} onClose={onClose} />)
+    renderModal({ spec: { title: 'Résilier ?', body: 'corps', confirmLabel: 'Résilier', danger: true, onConfirm }, onClose })
     expect(screen.getByText('Résilier ?')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Résilier' }))
     expect(onConfirm).toHaveBeenCalledOnce()
@@ -19,7 +30,7 @@ describe('ConfirmModal', () => {
   })
   it('cancels without confirming', async () => {
     const onConfirm = vi.fn(); const onClose = vi.fn()
-    render(<ConfirmModal spec={{ title: 't', body: 'b', onConfirm }} onClose={onClose} />)
+    renderModal({ spec: { title: 't', body: 'b', onConfirm }, onClose })
     await userEvent.click(screen.getByRole('button', { name: 'Annuler' }))
     expect(onClose).toHaveBeenCalledOnce()
     expect(onConfirm).not.toHaveBeenCalled()
@@ -29,10 +40,10 @@ describe('ConfirmModal', () => {
     function Wrapper() {
       const [spec, setSpec] = useState<ModalSpec | null>(null)
       return (
-        <>
+        <LanguageProvider>
           <button id="trigger" onClick={() => setSpec(baseSpec)}>Ouvrir</button>
           <ConfirmModal spec={spec} onClose={() => setSpec(null)} />
-        </>
+        </LanguageProvider>
       )
     }
     render(<Wrapper />)

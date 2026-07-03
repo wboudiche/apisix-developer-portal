@@ -4,7 +4,7 @@ import { getApplications, getApplicationDetail, getPlans, createApplication, uns
 import { useAuth } from '../../auth/AuthProvider'
 import { TopBar } from '../../components/TopBar'
 import type { Application, AppDetail, Plan } from '../../api/types'
-import { appRef, initials, frDate, glyphGradient } from './helpers'
+import { appRef, initials, useFormatDate, glyphGradient, subsCountKey } from './helpers'
 import { AppSwitcher, CreateAppModal } from './AppSwitcher'
 import { ConfirmModal, type ModalSpec } from '../../components/ConfirmModal'
 import { Toast } from '../../components/Toast'
@@ -13,12 +13,13 @@ import { CredentialsTab } from './CredentialsTab'
 import { SubscriptionsTab } from './SubscriptionsTab'
 import { UsageTab } from './UsageTab'
 import { SettingsTab } from './SettingsTab'
+import { useT } from '../../i18n/LanguageProvider'
 import '../../styles/appdetail.css'
 
 type TabKey = 'overview' | 'creds' | 'subs' | 'usage' | 'settings'
 const TAB_KEYS: TabKey[] = ['overview', 'creds', 'subs', 'usage', 'settings']
-const TAB_LABELS: Record<TabKey, string> = {
-  overview: 'Aperçu', creds: 'Identifiants', subs: 'Abonnements', usage: 'Utilisation', settings: 'Paramètres',
+const TAB_LABEL_KEYS: Record<TabKey, string> = {
+  overview: 'app.tabOverview', creds: 'app.tabCreds', subs: 'app.tabSubs', usage: 'app.tabUsage', settings: 'app.tabSettings',
 }
 
 function initialTab(): TabKey {
@@ -33,6 +34,8 @@ export function AppDetailPage() {
   const { id } = useParams()
   const nav = useNavigate()
   const appId = Number(id)
+  const t = useT()
+  const formatDate = useFormatDate()
 
   const [apps, setApps] = useState<Application[] | null>(null)
   const [detail, setDetail] = useState<AppDetail | null>(null)
@@ -65,14 +68,14 @@ export function AppDetailPage() {
     const seq = ++detailReq.current
     getApplicationDetail(token, appId)
       .then(d => { if (seq === detailReq.current) setDetail(d) })
-      .catch(() => { if (seq === detailReq.current) setErr("Impossible de charger l'application.") })
-  }, [token, appId])
+      .catch(() => { if (seq === detailReq.current) setErr(t('app.loadAppError')) })
+  }, [token, appId, t])
 
   useEffect(() => {
     if (!token) return
-    getApplications(token).then(r => setApps(r.items)).catch(() => setErr('Impossible de charger les applications.'))
+    getApplications(token).then(r => setApps(r.items)).catch(() => setErr(t('app.loadAppsError')))
     getPlans().then(r => setPlans(r.items)).catch(() => { /* rates show as — */ })
-  }, [token])
+  }, [token, t])
 
   useEffect(() => { setDetail(null); setErr(''); reloadDetail() }, [reloadDetail])
 
@@ -82,21 +85,21 @@ export function AppDetailPage() {
   const app = apps?.find(a => a.id === appId) ?? null
   const subs = detail?.subscriptions ?? []
   const overall = subs.some(s => s.status === 'active')
-    ? { cls: 'ok', label: 'Active' }
+    ? { cls: 'ok', label: t('app.statusActive') }
     : subs.some(s => s.status === 'pending')
-      ? { cls: 'warn', label: 'En attente' }
-      : { cls: 'muted', label: 'Sans abonnement' }
+      ? { cls: 'warn', label: t('app.statusPending') }
+      : { cls: 'muted', label: t('app.statusNone') }
 
   function onResiliate(productId: number, productName: string) {
     setModal({
-      title: `Résilier l'abonnement à ${productName} ?`,
-      body: `L'application perdra l'accès à ${productName}. La clé reste valide pour vos autres abonnements.`,
-      confirmLabel: 'Résilier', danger: true,
+      title: t('app.unsubscribeConfirmTitle', { name: productName }),
+      body: t('app.unsubscribeConfirmBody', { name: productName }),
+      confirmLabel: t('app.unsubscribeAction'), danger: true,
       onConfirm: () => {
         if (!token) return
         unsubscribe(token, appId, productId)
-          .then(() => { notify(`Abonnement à ${productName} résilié`); reloadDetail() })
-          .catch(() => notify('Échec de la résiliation'))
+          .then(() => { notify(t('app.unsubscribedNotify', { name: productName })); reloadDetail() })
+          .catch(() => notify(t('app.unsubscribeFailed')))
       },
     })
   }
@@ -105,7 +108,7 @@ export function AppDetailPage() {
     if (!token) return
     const a = await createApplication(token, name, '')
     setCreateOpen(false)
-    notify('Application créée')
+    notify(t('app.appCreatedNotify'))
     const next = await getApplications(token)
     setApps(next.items)
     nav(`/applications/${a.id}`)
@@ -116,9 +119,9 @@ export function AppDetailPage() {
       <TopBar search="" onSearch={() => {}} />
       <div className="appdetail">
         <div className="crumbs">
-          <Link to="/">Portail</Link>
+          <Link to="/">{t('app.breadcrumbPortal')}</Link>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          <Link to="/applications">Applications</Link>
+          <Link to="/applications">{t('nav.applications')}</Link>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
           <span style={{ color: 'var(--fg)', fontWeight: 500 }}>{app?.name ?? '…'}</span>
         </div>
@@ -136,9 +139,9 @@ export function AppDetailPage() {
               <div className="meta">
                 <span>ID&nbsp;<span className="mono">{appRef(app.id)}</span></span>
                 <span className="sep" />
-                <span>{subs.length} abonnement{subs.length > 1 ? 's' : ''}</span>
+                <span>{t(subsCountKey(subs.length), { count: subs.length })}</span>
                 <span className="sep" />
-                <span>Créée le <span className="mono">{frDate(app.createdAt)}</span></span>
+                <span>{t('app.createdOnPrefix')}<span className="mono">{formatDate(app.createdAt)}</span></span>
                 <span className="sep" />
                 {apps && <AppSwitcher apps={apps} currentId={app.id} onCreate={() => setCreateOpen(true)} />}
               </div>
@@ -146,12 +149,12 @@ export function AppDetailPage() {
             <div className="actions">
               <button className="btn ghost" onClick={() => setTab('settings')}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 3v2.5M12 18.5V21M21 12h-2.5M5.5 12H3M18 6l-1.8 1.8M7.8 16.2L6 18M18 18l-1.8-1.8M7.8 7.8L6 6" strokeLinecap="round" /></svg>
-                Paramètres
+                {t('app.tabSettings')}
               </button>
               {tab !== 'subs' && (
                 <button className="btn primary" onClick={() => nav('/')}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M12 5v14M5 12h14" strokeLinecap="round" /></svg>
-                  Abonner une API
+                  {t('app.subscribeApiCta')}
                 </button>
               )}
             </div>
@@ -161,7 +164,7 @@ export function AppDetailPage() {
         <div className="tabs">
           {TAB_KEYS.map(k => (
             <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
-              {TAB_LABELS[k]}
+              {t(TAB_LABEL_KEYS[k])}
               {k === 'subs' && <span className="badge">{subs.length}</span>}
             </button>
           ))}

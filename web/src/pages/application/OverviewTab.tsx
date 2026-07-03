@@ -4,6 +4,7 @@ import { describe as describeEvent } from './activity'
 import { DEMO_QUICKSTART } from './demo'
 import { useUsage } from './useUsage'
 import { UsageCards } from './UsageCards'
+import { useT, useLang } from '../../i18n/LanguageProvider'
 
 const FEED_ICONS: Record<string, string> = {
   check: 'M20 6L9 17l-5-5',
@@ -13,6 +14,8 @@ const FEED_ICONS: Record<string, string> = {
 }
 
 export function OverviewTab({ detail, token, appId, notify }: { detail: AppDetail; token: string; appId: number; notify: (msg: string) => void }) {
+  const t = useT()
+  const { lang } = useLang()
   // Cards load asynchronously so the page shell (quickstart, activity feed)
   // renders immediately; the 24h window backs the "today"/p95/error cards.
   const usage = useUsage(token, appId, '24h')
@@ -25,7 +28,7 @@ export function OverviewTab({ detail, token, appId, notify }: { detail: AppDetai
   const curl = `curl http://localhost:9080${path} -H "apikey: ${key}"`
 
   function copyCurl() {
-    void copyText(curl).then(() => notify('Commande copiée'))
+    void copyText(curl).then(() => notify(t('app.copyCurlNotify')))
   }
 
   return (
@@ -35,33 +38,33 @@ export function OverviewTab({ detail, token, appId, notify }: { detail: AppDetai
       <div className="twocol">
         <div className="dcard">
           <div className="ch">
-            <h3>Démarrage rapide</h3>
-            <p>Authentification par clé API — un seul en-tête <span className="mono">apikey</span>.</p>
+            <h3>{t('app.quickstartTitle')}</h3>
+            <p>{t('app.quickstartAuthPre')}<span className="mono">apikey</span>{t('app.quickstartAuthPost')}</p>
           </div>
           <div className="cb">
             <div className="code">
-              <div className="cbar"><i /><i /><i /><span>requête — {active ? active.productName : DEMO_QUICKSTART.apiName} · production</span>
-                <button className="copy" onClick={copyCurl}>Copier</button>
+              <div className="cbar"><i /><i /><i /><span>{t('app.requestLabel', { name: active ? active.productName : DEMO_QUICKSTART.apiName })}</span>
+                <button className="copy" onClick={copyCurl}>{t('subscribeModal.copy')}</button>
               </div>
-              <pre><span className="c"># Un seul en-tête, c'est tout</span>{'\n'}<span className="cmd">curl</span> http://localhost:9080{path} \{'\n'}  <span className="flag">-H</span> <span className="str">"apikey: {key}"</span></pre>
+              <pre><span className="c">{t('app.curlComment')}</span>{'\n'}<span className="cmd">curl</span> http://localhost:9080{path} \{'\n'}  <span className="flag">-H</span> <span className="str">"apikey: {key}"</span></pre>
             </div>
             <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 14, lineHeight: 1.55 }}>
-              La clé est liée à un <b style={{ color: 'var(--fg)' }}>consumer</b> APISIX et au plan choisi à l'abonnement (<span className="mono">key-auth</span> + <span className="mono">limit-count</span>). Utilisez la clé <b style={{ color: 'var(--fg)' }}>Sandbox</b> pour tester sans consommer votre quota production.
+              {t('app.quickstartInfoPre')}<b style={{ color: 'var(--fg)' }}>consumer</b>{t('app.quickstartInfoMid')}<span className="mono">key-auth</span> + <span className="mono">limit-count</span>{t('app.quickstartInfoMid2')}<b style={{ color: 'var(--fg)' }}>Sandbox</b>{t('app.quickstartInfoPost')}
             </p>
           </div>
         </div>
 
         <div className="dcard">
-          <div className="ch"><h3>Activité récente</h3></div>
+          <div className="ch"><h3>{t('app.recentActivityTitle')}</h3></div>
           <div className="cb" style={{ paddingTop: 6, paddingBottom: 6 }}>
             {detail.events.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--muted)', padding: '14px 4px', lineHeight: 1.55 }}>
-                Aucune activité pour le moment. Abonnez-vous à une API pour démarrer.
+                {t('app.noActivity')}
               </p>
             ) : (
               <ul className="feed">
                 {detail.events.map((e, i) => {
-                  const f = describeEvent(e)
+                  const f = describeEvent(e, t, lang)
                   return (
                     <li key={i}>
                       <span className="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path d={FEED_ICONS[f.icon]} strokeLinecap="round" strokeLinejoin="round" /></svg></span>

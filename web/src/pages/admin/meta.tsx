@@ -1,17 +1,24 @@
 import type { ReactNode } from 'react'
+import { translate } from '../../i18n/t'
 
 // Blueprint slugify: lowercase, strip a trailing "api", non-alphanumerics → "-".
 export const slugify = (s: string) =>
   s.toLowerCase().trim().replace(/api$/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
+type TFunc = (key: string, vars?: Record<string, string | number>) => string
+// Callers that render inside a LanguageProvider pass their own `t`; callers
+// without one (e.g. direct unit tests) fall back to French, matching the
+// pre-i18n behavior.
+const defaultT: TFunc = (key, vars) => translate('fr', key, vars)
+
 // Sustained-rate labels (blueprint: rows use 0 decimals ≥1, preview uses 1).
-export const planRate = (limit: number, windowS: number) => {
+export const planRate = (limit: number, windowS: number, t: TFunc = defaultT) => {
   const r = limit / (windowS || 1)
-  return `≈ ${r >= 1 ? r.toFixed(0) : r.toFixed(2)} req/s soutenu`
+  return t('admin.rateSoutenu', { rate: r >= 1 ? r.toFixed(0) : r.toFixed(2) })
 }
-export const planPreview = (limit: number, windowS: number) => {
+export const planPreview = (limit: number, windowS: number, t: TFunc = defaultT) => {
   const r = limit / (windowS || 1)
-  return `≈ ${r >= 1 ? r.toFixed(1) : r.toFixed(2)} req/s soutenu`
+  return t('admin.rateSoutenu', { rate: r >= 1 ? r.toFixed(1) : r.toFixed(2) })
 }
 
 export interface CatMeta { color: string; icon: ReactNode }

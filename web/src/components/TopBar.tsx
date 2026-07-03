@@ -3,6 +3,7 @@ import { useTheme } from '../theme/ThemeProvider'
 import { useAuth } from '../auth/AuthProvider'
 import { Link, useLocation } from 'react-router-dom'
 import type { User } from '../api/types'
+import { useT, useLang } from '../i18n/LanguageProvider'
 
 // ── Nav-tab icons ──────────────────────────────────────────────────────────────
 
@@ -112,6 +113,8 @@ export function TopBar({
   const { theme, toggle } = useTheme()
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
+  const t = useT()
+  const { lang, setLang } = useLang()
   // Route-derived active tab. Admin spans several sub-routes (/admin/products,
   // /admin/plans, /admin/approvals), so match the whole section, not one path.
   const tab = (active: boolean) => (active ? 'active' : undefined)
@@ -173,7 +176,7 @@ export function TopBar({
   return (
     <header className="topbar">
       {onMenu && (
-        <button className="icon-btn hamb" onClick={onMenu} aria-label="Ouvrir les catégories">
+        <button className="icon-btn hamb" onClick={onMenu} aria-label={t('nav.openCategories')}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
             <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round"/>
           </svg>
@@ -186,15 +189,15 @@ export function TopBar({
         </span>
         <span>
           <span className="name">APISIX</span>{' '}
-          <span className="sub">Portail Développeur</span>
+          <span className="sub">{t('nav.brandSub')}</span>
         </span>
       </Link>
 
       <nav className="nav-tabs">
-        <Link className={tab(pathname === '/')} to="/"><IconGrid />APIs</Link>
-        {user && <Link className={tab(pathname.startsWith('/applications'))} to="/applications"><IconDoc />Applications</Link>}
-        {user && <Link className={tab(pathname.startsWith('/teams'))} to="/teams"><IconDoc />Équipes</Link>}
-        {user?.role === 'admin' && <Link className={tab(pathname.startsWith('/admin'))} to="/admin/products"><IconShield />Admin</Link>}
+        <Link className={tab(pathname === '/')} to="/"><IconGrid />{t('nav.apis')}</Link>
+        {user && <Link className={tab(pathname.startsWith('/applications'))} to="/applications"><IconDoc />{t('nav.applications')}</Link>}
+        {user && <Link className={tab(pathname.startsWith('/teams'))} to="/teams"><IconDoc />{t('nav.teams')}</Link>}
+        {user?.role === 'admin' && <Link className={tab(pathname.startsWith('/admin'))} to="/admin/products"><IconShield />{t('nav.admin')}</Link>}
       </nav>
 
       <div className="search">
@@ -203,14 +206,22 @@ export function TopBar({
           ref={searchRef}
           value={search}
           onChange={e => onSearch(e.target.value)}
-          placeholder="Rechercher une API, un tag, un contexte…"
-          aria-label="Rechercher"
+          placeholder={t('nav.searchPlaceholder')}
+          aria-label={t('nav.searchLabel')}
         />
         <kbd>/</kbd>
       </div>
 
-      <button className="icon-btn" onClick={toggle} aria-label="Basculer le thème">
+      <button className="icon-btn" onClick={toggle} aria-label={t('nav.toggleTheme')}>
         {theme !== 'dark' ? <IconMoon /> : <IconSun />}
+      </button>
+
+      <button
+        className="langtoggle"
+        onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
+        title={lang === 'fr' ? 'English' : 'Français'}
+      >
+        {lang === 'fr' ? 'EN' : 'FR'}
       </button>
 
       {user ? (
@@ -218,12 +229,12 @@ export function TopBar({
           <button
             className="user"
             onClick={() => setMenuOpen(o => !o)}
-            aria-label={`Menu de ${displayName(user)}`}
+            aria-label={t('nav.userMenuLabel', { name: displayName(user) })}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >
             <span className="av">{initials(user)}</span>
-            <span className="who">{displayName(user)}<small>Espace développeur</small></span>
+            <span className="who">{displayName(user)}<small>{t('nav.devSpace')}</small></span>
             <IconChevron />
           </button>
 
@@ -236,7 +247,7 @@ export function TopBar({
                     className="dot"
                     style={{ background: user.role === 'admin' ? 'var(--accent)' : 'var(--c-finance)' }}
                   />
-                  {user.role === 'admin' ? 'Admin' : 'Développeur'}
+                  {user.role === 'admin' ? t('nav.roleAdmin') : t('nav.roleDeveloper')}
                 </span>
               </div>
               <div className="sep" />
@@ -246,13 +257,13 @@ export function TopBar({
                 onClick={handleLogout}
               >
                 <IconLogout />
-                Se déconnecter
+                {t('nav.logout')}
               </button>
             </div>
           )}
         </div>
       ) : (
-        <Link className="login-cta" to="/login">Connexion</Link>
+        <Link className="login-cta" to="/login">{t('nav.login')}</Link>
       )}
     </header>
   )

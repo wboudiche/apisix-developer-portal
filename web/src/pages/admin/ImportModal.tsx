@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { AdminProduct } from '../../api/types'
 import { adminImportProduct } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
+import { useT } from '../../i18n/LanguageProvider'
 
 type Tab = 'file' | 'url'
 
@@ -12,6 +13,7 @@ export function ImportModal({ open, onClose, onImported }: {
   onImported: (draft: AdminProduct) => void
 }) {
   const { token } = useAuth()
+  const t = useT()
   const [tab, setTab] = useState<Tab>('file')
   const [url, setUrl] = useState('')
   const [spec, setSpec] = useState('')
@@ -40,7 +42,7 @@ export function ImportModal({ open, onClose, onImported }: {
     if (!token || busy) return
     const src = tab === 'url' ? { url: url.trim() } : { spec: spec.trim() }
     if ((tab === 'url' && !src.url) || (tab === 'file' && !('spec' in src && src.spec))) {
-      setErr(tab === 'url' ? 'Saisissez une URL.' : 'Choisissez un fichier de spécification.')
+      setErr(tab === 'url' ? t('admin.enterUrlError') : t('admin.chooseFileError'))
       return
     }
     setBusy(true); setErr('')
@@ -49,7 +51,7 @@ export function ImportModal({ open, onClose, onImported }: {
       onImported(draft)
       onClose()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Échec de l'import.")
+      setErr(e instanceof Error ? e.message : t('admin.importFailed'))
     } finally {
       setBusy(false)
     }
@@ -57,34 +59,34 @@ export function ImportModal({ open, onClose, onImported }: {
 
   return (
     <div className="appdetail-scrim" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="dmodal" role="dialog" aria-modal="true" aria-label="Importer une API">
+      <div className="dmodal" role="dialog" aria-modal="true" aria-label={t('admin.importApi')}>
         <div className="composer-head">
           <span className="dot" />
-          <h2>Importer une API</h2>
-          <span className="hint">OpenAPI 3.x ou Swagger 2.0</span>
+          <h2>{t('admin.importApi')}</h2>
+          <span className="hint">{t('admin.importHint')}</span>
         </div>
 
-        <div className="tabs" role="tablist" aria-label="Source de la spécification">
+        <div className="tabs" role="tablist" aria-label={t('admin.importSourceAriaLabel')}>
           <button id="imp-tab-file" role="tab" aria-selected={tab === 'file'} aria-controls="imp-tabpanel"
             className={`tab ${tab === 'file' ? 'on' : ''}`}
-            onClick={() => { setTab('file'); setErr('') }}>Fichier</button>
+            onClick={() => { setTab('file'); setErr('') }}>{t('admin.fileTab')}</button>
           <button id="imp-tab-url" role="tab" aria-selected={tab === 'url'} aria-controls="imp-tabpanel"
             className={`tab ${tab === 'url' ? 'on' : ''}`}
-            onClick={() => { setTab('url'); setErr('') }}>URL</button>
+            onClick={() => { setTab('url'); setErr('') }}>{t('admin.urlTab')}</button>
         </div>
 
         <div className="composer-body">
           <div role="tabpanel" id="imp-tabpanel" aria-labelledby={tab === 'file' ? 'imp-tab-file' : 'imp-tab-url'}>
           {tab === 'file' ? (
             <div className="field">
-              <label htmlFor="imp-file">Fichier de spécification</label>
+              <label htmlFor="imp-file">{t('admin.specFileLabel')}</label>
               <input id="imp-file" type="file" accept=".json,.yaml,.yml" onChange={onFile} />
               {fileName && <div className="help">{fileName}</div>}
             </div>
           ) : (
             <div className="field">
-              <label htmlFor="imp-url">URL de la spécification</label>
-              <input id="imp-url" className="ipt mono" placeholder="https://api.example.com/openapi.json"
+              <label htmlFor="imp-url">{t('admin.specUrlLabel')}</label>
+              <input id="imp-url" className="ipt mono" placeholder={t('admin.specUrlPlaceholderEx')}
                 autoComplete="off" value={url} onChange={e => setUrl(e.target.value)} />
             </div>
           )}
@@ -94,9 +96,9 @@ export function ImportModal({ open, onClose, onImported }: {
 
           <div className="composer-foot">
             <div className="foot-acts">
-              <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Annuler</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>{t('common.cancel')}</button>
               <button type="button" className="btn btn-primary btn-sm" onClick={submit} disabled={busy}>
-                {busy ? 'Import…' : 'Importer'}
+                {busy ? t('admin.importingLabel') : t('admin.importCta')}
               </button>
             </div>
           </div>

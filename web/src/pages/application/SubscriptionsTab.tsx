@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import type { SubscriptionView, Plan } from '../../api/types'
 import { initials, rateLabel, statusPill } from './helpers'
 import { demoBarWidth, demoRpm } from './demo'
+import { useT } from '../../i18n/LanguageProvider'
 
 const IG_COLORS = ['var(--c-marketing)', 'var(--c-finance)', 'var(--c-eng)', 'var(--c-admin)']
 const PLAN_DOTS: Record<string, string> = { Gold: 'var(--warn)', Silver: 'var(--c-admin)', Free: 'var(--c-finance)' }
@@ -19,28 +20,29 @@ export function SubscriptionsTab({ subs, plans, onResiliate }: {
   plans: Plan[]
   onResiliate: (productId: number, productName: string) => void
 }) {
+  const t = useT()
   return (
     <section className="panel">
       <div className="dcard">
         <div className="ch">
-          <h3>API abonnées</h3>
-          <p>Chaque abonnement lie cette application à une API, à un palier de débit.</p>
+          <h3>{t('app.subsTitle')}</h3>
+          <p>{t('app.subsSubtitle')}</p>
           <div className="right">
-            <Link className="btn primary sm" to="/"><PlusIcon />Abonner une API</Link>
+            <Link className="btn primary sm" to="/"><PlusIcon />{t('app.subscribeApiCta')}</Link>
           </div>
         </div>
         <div className="cb" style={{ padding: 0 }}>
           {subs.length === 0 ? (
-            <p style={{ padding: 20, fontSize: 14, color: 'var(--muted)' }}>Aucun abonnement. Parcourez le catalogue pour abonner cette application à une API.</p>
+            <p style={{ padding: 20, fontSize: 14, color: 'var(--muted)' }}>{t('app.noSubs')}</p>
           ) : (
             <div className="tblwrap">
               <table className="tbl">
                 <thead>
-                  <tr><th>API</th><th>Plan</th><th>Débit</th><th>Consommation (rpm)</th><th>Statut</th><th></th></tr>
+                  <tr><th>API</th><th>Plan</th><th>{t('app.colRate')}</th><th>{t('app.colConsumption')}</th><th>{t('app.colStatus')}</th><th></th></tr>
                 </thead>
                 <tbody>
                   {subs.map((s, i) => {
-                    const pill = statusPill(s.status)
+                    const pill = statusPill(s.status, t)
                     const width = demoBarWidth(s.productId)
                     return (
                       <tr key={s.productId}>
@@ -55,14 +57,14 @@ export function SubscriptionsTab({ subs, plans, onResiliate }: {
                         <td>
                           {/* DEMO: no per-subscription metrics yet (see demo.ts) */}
                           <div className={`bar ${width > 85 ? 'hi' : ''}`}><i style={{ width: `${width}%` }} /></div>
-                          <div className="rowsub">{demoRpm(s.productId)} rpm · pic 24h</div>
+                          <div className="rowsub">{demoRpm(s.productId)} {t('app.rpmPeakSuffix')}</div>
                         </td>
                         <td><span className={`stpill ${pill.cls}`}><span className="led" />{pill.label}</span></td>
                         <td>
                           <div className="rowact">
                             {/* Blueprint placeholder kept per user choice (spec 2026-06-05) */}
-                            <a className="linkbtn">Gérer</a>
-                            <button type="button" className="linkbtn danger" onClick={() => onResiliate(s.productId, s.productName)}>Résilier</button>
+                            <a className="linkbtn">{t('app.manage')}</a>
+                            <button type="button" className="linkbtn danger" onClick={() => onResiliate(s.productId, s.productName)}>{t('app.unsubscribeAction')}</button>
                           </div>
                         </td>
                       </tr>

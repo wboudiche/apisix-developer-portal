@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { describe, it, expect, vi } from 'vitest'
+import { useState, type ReactElement } from 'react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AppSwitcher, CreateAppModal } from './AppSwitcher'
+import { LanguageProvider } from '../../i18n/LanguageProvider'
 import type { Application } from '../../api/types'
 
 const apps: Application[] = [
@@ -11,9 +12,21 @@ const apps: Application[] = [
   { id: 2, ownerId: 1, name: 'Analytics interne', description: '', createdAt: '2026-04-02T00:00:00Z' },
 ]
 
+beforeEach(() => {
+  localStorage.clear()
+  localStorage.setItem('lang', 'fr')
+})
+
+function renderSwitcher(ui: ReactElement) {
+  return render(<LanguageProvider><MemoryRouter>{ui}</MemoryRouter></LanguageProvider>)
+}
+function renderModal(ui: ReactElement) {
+  return render(<LanguageProvider>{ui}</LanguageProvider>)
+}
+
 describe('AppSwitcher', () => {
   it('opens the menu listing all apps, current one marked', async () => {
-    render(<MemoryRouter><AppSwitcher apps={apps} currentId={1} onCreate={() => {}} /></MemoryRouter>)
+    renderSwitcher(<AppSwitcher apps={apps} currentId={1} onCreate={() => {}} />)
     await userEvent.click(screen.getByRole('button', { name: /Changer d'application/ }))
     expect(screen.getByText('Analytics interne')).toBeInTheDocument()
     expect(screen.getByText('Boutique Mobile').closest('a')).toHaveClass('cur')
@@ -21,7 +34,7 @@ describe('AppSwitcher', () => {
   })
   it('exposes the Nouvelle application action as a real button', async () => {
     const onCreate = vi.fn()
-    render(<MemoryRouter><AppSwitcher apps={apps} currentId={1} onCreate={onCreate} /></MemoryRouter>)
+    renderSwitcher(<AppSwitcher apps={apps} currentId={1} onCreate={onCreate} />)
     await userEvent.click(screen.getByRole('button', { name: /Changer d'application/ }))
     const item = screen.getByText('Nouvelle application').closest('button')
     expect(item).not.toBeNull() // keyboard-reachable, fires on Enter/Space
@@ -33,19 +46,19 @@ describe('AppSwitcher', () => {
 describe('CreateAppModal', () => {
   it('creates with the typed name', async () => {
     const onCreate = vi.fn().mockResolvedValue(undefined)
-    render(<CreateAppModal open onClose={() => {}} onCreate={onCreate} />)
+    renderModal(<CreateAppModal open onClose={() => {}} onCreate={onCreate} />)
     await userEvent.type(screen.getByLabelText("Nom de l'application"), 'Mon App')
     await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
     expect(onCreate).toHaveBeenCalledWith('Mon App')
   })
   it('renders nothing when closed', () => {
-    const { container } = render(<CreateAppModal open={false} onClose={() => {}} onCreate={async () => {}} />)
+    const { container } = renderModal(<CreateAppModal open={false} onClose={() => {}} onCreate={async () => {}} />)
     expect(container.firstChild).toBeNull()
   })
   it('is an accessible dialog: Annuler and Escape close without creating', async () => {
     const onClose = vi.fn()
     const onCreate = vi.fn().mockResolvedValue(undefined)
-    render(<CreateAppModal open onClose={onClose} onCreate={onCreate} />)
+    renderModal(<CreateAppModal open onClose={onClose} onCreate={onCreate} />)
     expect(screen.getByRole('dialog', { name: 'Nouvelle application' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Annuler' }))
     expect(onClose).toHaveBeenCalledTimes(1)
@@ -63,7 +76,7 @@ describe('CreateAppModal', () => {
         </>
       )
     }
-    render(<Host />)
+    renderModal(<Host />)
     const trigger = screen.getByRole('button', { name: 'ouvrir' })
     await userEvent.click(trigger)
     expect(document.activeElement).toBe(screen.getByLabelText("Nom de l'application"))
