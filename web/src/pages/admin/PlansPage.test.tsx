@@ -10,8 +10,8 @@ import { ApiError } from '../../api/client'
 import type { Plan } from '../../api/types'
 
 const plans: Plan[] = [
-  { id: 1, name: 'Free', rateLimit: 60, windowSeconds: 60 },
-  { id: 3, name: 'Gold', rateLimit: 1000, windowSeconds: 60 },
+  { id: 1, name: 'Free', rateLimit: 60, windowSeconds: 60, priceCents: 0, currency: 'EUR' },
+  { id: 3, name: 'Gold', rateLimit: 1000, windowSeconds: 60, priceCents: 2900, currency: 'EUR' },
 ]
 
 beforeEach(() => {

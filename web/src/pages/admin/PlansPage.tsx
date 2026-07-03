@@ -48,7 +48,7 @@ export function PlansPage() {
 
   async function submit() {
     if (!token || !name.trim()) return
-    const payload: Plan = { id: editing?.id ?? 0, name: name.trim(), rateLimit: limit || 100, windowSeconds: windowS || 60 }
+    const payload: Plan = { id: editing?.id ?? 0, name: name.trim(), rateLimit: limit || 100, windowSeconds: windowS || 60, priceCents: 0, currency: 'EUR' }
     try {
       if (editing) { await adminUpdatePlan(token, editing.id, payload); notify(t('admin.planSavedNotify', { name: payload.name })) }
       else { await adminCreatePlan(token, payload); notify(t('admin.planCreatedNotify', { name: payload.name })) }
