@@ -279,6 +279,7 @@ export const fr = {
     productsLabel: 'Produits',
     plansNavLabel: 'Plans',
     approvalsNavLabel: 'Abonnements',
+    invoicesNavLabel: 'Factures',
     plansPageTitle: 'Plans de débit',
     approvalsPageTitle: 'Abonnements en attente',
     // meta.tsx
@@ -422,6 +423,26 @@ export const fr = {
   billing: {
     free: 'Gratuit',
     perMonthSuffix: '/mois',
+    filterAll: 'Toutes',
+    status: {
+      pending: 'En attente',
+      paid: 'Payée',
+      void: 'Annulée',
+    },
+    col: {
+      plan: 'Offre',
+      amount: 'Montant',
+      team: 'Équipe',
+      status: 'Statut',
+      created: 'Créée',
+    },
+    admin: {
+      title: 'Factures',
+      desc: "Gérez les factures d'abonnement.",
+      none: 'Aucune facture.',
+      pay: 'Payer',
+      void: 'Annuler',
+    },
   },
   activity: {
     justNow: "à l'instant",

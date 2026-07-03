@@ -280,6 +280,7 @@ export const en: Messages = {
     productsLabel: 'Products',
     plansNavLabel: 'Plans',
     approvalsNavLabel: 'Subscriptions',
+    invoicesNavLabel: 'Invoices',
     plansPageTitle: 'Rate plans',
     approvalsPageTitle: 'Pending subscriptions',
     // meta.tsx
@@ -423,6 +424,26 @@ export const en: Messages = {
   billing: {
     free: 'Free',
     perMonthSuffix: '/mo',
+    filterAll: 'All',
+    status: {
+      pending: 'Pending',
+      paid: 'Paid',
+      void: 'Void',
+    },
+    col: {
+      plan: 'Plan',
+      amount: 'Amount',
+      team: 'Team',
+      status: 'Status',
+      created: 'Created',
+    },
+    admin: {
+      title: 'Invoices',
+      desc: 'Manage subscription invoices.',
+      none: 'No invoices.',
+      pay: 'Pay',
+      void: 'Void',
+    },
   },
   activity: {
     justNow: 'just now',
