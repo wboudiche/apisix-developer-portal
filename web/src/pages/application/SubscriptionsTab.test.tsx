@@ -1,8 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { SubscriptionsTab } from './SubscriptionsTab'
+import { LanguageProvider } from '../../i18n/LanguageProvider'
 import type { SubscriptionView, Plan } from '../../api/types'
 
 const subs: SubscriptionView[] = [
@@ -14,9 +15,14 @@ const plans: Plan[] = [
   { id: 3, name: 'Gold', rateLimit: 1000, windowSeconds: 60 },
 ]
 
+beforeEach(() => {
+  localStorage.clear()
+  localStorage.setItem('lang', 'fr')
+})
+
 function setup() {
   const onResiliate = vi.fn()
-  render(<MemoryRouter><SubscriptionsTab subs={subs} plans={plans} onResiliate={onResiliate} /></MemoryRouter>)
+  render(<LanguageProvider><MemoryRouter><SubscriptionsTab subs={subs} plans={plans} onResiliate={onResiliate} /></MemoryRouter></LanguageProvider>)
   return { onResiliate }
 }
 
@@ -40,7 +46,7 @@ describe('SubscriptionsTab', () => {
     expect(onResiliate).toHaveBeenCalledWith(1, 'Orders API')
   })
   it('shows the empty state when there are no subscriptions', () => {
-    render(<MemoryRouter><SubscriptionsTab subs={[]} plans={plans} onResiliate={() => {}} /></MemoryRouter>)
+    render(<LanguageProvider><MemoryRouter><SubscriptionsTab subs={[]} plans={plans} onResiliate={() => {}} /></MemoryRouter></LanguageProvider>)
     expect(screen.getByText(/Aucun abonnement/)).toBeInTheDocument()
   })
 })

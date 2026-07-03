@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { getQuota } from '../../api/client'
 import type { Quota } from '../../api/types'
+import { useT } from '../../i18n/LanguageProvider'
 
 export function QuotaMeter({ token, appId }: { token: string; appId: number }) {
+  const t = useT()
   const [quota, setQuota] = useState<Quota | null>(null)
   useEffect(() => {
     let alive = true
@@ -15,8 +17,8 @@ export function QuotaMeter({ token, appId }: { token: string; appId: number }) {
   if (!quota.available) {
     return (
       <div className="quota-meter">
-        <div className="qm-row"><span className="qm-title">Débit · plan</span><span className="qm-na">métriques indisponibles</span></div>
-        <div className="qm-sub">Limite {quota.limit} req / {quota.windowSeconds}s</div>
+        <div className="qm-row"><span className="qm-title">{t('app.quotaTitle')}</span><span className="qm-na">{t('app.quotaUnavailable')}</span></div>
+        <div className="qm-sub">{t('app.quotaLimit', { limit: quota.limit ?? 0, window: quota.windowSeconds ?? 0 })}</div>
       </div>
     )
   }
@@ -28,11 +30,11 @@ export function QuotaMeter({ token, appId }: { token: string; appId: number }) {
   return (
     <div className="quota-meter">
       <div className="qm-row">
-        <span className="qm-title">Débit · plan</span>
+        <span className="qm-title">{t('app.quotaTitle')}</span>
         <span className="qm-count">≈ {used} / {limit}</span>
       </div>
       <div className="qm-bar"><span className={`qm-fill ${level}`} style={{ width: `${pct}%` }} /></div>
-      <div className="qm-sub">sur les dernières {quota.windowSeconds}s · approx.</div>
+      <div className="qm-sub">{t('app.quotaWindow', { window: quota.windowSeconds ?? 0 })}</div>
     </div>
   )
 }

@@ -32,13 +32,23 @@ export function maskKey(full: string): string {
   return full.slice(0, 8) + '•'.repeat(full.length - 10) + full.slice(-2)
 }
 
-export function statusPill(status: string): { cls: string; label: string } {
+type TFunc = (key: string, vars?: Record<string, string | number>) => string
+
+export function statusPill(status: string, t: TFunc): { cls: string; label: string } {
   switch (status) {
-    case 'active': return { cls: 'ok', label: 'Active' }
-    case 'pending': return { cls: 'warn', label: 'En attente' }
-    case 'rejected': return { cls: 'muted', label: 'Rejeté' }
+    case 'active': return { cls: 'ok', label: t('app.statusActive') }
+    case 'pending': return { cls: 'warn', label: t('app.statusPending') }
+    case 'rejected': return { cls: 'muted', label: t('app.statusRejected') }
     default: return { cls: 'muted', label: status }
   }
+}
+
+// The "abonnement(s)" / "subscription(s)" pluralization treats 0 as singular
+// (matches the pre-i18n literal `count > 1 ? 's' : ''` behavior), which does not
+// match translate()'s standard n===1-only `_one`/`_other` split. Callers pick the
+// full suffixed key themselves and pass `{ count }` for interpolation only.
+export function subsCountKey(count: number): 'app.subsCount_one' | 'app.subsCount_other' {
+  return count > 1 ? 'app.subsCount_other' : 'app.subsCount_one'
 }
 
 // Deterministic per-app glyph gradient (blueprint shows one gradient per app).

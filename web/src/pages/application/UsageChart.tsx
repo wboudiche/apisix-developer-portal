@@ -1,17 +1,18 @@
 import type { UsageState } from './useUsage'
 import type { UsageRange } from '../../api/types'
 import { chartHeights, formatCount, formatCompact } from './usage'
+import { useT } from '../../i18n/LanguageProvider'
 
-const RANGES: { key: UsageRange; label: string }[] = [
-  { key: '24h', label: '24 h' },
-  { key: '7d', label: '7 j' },
-  { key: '30d', label: '30 j' },
+const RANGES: { key: UsageRange; labelKey: string }[] = [
+  { key: '24h', labelKey: 'app.rangeLabel24h' },
+  { key: '7d', labelKey: 'app.rangeLabel7d' },
+  { key: '30d', labelKey: 'app.rangeLabel30d' },
 ]
 
-const TITLES: Record<UsageRange, string> = {
-  '24h': 'Trafic · dernières 24 h',
-  '7d': 'Trafic · 7 derniers jours',
-  '30d': 'Trafic · 30 derniers jours',
+const TITLE_KEYS: Record<UsageRange, string> = {
+  '24h': 'app.chartTitle24h',
+  '7d': 'app.chartTitle7d',
+  '30d': 'app.chartTitle30d',
 }
 
 // Skeleton bar count while loading — a plausible-looking placeholder.
@@ -21,6 +22,7 @@ const SKELETON_BARS = Array.from({ length: 16 })
 // skeleton bars; error shows an explicit unavailable notice; an empty series
 // (no traffic in the window) shows a message rather than an empty grid.
 export function UsageChart({ state, range, onRange }: { state: UsageState; range: UsageRange; onRange: (r: UsageRange) => void }) {
+  const t = useT()
   const series = state.status === 'ready' ? state.usage.series : []
   const heights = chartHeights(series.map(p => p.requests))
   const total = series.reduce((sum, p) => sum + p.requests, 0)
@@ -28,10 +30,10 @@ export function UsageChart({ state, range, onRange }: { state: UsageState; range
   return (
     <div className="dcard">
       <div className="ch">
-        <h3>{TITLES[range]}</h3>
-        <p>Toutes API confondues, environnement production.</p>
+        <h3>{t(TITLE_KEYS[range])}</h3>
+        <p>{t('app.chartSubtitle')}</p>
         <div className="right">
-          <div className="rangesel" role="group" aria-label="Période">
+          <div className="rangesel" role="group" aria-label={t('app.periodAriaLabel')}>
             {RANGES.map(r => (
               <button
                 key={r.key}
@@ -39,7 +41,7 @@ export function UsageChart({ state, range, onRange }: { state: UsageState; range
                 aria-pressed={r.key === range}
                 onClick={() => onRange(r.key)}
               >
-                {r.label}
+                {t(r.labelKey)}
               </button>
             ))}
           </div>
@@ -47,7 +49,7 @@ export function UsageChart({ state, range, onRange }: { state: UsageState; range
       </div>
       <div className="cb">
         {state.status === 'error' ? (
-          <p className="usage-unavail" role="status">Métriques indisponibles pour le moment.</p>
+          <p className="usage-unavail" role="status">{t('app.metricsUnavailable')}</p>
         ) : state.status === 'loading' ? (
           <div className="chart" aria-busy="true">
             {SKELETON_BARS.map((_, i) => (
@@ -55,7 +57,7 @@ export function UsageChart({ state, range, onRange }: { state: UsageState; range
             ))}
           </div>
         ) : series.length === 0 ? (
-          <p className="usage-empty">Aucun trafic sur cette période.</p>
+          <p className="usage-empty">{t('app.noTraffic')}</p>
         ) : (
           <>
             <div className="chart">
@@ -69,7 +71,7 @@ export function UsageChart({ state, range, onRange }: { state: UsageState; range
                 </div>
               ))}
             </div>
-            <p className="chart-cap">{formatCompact(total)} requêtes sur la période.</p>
+            <p className="chart-cap">{t('app.trafficCaption', { total: formatCompact(total) })}</p>
           </>
         )}
       </div>

@@ -5,6 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { AppDetailPage } from './AppDetailPage'
 import { ApplicationsIndex } from './ApplicationsIndex'
 import { AuthProvider } from '../../auth/AuthProvider'
+import { LanguageProvider } from '../../i18n/LanguageProvider'
 import * as api from '../../api/client'
 import type { Application, AppDetail, Plan } from '../../api/types'
 
@@ -29,6 +30,7 @@ beforeEach(() => {
   localStorage.clear()
   localStorage.setItem('token', 'jwt')
   localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'Dev', role: 'developer' }))
+  localStorage.setItem('lang', 'fr')
   vi.restoreAllMocks()
   vi.spyOn(api, 'getApplications').mockResolvedValue({ items: apps, total: apps.length, page: 1, pageSize: 20 })
   vi.spyOn(api, 'getApplicationDetail').mockResolvedValue(detail)
@@ -38,16 +40,18 @@ beforeEach(() => {
 
 function renderAt(path: string) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <AuthProvider>
-        <Routes>
-          <Route path="/applications" element={<ApplicationsIndex />} />
-          <Route path="/applications/:id" element={<AppDetailPage />} />
-          <Route path="/" element={<div>CATALOG</div>} />
-          <Route path="/login" element={<div>LOGIN</div>} />
-        </Routes>
-      </AuthProvider>
-    </MemoryRouter>
+    <LanguageProvider>
+      <MemoryRouter initialEntries={[path]}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/applications" element={<ApplicationsIndex />} />
+            <Route path="/applications/:id" element={<AppDetailPage />} />
+            <Route path="/" element={<div>CATALOG</div>} />
+            <Route path="/login" element={<div>LOGIN</div>} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    </LanguageProvider>
   )
 }
 

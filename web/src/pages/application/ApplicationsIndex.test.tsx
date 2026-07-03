@@ -2,14 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider } from '../../auth/AuthProvider'
+import { LanguageProvider } from '../../i18n/LanguageProvider'
 import { ApplicationsIndex } from './ApplicationsIndex'
 import * as client from '../../api/client'
 
 beforeEach(() => {
+  localStorage.clear()
   localStorage.setItem('token', 'jwt')
   localStorage.setItem('user', JSON.stringify({ id: 1, email: 'me@e.com', name: 'Me', role: 'developer' }))
+  localStorage.setItem('lang', 'fr')
 })
-const renderPage = () => render(<MemoryRouter><AuthProvider><ApplicationsIndex /></AuthProvider></MemoryRouter>)
+const renderPage = () => render(<LanguageProvider><MemoryRouter><AuthProvider><ApplicationsIndex /></AuthProvider></MemoryRouter></LanguageProvider>)
 
 describe('ApplicationsIndex teams', () => {
   it('shows each app’s team label', async () => {
