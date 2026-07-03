@@ -26,7 +26,6 @@ var fr = map[string]string{
 	"catalog.changelog.failed": "impossible de charger le journal des modifications",
 
 	// app
-	"app.create.nameRequired":          "le nom est requis",
 	"app.create.noPersonalTeam":        "aucune équipe personnelle",
 	"app.create.membershipCheckFailed": "échec de la vérification d'appartenance",
 	"app.create.notMember":             "vous n'êtes pas membre de cette équipe",
@@ -34,7 +33,8 @@ var fr = map[string]string{
 	"app.list.failed":                  "impossible de lister les applications",
 
 	// common
-	"common.invalidBody": "corps de requête invalide",
+	"common.invalidBody":  "corps de requête invalide",
+	"common.nameRequired": "le nom est requis",
 
 	// subscribe
 	"subscribe.badAppID":                "identifiant d'application invalide",
@@ -66,4 +66,47 @@ var fr = map[string]string{
 	"subscribe.admin.notFound":          "abonnement introuvable",
 	"subscribe.admin.invalidTransition": "l'abonnement ne peut pas changer depuis son état actuel",
 	"subscribe.admin.actionFailed":      "échec de l'action %s",
+
+	// admin (product/plan/changelog CRUD)
+	"admin.product.slugTaken":           "ce slug existe déjà",
+	"admin.product.contextPathTaken":    "le contextPath entre en conflit avec un produit existant",
+	"admin.product.createFailed":        "impossible de créer le produit",
+	"admin.product.updateFailed":        "impossible de mettre à jour le produit",
+	"admin.product.deleteFailed":        "impossible de supprimer le produit",
+	"admin.product.hasSubscriptions":    "le produit a des abonnements actifs",
+	"admin.product.oauthNotConfigured":  "OAuth2 n'est pas configuré sur ce portail",
+	"admin.product.badOpenapiSpec":      "openapiSpec n'est pas un document OpenAPI 3.x / Swagger 2.0 valide",
+	"admin.product.slugRequired":        "le slug est requis",
+	"admin.product.categoryRequired":    "la catégorie est requise",
+	"admin.product.contextPathRequired": "le contextPath est requis",
+	"admin.product.badContextPath":      "le contextPath doit ressembler à /chemin (alphanumérique, -, _, /, sans caractère générique)",
+	"admin.product.badUpstream":         "upstreamUrl doit être au format host:port et ne pas cibler une adresse privée/interne",
+	"admin.product.badSandboxUpstream":  "sandboxUpstreamUrl doit être au format host:port et ne pas cibler une adresse privée/interne",
+	"admin.product.badAuthType":         "authType doit être key-auth ou oauth2",
+	"admin.product.badLifecycleStatus":  "lifecycleStatus doit être active, deprecated ou sunset",
+	"admin.product.badSunsetDate":       "sunsetDate doit être une date valide au format AAAA-MM-JJ",
+
+	"admin.import.oneOfSpecOrURL": "fournissez exactement l'un des deux : spec ou url",
+	"admin.import.fetchFailed":    "impossible de récupérer la spécification depuis l'url",
+	"admin.import.parseFailed":    "la spécification n'a pas pu être analysée (OpenAPI 3.x ou Swagger 2.0 avec un titre requis)",
+
+	"admin.changelog.versionRequired": "la version est requise",
+	"admin.changelog.badKind":         "kind doit être l'une de added, changed, fixed, removed, deprecated, security",
+	"admin.changelog.badDate":         "date doit être une date valide au format AAAA-MM-JJ",
+	"admin.changelog.addFailed":       "impossible d'ajouter l'entrée de journal des modifications",
+	"admin.changelog.listFailed":      "impossible de lister les entrées du journal des modifications",
+	"admin.changelog.badID":           "identifiant d'entrée de journal des modifications invalide",
+	"admin.changelog.notFound":        "entrée de journal des modifications introuvable",
+	"admin.changelog.deleteFailed":    "impossible de supprimer l'entrée de journal des modifications",
+
+	"admin.plan.listFailed":       "impossible de lister les offres",
+	"admin.plan.nameTaken":        "ce nom d'offre existe déjà",
+	"admin.plan.createFailed":     "impossible de créer l'offre",
+	"admin.plan.notFound":         "offre introuvable",
+	"admin.plan.updateFailed":     "impossible de mettre à jour l'offre",
+	"admin.plan.inUse":            "l'offre est référencée par des abonnements",
+	"admin.plan.deleteFailed":     "impossible de supprimer l'offre",
+	"admin.plan.badID":            "identifiant d'offre invalide",
+	"admin.plan.badRateLimit":     "rateLimit doit être supérieur à zéro",
+	"admin.plan.badWindowSeconds": "windowSeconds doit être supérieur à zéro",
 }

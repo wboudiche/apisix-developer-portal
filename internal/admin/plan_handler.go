@@ -43,7 +43,7 @@ func (h *PlanHandler) list(w http.ResponseWriter, r *http.Request) {
 	items, total, err := h.svc.List(r.Context(), p)
 	if err != nil {
 		log.Printf("admin list plans: %v", err)
-		httpx.Error(w, http.StatusInternalServerError, "failed to list plans")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "admin.plan.listFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, paging.New(items, total, p))
@@ -56,12 +56,12 @@ func (h *PlanHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	created, err := h.svc.Create(r.Context(), p)
 	if errors.Is(err, ErrPlanNameTaken) {
-		httpx.Error(w, http.StatusConflict, "plan name already exists")
+		httpx.ErrorT(w, r, http.StatusConflict, "admin.plan.nameTaken")
 		return
 	}
 	if err != nil {
 		log.Printf("admin create plan: %v", err)
-		httpx.Error(w, http.StatusInternalServerError, "failed to create plan")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "admin.plan.createFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, created)
@@ -79,16 +79,16 @@ func (h *PlanHandler) update(w http.ResponseWriter, r *http.Request) {
 	p.ID = id
 	updated, err := h.svc.Update(r.Context(), p)
 	if errors.Is(err, ErrPlanNotFound) {
-		httpx.Error(w, http.StatusNotFound, "plan not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "admin.plan.notFound")
 		return
 	}
 	if errors.Is(err, ErrPlanNameTaken) {
-		httpx.Error(w, http.StatusConflict, "plan name already exists")
+		httpx.ErrorT(w, r, http.StatusConflict, "admin.plan.nameTaken")
 		return
 	}
 	if err != nil {
 		log.Printf("admin update plan %d: %v", id, err)
-		httpx.Error(w, http.StatusInternalServerError, "failed to update plan")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "admin.plan.updateFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, updated)
@@ -101,16 +101,16 @@ func (h *PlanHandler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 	err := h.svc.Delete(r.Context(), id)
 	if errors.Is(err, ErrPlanNotFound) {
-		httpx.Error(w, http.StatusNotFound, "plan not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "admin.plan.notFound")
 		return
 	}
 	if errors.Is(err, ErrPlanInUse) {
-		httpx.Error(w, http.StatusConflict, "plan is referenced by subscriptions")
+		httpx.ErrorT(w, r, http.StatusConflict, "admin.plan.inUse")
 		return
 	}
 	if err != nil {
 		log.Printf("admin delete plan %d: %v", id, err)
-		httpx.Error(w, http.StatusInternalServerError, "failed to delete plan")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "admin.plan.deleteFailed")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -119,7 +119,7 @@ func (h *PlanHandler) delete(w http.ResponseWriter, r *http.Request) {
 func parsePlanID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "bad plan id")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.plan.badID")
 		return 0, false
 	}
 	return id, true
@@ -128,11 +128,11 @@ func parsePlanID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 func decodePlan(w http.ResponseWriter, r *http.Request) (Plan, bool) {
 	var p Plan
 	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid body")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "common.invalidBody")
 		return Plan{}, false
 	}
 	if msg := p.validate(); msg != "" {
-		httpx.Error(w, http.StatusBadRequest, msg)
+		httpx.ErrorT(w, r, http.StatusBadRequest, msg)
 		return Plan{}, false
 	}
 	return p, true

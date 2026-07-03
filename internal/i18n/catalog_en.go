@@ -25,7 +25,6 @@ var en = map[string]string{
 	"catalog.changelog.failed": "could not load changelog",
 
 	// app
-	"app.create.nameRequired":          "name is required",
 	"app.create.noPersonalTeam":        "no personal team",
 	"app.create.membershipCheckFailed": "membership check failed",
 	"app.create.notMember":             "not a member of that team",
@@ -33,7 +32,8 @@ var en = map[string]string{
 	"app.list.failed":                  "failed to list applications",
 
 	// common
-	"common.invalidBody": "invalid body",
+	"common.invalidBody":  "invalid body",
+	"common.nameRequired": "name is required",
 
 	// subscribe
 	"subscribe.badAppID":                "bad application id",
@@ -65,4 +65,47 @@ var en = map[string]string{
 	"subscribe.admin.notFound":          "subscription not found",
 	"subscribe.admin.invalidTransition": "subscription cannot change from its current state",
 	"subscribe.admin.actionFailed":      "%s failed",
+
+	// admin (product/plan/changelog CRUD)
+	"admin.product.slugTaken":           "slug already exists",
+	"admin.product.contextPathTaken":    "contextPath conflicts with an existing product",
+	"admin.product.createFailed":        "failed to create product",
+	"admin.product.updateFailed":        "failed to update product",
+	"admin.product.deleteFailed":        "failed to delete product",
+	"admin.product.hasSubscriptions":    "product has active subscriptions",
+	"admin.product.oauthNotConfigured":  "OAuth2 is not configured on this portal",
+	"admin.product.badOpenapiSpec":      "openapiSpec is not a valid OpenAPI 3.x / Swagger 2.0 document",
+	"admin.product.slugRequired":        "slug is required",
+	"admin.product.categoryRequired":    "category is required",
+	"admin.product.contextPathRequired": "contextPath is required",
+	"admin.product.badContextPath":      "contextPath must look like /path (alphanumerics, -, _, /, no wildcard)",
+	"admin.product.badUpstream":         "upstreamUrl must be host:port and not target a private/internal address",
+	"admin.product.badSandboxUpstream":  "sandboxUpstreamUrl must be host:port and not target a private/internal address",
+	"admin.product.badAuthType":         "authType must be key-auth or oauth2",
+	"admin.product.badLifecycleStatus":  "lifecycleStatus must be active, deprecated, or sunset",
+	"admin.product.badSunsetDate":       "sunsetDate must be a valid YYYY-MM-DD date",
+
+	"admin.import.oneOfSpecOrURL": "provide exactly one of spec or url",
+	"admin.import.fetchFailed":    "could not fetch spec from url",
+	"admin.import.parseFailed":    "spec could not be parsed (need OpenAPI 3.x or Swagger 2.0 with a title)",
+
+	"admin.changelog.versionRequired": "version is required",
+	"admin.changelog.badKind":         "kind must be one of added, changed, fixed, removed, deprecated, security",
+	"admin.changelog.badDate":         "date must be a valid YYYY-MM-DD date",
+	"admin.changelog.addFailed":       "failed to add changelog entry",
+	"admin.changelog.listFailed":      "failed to list changelog entries",
+	"admin.changelog.badID":           "bad changelog entry id",
+	"admin.changelog.notFound":        "changelog entry not found",
+	"admin.changelog.deleteFailed":    "failed to delete changelog entry",
+
+	"admin.plan.listFailed":       "failed to list plans",
+	"admin.plan.nameTaken":        "plan name already exists",
+	"admin.plan.createFailed":     "failed to create plan",
+	"admin.plan.notFound":         "plan not found",
+	"admin.plan.updateFailed":     "failed to update plan",
+	"admin.plan.inUse":            "plan is referenced by subscriptions",
+	"admin.plan.deleteFailed":     "failed to delete plan",
+	"admin.plan.badID":            "bad plan id",
+	"admin.plan.badRateLimit":     "rateLimit must be greater than zero",
+	"admin.plan.badWindowSeconds": "windowSeconds must be greater than zero",
 }

@@ -43,40 +43,41 @@ type ChangelogEntry struct {
 	Date    string `json:"date"`
 }
 
-// validate returns "" when the product is valid, otherwise a human-readable reason.
-// upstream_url is optional (a product may be defined before its backend exists),
-// but when present it must be host:port.
+// validate returns "" when the product is valid, otherwise an i18n message key
+// (see internal/i18n) describing the reason. upstream_url is optional (a
+// product may be defined before its backend exists), but when present it must
+// be host:port.
 func (p Product) validate(allowPrivate bool) string {
 	if strings.TrimSpace(p.Name) == "" {
-		return "name is required"
+		return "common.nameRequired"
 	}
 	if strings.TrimSpace(p.Slug) == "" {
-		return "slug is required"
+		return "admin.product.slugRequired"
 	}
 	if strings.TrimSpace(p.Category) == "" {
-		return "category is required"
+		return "admin.product.categoryRequired"
 	}
 	if strings.TrimSpace(p.ContextPath) == "" {
-		return "contextPath is required"
+		return "admin.product.contextPathRequired"
 	}
 	if !ValidContextPath(p.ContextPath) {
-		return "contextPath must look like /path (alphanumerics, -, _, /, no wildcard)"
+		return "admin.product.badContextPath"
 	}
 	if p.UpstreamURL != "" && !ValidUpstream(p.UpstreamURL, allowPrivate) {
-		return "upstreamUrl must be host:port and not target a private/internal address"
+		return "admin.product.badUpstream"
 	}
 	if p.SandboxUpstreamURL != "" && !ValidUpstream(p.SandboxUpstreamURL, allowPrivate) {
-		return "sandboxUpstreamUrl must be host:port and not target a private/internal address"
+		return "admin.product.badSandboxUpstream"
 	}
 	if p.AuthType != "" && p.AuthType != "key-auth" && p.AuthType != "oauth2" {
-		return "authType must be key-auth or oauth2"
+		return "admin.product.badAuthType"
 	}
 	if p.LifecycleStatus != "" && p.LifecycleStatus != "active" && p.LifecycleStatus != "deprecated" && p.LifecycleStatus != "sunset" {
-		return "lifecycleStatus must be active, deprecated, or sunset"
+		return "admin.product.badLifecycleStatus"
 	}
 	if p.SunsetDate != nil && *p.SunsetDate != "" {
 		if _, err := time.Parse("2006-01-02", *p.SunsetDate); err != nil {
-			return "sunsetDate must be a valid YYYY-MM-DD date"
+			return "admin.product.badSunsetDate"
 		}
 	}
 	return ""

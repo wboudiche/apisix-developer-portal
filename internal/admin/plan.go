@@ -11,16 +11,17 @@ type Plan struct {
 	WindowSeconds int    `json:"windowSeconds"`
 }
 
-// validate returns "" when the plan is valid, otherwise a human-readable reason.
+// validate returns "" when the plan is valid, otherwise an i18n message key
+// (see internal/i18n) describing the reason.
 func (p Plan) validate() string {
 	if strings.TrimSpace(p.Name) == "" {
-		return "name is required"
+		return "common.nameRequired"
 	}
 	if p.RateLimit <= 0 {
-		return "rateLimit must be greater than zero"
+		return "admin.plan.badRateLimit"
 	}
 	if p.WindowSeconds <= 0 {
-		return "windowSeconds must be greater than zero"
+		return "admin.plan.badWindowSeconds"
 	}
 	return ""
 }

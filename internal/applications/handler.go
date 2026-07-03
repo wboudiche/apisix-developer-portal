@@ -56,7 +56,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		TeamID      int64  `json:"teamId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Name) == "" {
-		httpx.ErrorT(w, r, http.StatusBadRequest, "app.create.nameRequired")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "common.nameRequired")
 		return
 	}
 	teamID := body.TeamID
