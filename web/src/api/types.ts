@@ -23,6 +23,7 @@ export interface User {
   email: string
   name: string
   role: string
+  language?: 'fr' | 'en'
 }
 
 export interface AuthResponse {

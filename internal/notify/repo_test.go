@@ -61,16 +61,16 @@ func seedTeamApp(t *testing.T) (context.Context, *Repo, int64, string) {
 
 func TestOwnerEmailAndAdmins(t *testing.T) {
 	ctx, repo, appID := testRepo(t)
-	emails, name, err := repo.OwnerEmailsForApp(ctx, appID)
-	if err != nil || len(emails) == 0 || name == "" {
-		t.Fatalf("OwnerEmailsForApp = %v,%q,%v", emails, name, err)
+	recipients, name, err := repo.OwnerEmailsForApp(ctx, appID)
+	if err != nil || len(recipients) == 0 || name == "" {
+		t.Fatalf("OwnerEmailsForApp = %v,%q,%v", recipients, name, err)
 	}
 	admins, err := repo.AdminEmails(ctx)
 	if err != nil {
 		t.Fatalf("AdminEmails: %v", err)
 	}
 	for _, a := range admins {
-		if a == "" {
+		if a.Email == "" {
 			t.Fatal("empty admin email")
 		}
 	}
@@ -78,17 +78,17 @@ func TestOwnerEmailAndAdmins(t *testing.T) {
 
 func TestOwnerEmailsForAppReturnsTeamOwners(t *testing.T) {
 	ctx, repo, appID, ownerEmail := seedTeamApp(t)
-	emails, name, err := repo.OwnerEmailsForApp(ctx, appID)
+	recipients, name, err := repo.OwnerEmailsForApp(ctx, appID)
 	if err != nil || name == "" {
 		t.Fatalf("err=%v name=%q", err, name)
 	}
 	var found bool
-	for _, e := range emails {
-		if e == ownerEmail {
+	for _, rc := range recipients {
+		if rc.Email == ownerEmail {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("owner email %q not in %v", ownerEmail, emails)
+		t.Fatalf("owner email %q not in %v", ownerEmail, recipients)
 	}
 }

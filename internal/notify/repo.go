@@ -12,8 +12,14 @@ type Repo struct{ pool *pgxpool.Pool }
 
 func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
-// OwnerEmailsForApp returns the emails of the owners of the app's team + the app name.
-func (r *Repo) OwnerEmailsForApp(ctx context.Context, appID int64) ([]string, string, error) {
+// Recipient is an email address plus the recipient's stored UI language.
+type Recipient struct {
+	Email string
+	Lang  string
+}
+
+// OwnerEmailsForApp returns the owners of the app's team (email + language) + the app name.
+func (r *Repo) OwnerEmailsForApp(ctx context.Context, appID int64) ([]Recipient, string, error) {
 	var name string
 	if err := r.pool.QueryRow(ctx, `SELECT name FROM applications WHERE id=$1`, appID).Scan(&name); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -22,7 +28,7 @@ func (r *Repo) OwnerEmailsForApp(ctx context.Context, appID int64) ([]string, st
 		return nil, "", err
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT u.email FROM applications a
+		`SELECT u.email, u.language FROM applications a
 		 JOIN team_members tm ON tm.team_id = a.team_id AND tm.role='owner'
 		 JOIN users u ON u.id = tm.user_id
 		 WHERE a.id=$1`, appID)
@@ -30,31 +36,31 @@ func (r *Repo) OwnerEmailsForApp(ctx context.Context, appID int64) ([]string, st
 		return nil, name, err
 	}
 	defer rows.Close()
-	var emails []string
+	var out []Recipient
 	for rows.Next() {
-		var e string
-		if err := rows.Scan(&e); err != nil {
+		var rc Recipient
+		if err := rows.Scan(&rc.Email, &rc.Lang); err != nil {
 			return nil, name, err
 		}
-		emails = append(emails, e)
+		out = append(out, rc)
 	}
-	return emails, name, rows.Err()
+	return out, name, rows.Err()
 }
 
-// AdminEmails returns the emails of all admin users.
-func (r *Repo) AdminEmails(ctx context.Context) ([]string, error) {
-	rows, err := r.pool.Query(ctx, `SELECT email FROM users WHERE role='admin'`)
+// AdminEmails returns all admin users (email + language).
+func (r *Repo) AdminEmails(ctx context.Context) ([]Recipient, error) {
+	rows, err := r.pool.Query(ctx, `SELECT email, language FROM users WHERE role='admin'`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []string
+	var out []Recipient
 	for rows.Next() {
-		var e string
-		if err := rows.Scan(&e); err != nil {
+		var rc Recipient
+		if err := rows.Scan(&rc.Email, &rc.Lang); err != nil {
 			return nil, err
 		}
-		out = append(out, e)
+		out = append(out, rc)
 	}
 	return out, rows.Err()
 }

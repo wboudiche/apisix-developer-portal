@@ -21,7 +21,7 @@ func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
 // Create inserts a developer user AND their personal team (a team of one) in a
 // single transaction, returning the user.
-func (r *Repo) Create(ctx context.Context, email, passwordHash, name string) (User, error) {
+func (r *Repo) Create(ctx context.Context, email, passwordHash, name, lang string) (User, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return User{}, err
@@ -29,11 +29,11 @@ func (r *Repo) Create(ctx context.Context, email, passwordHash, name string) (Us
 	defer tx.Rollback(ctx)
 	var u User
 	err = tx.QueryRow(ctx,
-		`INSERT INTO users (email, password_hash, name, role)
-		 VALUES ($1,$2,$3,'developer')
-		 RETURNING id, email, name, role`,
-		email, passwordHash, name,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.Role)
+		`INSERT INTO users (email, password_hash, name, role, language)
+		 VALUES ($1,$2,$3,'developer',$4)
+		 RETURNING id, email, name, role, language`,
+		email, passwordHash, name, lang,
+	).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Language)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -65,9 +65,15 @@ func (r *Repo) GetByEmail(ctx context.Context, email string) (User, string, erro
 	var u User
 	var hash string
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, name, role, password_hash FROM users WHERE email=$1`, email,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &hash)
+		`SELECT id, email, name, role, language, password_hash FROM users WHERE email=$1`, email,
+	).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Language, &hash)
 	return u, hash, err
+}
+
+// SetLanguage updates the user's stored UI language ('fr'|'en').
+func (r *Repo) SetLanguage(ctx context.Context, userID int64, lang string) error {
+	_, err := r.pool.Exec(ctx, `UPDATE users SET language=$2 WHERE id=$1`, userID, lang)
+	return err
 }
 
 // EnsureAdminRole promotes the user with the given email to role 'admin'.
