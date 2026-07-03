@@ -31,7 +31,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	p := paging.Parse(r.URL.Query())
 	items, total, err := h.repo.List(r.Context(), p)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to list plans")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "admin.plan.listFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, paging.New(items, total, p))
