@@ -58,7 +58,7 @@ export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Produ
           <LifecycleBadge status={p.lifecycleStatus} />
         </div>
         <div className="cfoot">
-          <div className="ctags">{p.tags.slice(0, 2).map(t => <span key={t} className="ctag">{t}</span>)}</div>
+          <div className="ctags">{p.tags.slice(0, 2).map(tag => <span key={tag} className="ctag">{tag}</span>)}</div>
           <button className="subbtn" onClick={() => onSubscribe(p)} disabled={blocked}
             title={blocked ? t('catalog.subscribeBlockedTitle') : undefined}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>

@@ -5,9 +5,11 @@ import {
   getTeams, createTeam, getTeamMembers, addTeamMember, removeTeamMember, deleteTeam,
 } from '../../api/client'
 import type { Team, TeamMember } from '../../api/types'
+import { useT } from '../../i18n/LanguageProvider'
 import '../../styles/teams.css'
 
 export default function TeamsPage() {
+  const t = useT()
   const { token, user } = useAuth()
   const [teams, setTeams] = useState<Team[] | null>(null)
   const [selected, setSelected] = useState<Team | null>(null)
@@ -16,7 +18,7 @@ export default function TeamsPage() {
 
   const reload = () => {
     if (!token) return
-    getTeams(token).then(t => { setTeams(t); setErr('') }).catch(() => setErr('Impossible de charger les équipes.'))
+    getTeams(token).then(list => { setTeams(list); setErr('') }).catch(() => setErr(t('teams.loadError')))
   }
   useEffect(reload, [token])
 
@@ -35,20 +37,20 @@ export default function TeamsPage() {
 
   return (
     <div className="teams-page">
-      <h1>Équipes</h1>
+      <h1>{t('nav.teams')}</h1>
       {err && <p className="err">{err}</p>}
       <form onSubmit={onCreate} className="team-create">
-        <input placeholder="Nom de l'équipe" value={name} onChange={e => setName(e.target.value)} />
-        <button className="btn primary" type="submit">Créer</button>
+        <input placeholder={t('teams.createNamePlaceholder')} value={name} onChange={e => setName(e.target.value)} />
+        <button className="btn primary" type="submit">{t('app.create')}</button>
       </form>
       <ul className="team-list">
-        {teams?.map(t => (
-          <li key={t.id}>
-            <button className="team-row" onClick={() => setSelected(t)}>
-              <b>{t.name}</b>
-              {t.personal && <span className="pill">Personnelle</span>}
-              <span className="team-role">{t.role === 'owner' ? 'Propriétaire' : 'Membre'}</span>
-              <span className="team-count">{t.memberCount} membre{t.memberCount > 1 ? 's' : ''}</span>
+        {teams?.map(team => (
+          <li key={team.id}>
+            <button className="team-row" onClick={() => setSelected(team)}>
+              <b>{team.name}</b>
+              {team.personal && <span className="pill">{t('teams.personal')}</span>}
+              <span className="team-role">{team.role === 'owner' ? t('teams.roleOwner') : t('teams.roleMember')}</span>
+              <span className="team-count">{t(team.memberCount > 1 ? 'teams.memberCount_other' : 'teams.memberCount_one', { n: team.memberCount })}</span>
             </button>
           </li>
         ))}
@@ -68,12 +70,13 @@ export default function TeamsPage() {
 }
 
 function TeamDetail({ team, token, meId, onChanged, onDeleted }: { team: Team; token: string; meId: number; onChanged: () => void; onDeleted: () => void }) {
+  const t = useT()
   const [members, setMembers] = useState<TeamMember[] | null>(null)
   const [email, setEmail] = useState('')
   const [err, setErr] = useState('')
   const canManage = team.role === 'owner' && !team.personal
 
-  const reload = () => { getTeamMembers(token, team.id).then(setMembers).catch(() => setErr('Impossible de charger les membres.')) }
+  const reload = () => { getTeamMembers(token, team.id).then(setMembers).catch(() => setErr(t('teams.membersLoadError'))) }
   useEffect(reload, [token, team.id])
 
   const onAdd = async (e: FormEvent) => {
@@ -105,9 +108,9 @@ function TeamDetail({ team, token, meId, onChanged, onDeleted }: { team: Team; t
         {members?.map(m => (
           <li key={m.userId}>
             <span>{m.name} · <span className="mono">{m.email}</span></span>
-            <span className="team-role">{m.role === 'owner' ? 'Propriétaire' : 'Membre'}</span>
+            <span className="team-role">{m.role === 'owner' ? t('teams.roleOwner') : t('teams.roleMember')}</span>
             {canManage && m.userId !== meId && m.role !== 'owner' && (
-              <button className="btn ghost" onClick={() => onRemove(m.userId)}>Retirer</button>
+              <button className="btn ghost" onClick={() => onRemove(m.userId)}>{t('teams.remove')}</button>
             )}
           </li>
         ))}
@@ -115,10 +118,10 @@ function TeamDetail({ team, token, meId, onChanged, onDeleted }: { team: Team; t
       {canManage && (
         <>
           <form onSubmit={onAdd} className="member-add">
-            <input placeholder="Email d'un utilisateur" value={email} onChange={e => setEmail(e.target.value)} />
-            <button className="btn" type="submit">Ajouter</button>
+            <input placeholder={t('teams.addMemberEmailPlaceholder')} value={email} onChange={e => setEmail(e.target.value)} />
+            <button className="btn" type="submit">{t('common.add')}</button>
           </form>
-          <button className="btn danger" onClick={onDelete}>Supprimer l'équipe</button>
+          <button className="btn danger" onClick={onDelete}>{t('teams.deleteTeam')}</button>
         </>
       )}
     </div>

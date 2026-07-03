@@ -3,7 +3,7 @@ import { maskKey, copyText } from './helpers'
 import { formatRelative } from './activity'
 import { rotateKey, enableSandbox, rotateSandboxKey, setOidcClient } from '../../api/client'
 import type { ModalSpec } from '../../components/ConfirmModal'
-import { useT } from '../../i18n/LanguageProvider'
+import { useT, useLang } from '../../i18n/LanguageProvider'
 
 function EyeIcon() {
   return (
@@ -45,6 +45,7 @@ export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, op
   oidcIssuer?: string
 }) {
   const t = useT()
+  const { lang } = useLang()
   const [shownKey, setShownKey] = useState(apiKey)
   const [revealed, setRevealed] = useState(false)
   // Keep the displayed key in sync when the prop changes (parent refetch / app switch).
@@ -136,7 +137,7 @@ export function CredentialsTab({ apiKey, appId, token, lastRotatedAt, notify, op
               <button className="iconbtn" aria-label={t('subscribeModal.copy')} onClick={copy}><CopyIcon /></button>
             </div>
             <div className="keymeta">
-              <span>{t('app.lastRotationPrefix')}<span className="mono">{lastRotatedAt ? formatRelative(lastRotatedAt) : '—'}</span></span>
+              <span>{t('app.lastRotationPrefix')}<span className="mono">{lastRotatedAt ? formatRelative(lastRotatedAt, t, lang) : '—'}</span></span>
               <button className="rotate" onClick={onRotate}><RotateIcon />{t('app.regenerate')}</button>
             </div>
           </div>

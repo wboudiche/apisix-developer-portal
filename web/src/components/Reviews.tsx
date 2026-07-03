@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getRatings, submitRating } from '../api/client'
 import type { RatingsView } from '../api/types'
 import { formatRelative } from '../pages/application/activity'
-import { useT } from '../i18n/LanguageProvider'
+import { useT, useLang } from '../i18n/LanguageProvider'
 
 function StarRow({ value }: { value: number }) {
   return <span className="rv-stars" aria-label={`${value}/5`}>{'★★★★★'.slice(0, value)}{'☆☆☆☆☆'.slice(0, 5 - value)}</span>
@@ -10,6 +10,7 @@ function StarRow({ value }: { value: number }) {
 
 export function Reviews({ slug, token }: { slug: string; token: string | null }) {
   const t = useT()
+  const { lang } = useLang()
   const [view, setView] = useState<RatingsView | null>(null)
   const [stars, setStars] = useState(0)
   const [comment, setComment] = useState('')
@@ -65,7 +66,7 @@ export function Reviews({ slug, token }: { slug: string; token: string | null })
       <ul className="rv-list">
         {view.items.map((rv, i) => (
           <li key={i} className="rv-item">
-            <div className="rv-meta"><StarRow value={rv.stars} /> <b>{rv.author}</b> <span className="rv-when">{formatRelative(rv.createdAt)}</span></div>
+            <div className="rv-meta"><StarRow value={rv.stars} /> <b>{rv.author}</b> <span className="rv-when">{formatRelative(rv.createdAt, t, lang)}</span></div>
             {rv.comment && <p className="rv-comment">{rv.comment}</p>}
           </li>
         ))}

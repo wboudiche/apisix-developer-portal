@@ -4,7 +4,7 @@ import { describe as describeEvent } from './activity'
 import { DEMO_QUICKSTART } from './demo'
 import { useUsage } from './useUsage'
 import { UsageCards } from './UsageCards'
-import { useT } from '../../i18n/LanguageProvider'
+import { useT, useLang } from '../../i18n/LanguageProvider'
 
 const FEED_ICONS: Record<string, string> = {
   check: 'M20 6L9 17l-5-5',
@@ -15,6 +15,7 @@ const FEED_ICONS: Record<string, string> = {
 
 export function OverviewTab({ detail, token, appId, notify }: { detail: AppDetail; token: string; appId: number; notify: (msg: string) => void }) {
   const t = useT()
+  const { lang } = useLang()
   // Cards load asynchronously so the page shell (quickstart, activity feed)
   // renders immediately; the 24h window backs the "today"/p95/error cards.
   const usage = useUsage(token, appId, '24h')
@@ -63,7 +64,7 @@ export function OverviewTab({ detail, token, appId, notify }: { detail: AppDetai
             ) : (
               <ul className="feed">
                 {detail.events.map((e, i) => {
-                  const f = describeEvent(e)
+                  const f = describeEvent(e, t, lang)
                   return (
                     <li key={i}>
                       <span className="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true"><path d={FEED_ICONS[f.icon]} strokeLinecap="round" strokeLinejoin="round" /></svg></span>
