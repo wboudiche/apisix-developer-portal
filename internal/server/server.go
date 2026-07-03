@@ -109,6 +109,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	mux.Handle("/api/admin/subscriptions/", requireAdmin(subAdminH))
 	mux.Handle("/api/teams", requireAuth(teamsH))
 	mux.Handle("/api/teams/", requireAuth(teamsH))
+	mux.Handle("/api/me/language", requireAuth(http.HandlerFunc(authH.PutLanguage)))
 	tryProducts := tryitProductsAdapter{repo: catRepo}
 	tryAccess := tryitAccessAdapter{teams: teamsRepo, subs: subRepo}
 	tryH := tryit.NewHandler(tryProducts, tryAccess, cfg.APISIXGatewayURL, sandboxGatewayURL)

@@ -117,3 +117,27 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"user": u, "token": token})
 }
+
+type languagePref struct {
+	Language string `json:"language"`
+}
+
+// PutLanguage persists the authenticated user's UI language preference. Mounted
+// at PUT /api/me/language behind RequireAuth.
+func (h *Handler) PutLanguage(w http.ResponseWriter, r *http.Request) {
+	uid := UserID(r.Context())
+	if uid == 0 {
+		httpx.ErrorT(w, r, http.StatusUnauthorized, "auth.middleware.missingToken")
+		return
+	}
+	var p languagePref
+	if err := json.NewDecoder(r.Body).Decode(&p); err != nil || (p.Language != "fr" && p.Language != "en") {
+		httpx.ErrorT(w, r, http.StatusBadRequest, "common.invalidBody")
+		return
+	}
+	if err := h.store.SetLanguage(r.Context(), uid, p.Language); err != nil {
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "auth.register.createFailed")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

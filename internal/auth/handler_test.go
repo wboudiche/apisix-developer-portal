@@ -255,3 +255,43 @@ func TestRegisterSeedsLanguageFromAcceptLanguage(t *testing.T) {
 		t.Fatalf("seeded language=%q, want en", out.User.Language)
 	}
 }
+
+// TestPutLanguage verifies PUT /api/me/language persists a valid "fr"/"en"
+// preference for the authenticated user, rejects other values with 400, and
+// rejects unauthenticated requests with 401.
+func TestPutLanguage(t *testing.T) {
+	h := newTestHandler()
+	// memRepo.SetLanguage looks the user up by id, so seed one via register
+	// first (unlike the real Repo, whose UPDATE is a no-op on unknown ids).
+	regRec := httptest.NewRecorder()
+	h.ServeHTTP(regRec, httptest.NewRequest(http.MethodPost, "/api/auth/register",
+		strings.NewReader(`{"email":"lang@x.io","password":"pw123456","name":"L"}`)))
+	var reg struct {
+		User struct {
+			ID int64 `json:"id"`
+		} `json:"user"`
+	}
+	if err := json.Unmarshal(regRec.Body.Bytes(), &reg); err != nil {
+		t.Fatalf("unmarshal register response: %v", err)
+	}
+	uid := reg.User.ID
+
+	call := func(body string, withUser bool) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPut, "/api/me/language", strings.NewReader(body))
+		if withUser {
+			req = req.WithContext(WithUserID(req.Context(), uid))
+		}
+		rec := httptest.NewRecorder()
+		h.PutLanguage(rec, req)
+		return rec
+	}
+	if rec := call(`{"language":"en"}`, true); rec.Code != http.StatusNoContent {
+		t.Fatalf("valid put code=%d", rec.Code)
+	}
+	if rec := call(`{"language":"de"}`, true); rec.Code != http.StatusBadRequest {
+		t.Fatalf("bad value code=%d, want 400", rec.Code)
+	}
+	if rec := call(`{"language":"fr"}`, false); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("no-user code=%d, want 401", rec.Code)
+	}
+}
