@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+
+	"apisix-portal/internal/i18n"
 )
 
 // JSON writes v as a JSON response with the given status code. It encodes into
@@ -27,4 +29,10 @@ func JSON(w http.ResponseWriter, status int, v any) {
 // Error writes a {"error": msg} body with the given status code.
 func Error(w http.ResponseWriter, status int, msg string) {
 	JSON(w, status, map[string]string{"error": msg})
+}
+
+// ErrorT writes a localized {"error": msg} body, resolving the message for the
+// request's locale from the i18n catalog.
+func ErrorT(w http.ResponseWriter, r *http.Request, status int, key string, args ...any) {
+	Error(w, status, i18n.T(i18n.FromContext(r.Context()), key, args...))
 }
