@@ -72,16 +72,16 @@ func (h *Handler) optionalUserID(r *http.Request) (int64, bool) {
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	pid, err := h.products.ProductBySlug(r.Context(), chi.URLParam(r, "slug"))
 	if errors.Is(err, ErrNotFound) {
-		httpx.Error(w, http.StatusNotFound, "product not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.productNotFound")
 		return
 	}
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.oidcSetFailed")
 		return
 	}
 	view, err := h.buildView(r.Context(), pid, r)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.oidcSetFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, view)
@@ -91,20 +91,20 @@ func (h *Handler) put(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserID(r.Context())
 	pid, err := h.products.ProductBySlug(r.Context(), chi.URLParam(r, "slug"))
 	if errors.Is(err, ErrNotFound) {
-		httpx.Error(w, http.StatusNotFound, "product not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.productNotFound")
 		return
 	}
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.oidcSetFailed")
 		return
 	}
 	approved, err := h.subs.IsApprovedSubscriber(r.Context(), userID, pid)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.oidcSetFailed")
 		return
 	}
 	if !approved {
-		httpx.Error(w, http.StatusForbidden, "abonnez-vous pour noter cette API")
+		httpx.ErrorT(w, r, http.StatusForbidden, "ratings.subscribeToRate")
 		return
 	}
 	var body struct {
@@ -112,7 +112,7 @@ func (h *Handler) put(w http.ResponseWriter, r *http.Request) {
 		Comment string `json:"comment"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Stars < 1 || body.Stars > 5 {
-		httpx.Error(w, http.StatusBadRequest, "stars must be 1..5")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "ratings.badStars")
 		return
 	}
 	comment := strings.TrimSpace(body.Comment)
@@ -120,12 +120,12 @@ func (h *Handler) put(w http.ResponseWriter, r *http.Request) {
 		comment = string(r[:maxComment])
 	}
 	if err := h.store.Upsert(r.Context(), pid, userID, body.Stars, comment); err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to save rating")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "ratings.saveFailed")
 		return
 	}
 	view, err := h.buildView(r.Context(), pid, r)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.oidcSetFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, view)

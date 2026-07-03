@@ -63,22 +63,22 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.S
 func (h *Handler) context(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserID(r.Context())
 	if userID == 0 {
-		httpx.Error(w, http.StatusUnauthorized, "unauthenticated")
+		httpx.ErrorT(w, r, http.StatusUnauthorized, "tryit.unauthenticated")
 		return
 	}
 	slug := chi.URLParam(r, "slug")
 	id, _, err := h.products.ProductBySlug(r.Context(), slug)
 	if errors.Is(err, ErrNotFound) {
-		httpx.Error(w, http.StatusNotFound, "product not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.productNotFound")
 		return
 	}
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.oidcSetFailed")
 		return
 	}
 	apps, err := h.access.ApprovedApps(r.Context(), userID, id)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.oidcSetFailed")
 		return
 	}
 	if apps == nil {
@@ -94,39 +94,39 @@ func (h *Handler) context(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) proxy(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserID(r.Context())
 	if userID == 0 {
-		httpx.Error(w, http.StatusUnauthorized, "unauthenticated")
+		httpx.ErrorT(w, r, http.StatusUnauthorized, "tryit.unauthenticated")
 		return
 	}
 	slug := chi.URLParam(r, "slug")
 	appID, err := strconv.ParseInt(chi.URLParam(r, "appId"), 10, 64)
 	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "bad app id")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "tryit.badAppID")
 		return
 	}
 
 	productID, contextPath, err := h.products.ProductBySlug(r.Context(), slug)
 	if errors.Is(err, ErrNotFound) {
-		httpx.Error(w, http.StatusNotFound, "product not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.productNotFound")
 		return
 	}
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.oidcSetFailed")
 		return
 	}
 
 	owns, err := h.access.OwnsApp(r.Context(), appID, userID)
 	if err != nil || !owns {
-		httpx.Error(w, http.StatusForbidden, "not your application")
+		httpx.ErrorT(w, r, http.StatusForbidden, "subscribe.notYourApplication")
 		return
 	}
 	status, err := h.access.SubscriptionStatus(r.Context(), appID, productID)
 	if err != nil || status != statusActive {
-		httpx.Error(w, http.StatusForbidden, "no approved subscription for this API")
+		httpx.ErrorT(w, r, http.StatusForbidden, "tryit.noApprovedSubscription")
 		return
 	}
 	key, err := h.access.APIKey(r.Context(), appID)
 	if err != nil || key == "" {
-		httpx.Error(w, http.StatusForbidden, "no key for this application")
+		httpx.ErrorT(w, r, http.StatusForbidden, "tryit.noKeyForApplication")
 		return
 	}
 
@@ -136,52 +136,52 @@ func (h *Handler) proxy(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) sandboxProxy(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserID(r.Context())
 	if userID == 0 {
-		httpx.Error(w, http.StatusUnauthorized, "unauthenticated")
+		httpx.ErrorT(w, r, http.StatusUnauthorized, "tryit.unauthenticated")
 		return
 	}
 
 	if h.sandbox == "" {
-		httpx.Error(w, http.StatusNotFound, "sandbox not available")
+		httpx.ErrorT(w, r, http.StatusNotFound, "tryit.sandboxNotAvailable")
 		return
 	}
 
 	slug := chi.URLParam(r, "slug")
 	appID, err := strconv.ParseInt(chi.URLParam(r, "appId"), 10, 64)
 	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "bad app id")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "tryit.badAppID")
 		return
 	}
 
 	productID, contextPath, err := h.products.ProductBySlug(r.Context(), slug)
 	if errors.Is(err, ErrNotFound) {
-		httpx.Error(w, http.StatusNotFound, "product not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.productNotFound")
 		return
 	}
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.oidcSetFailed")
 		return
 	}
 
 	owns, err := h.access.OwnsApp(r.Context(), appID, userID)
 	if err != nil || !owns {
-		httpx.Error(w, http.StatusForbidden, "not your application")
+		httpx.ErrorT(w, r, http.StatusForbidden, "subscribe.notYourApplication")
 		return
 	}
 	status, err := h.access.SubscriptionStatus(r.Context(), appID, productID)
 	if err != nil || status != statusActive {
-		httpx.Error(w, http.StatusForbidden, "no approved subscription for this API")
+		httpx.ErrorT(w, r, http.StatusForbidden, "tryit.noApprovedSubscription")
 		return
 	}
 
 	ok, _ := h.products.SandboxUpstream(r.Context(), slug)
 	if !ok {
-		httpx.Error(w, http.StatusNotFound, "no sandbox for this product")
+		httpx.ErrorT(w, r, http.StatusNotFound, "tryit.noSandboxForProduct")
 		return
 	}
 
 	key, _ := h.access.SandboxKey(r.Context(), appID)
 	if key == "" {
-		httpx.Error(w, http.StatusForbidden, "no sandbox key for this application")
+		httpx.ErrorT(w, r, http.StatusForbidden, "tryit.noSandboxKeyForApplication")
 		return
 	}
 
@@ -206,7 +206,7 @@ func (h *Handler) do(w http.ResponseWriter, r *http.Request, gatewayBase, key, c
 	body := http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	out, err := http.NewRequestWithContext(r.Context(), r.Method, target, body)
 	if err != nil {
-		httpx.Error(w, http.StatusBadGateway, "could not build gateway request")
+		httpx.ErrorT(w, r, http.StatusBadGateway, "tryit.buildRequestFailed")
 		return
 	}
 	for name, vals := range r.Header {
@@ -221,7 +221,7 @@ func (h *Handler) do(w http.ResponseWriter, r *http.Request, gatewayBase, key, c
 
 	resp, err := h.client.Do(out)
 	if err != nil {
-		httpx.Error(w, http.StatusBadGateway, "gateway unreachable")
+		httpx.ErrorT(w, r, http.StatusBadGateway, "tryit.gatewayUnreachable")
 		return
 	}
 	defer resp.Body.Close()

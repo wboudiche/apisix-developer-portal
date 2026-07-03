@@ -132,4 +132,20 @@ var fr = map[string]string{
 	"admin.plan.badID":            "identifiant d'offre invalide",
 	"admin.plan.badRateLimit":     "rateLimit doit être supérieur à zéro",
 	"admin.plan.badWindowSeconds": "windowSeconds doit être supérieur à zéro",
+
+	// tryit
+	"tryit.unauthenticated":            "non authentifié",
+	"tryit.badAppID":                   "identifiant d'application invalide",
+	"tryit.noApprovedSubscription":     "aucun abonnement approuvé pour cette API",
+	"tryit.noKeyForApplication":        "aucune clé pour cette application",
+	"tryit.sandboxNotAvailable":        "bac à sable non disponible",
+	"tryit.noSandboxForProduct":        "aucun bac à sable pour ce produit",
+	"tryit.noSandboxKeyForApplication": "aucune clé de bac à sable pour cette application",
+	"tryit.buildRequestFailed":         "impossible de construire la requête vers la passerelle",
+	"tryit.gatewayUnreachable":         "passerelle injoignable",
+
+	// ratings
+	"ratings.subscribeToRate": "abonnez-vous pour noter cette API",
+	"ratings.badStars":        "les étoiles doivent être comprises entre 1 et 5",
+	"ratings.saveFailed":      "impossible d'enregistrer la note",
 }

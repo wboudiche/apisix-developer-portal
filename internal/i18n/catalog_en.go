@@ -131,4 +131,20 @@ var en = map[string]string{
 	"admin.plan.badID":            "bad plan id",
 	"admin.plan.badRateLimit":     "rateLimit must be greater than zero",
 	"admin.plan.badWindowSeconds": "windowSeconds must be greater than zero",
+
+	// tryit
+	"tryit.unauthenticated":            "unauthenticated",
+	"tryit.badAppID":                   "bad app id",
+	"tryit.noApprovedSubscription":     "no approved subscription for this API",
+	"tryit.noKeyForApplication":        "no key for this application",
+	"tryit.sandboxNotAvailable":        "sandbox not available",
+	"tryit.noSandboxForProduct":        "no sandbox for this product",
+	"tryit.noSandboxKeyForApplication": "no sandbox key for this application",
+	"tryit.buildRequestFailed":         "could not build gateway request",
+	"tryit.gatewayUnreachable":         "gateway unreachable",
+
+	// ratings
+	"ratings.subscribeToRate": "subscribe to rate this API",
+	"ratings.badStars":        "stars must be 1..5",
+	"ratings.saveFailed":      "failed to save rating",
 }
