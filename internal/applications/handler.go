@@ -56,30 +56,30 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		TeamID      int64  `json:"teamId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Name) == "" {
-		httpx.Error(w, http.StatusBadRequest, "name is required")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "common.nameRequired")
 		return
 	}
 	teamID := body.TeamID
 	if teamID == 0 {
 		var err error
 		if teamID, err = h.teams.PersonalTeamID(r.Context(), uid); err != nil {
-			httpx.Error(w, http.StatusInternalServerError, "no personal team")
+			httpx.ErrorT(w, r, http.StatusInternalServerError, "app.create.noPersonalTeam")
 			return
 		}
 	} else {
 		_, isMember, err := h.teams.Role(r.Context(), teamID, uid)
 		if err != nil {
-			httpx.Error(w, http.StatusInternalServerError, "membership check failed")
+			httpx.ErrorT(w, r, http.StatusInternalServerError, "app.create.membershipCheckFailed")
 			return
 		}
 		if !isMember {
-			httpx.Error(w, http.StatusForbidden, "not a member of that team")
+			httpx.ErrorT(w, r, http.StatusForbidden, "app.create.notMember")
 			return
 		}
 	}
 	a, err := h.store.Create(r.Context(), uid, teamID, strings.TrimSpace(body.Name), body.Description)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to create application")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "app.create.failed")
 		return
 	}
 	// Best-effort activity log: a failure here must not fail app creation.
@@ -95,7 +95,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	p := paging.Parse(r.URL.Query())
 	apps, total, err := h.store.ListForUser(r.Context(), auth.UserID(r.Context()), p)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to list applications")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "app.list.failed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, paging.New(apps, total, p))

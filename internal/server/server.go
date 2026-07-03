@@ -17,6 +17,7 @@ import (
 	"apisix-portal/internal/crypto"
 	"apisix-portal/internal/events"
 	"apisix-portal/internal/httpx"
+	"apisix-portal/internal/i18n"
 	"apisix-portal/internal/metrics"
 	"apisix-portal/internal/notify"
 	"apisix-portal/internal/plans"
@@ -120,7 +121,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	mux.Handle("/api/try/", requireAuth(tryH))
 	mux.Handle("/api/ratings/", ratingsH)
 
-	return httpx.SecurityHeaders(httpx.MaxBodyBytes(1 << 20)(logRequests(mux)))
+	return i18n.Middleware(httpx.SecurityHeaders(httpx.MaxBodyBytes(1 << 20)(logRequests(mux))))
 }
 
 type statusRecorder struct {

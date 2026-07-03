@@ -56,7 +56,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	items, total, err := h.svc.List(r.Context(), p)
 	if err != nil {
 		log.Printf("admin list products: %v", err)
-		httpx.Error(w, http.StatusInternalServerError, "failed to list products")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "catalog.list.failed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, paging.New(items, total, p))
@@ -69,12 +69,12 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := h.svc.Get(r.Context(), id)
 	if errors.Is(err, ErrNotFound) {
-		httpx.Error(w, http.StatusNotFound, "product not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.productNotFound")
 		return
 	}
 	if err != nil {
 		log.Printf("admin get product %d: %v", id, err)
-		httpx.Error(w, http.StatusInternalServerError, "failed to load product")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "catalog.get.failed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, p)
@@ -87,16 +87,16 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	created, err := h.svc.Create(r.Context(), p)
 	if errors.Is(err, ErrSlugTaken) {
-		httpx.Error(w, http.StatusConflict, "slug already exists")
+		httpx.ErrorT(w, r, http.StatusConflict, "admin.product.slugTaken")
 		return
 	}
 	if errors.Is(err, ErrContextPathTaken) {
-		httpx.Error(w, http.StatusConflict, "contextPath conflicts with an existing product")
+		httpx.ErrorT(w, r, http.StatusConflict, "admin.product.contextPathTaken")
 		return
 	}
 	if err != nil {
 		log.Printf("admin create product: %v", err)
-		httpx.Error(w, http.StatusInternalServerError, "failed to create product")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "admin.product.createFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, created)
@@ -111,13 +111,13 @@ func (h *Handler) importSpec(w http.ResponseWriter, r *http.Request) {
 		URL  string `json:"url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid body")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "common.invalidBody")
 		return
 	}
 	body.Spec = strings.TrimSpace(body.Spec)
 	body.URL = strings.TrimSpace(body.URL)
 	if (body.Spec == "") == (body.URL == "") {
-		httpx.Error(w, http.StatusBadRequest, "provide exactly one of spec or url")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.import.oneOfSpecOrURL")
 		return
 	}
 
@@ -125,7 +125,7 @@ func (h *Handler) importSpec(w http.ResponseWriter, r *http.Request) {
 	if body.URL != "" {
 		fetched, err := fetchSpec(r.Context(), body.URL, h.allowPrivate)
 		if err != nil {
-			httpx.Error(w, http.StatusUnprocessableEntity, "could not fetch spec from url")
+			httpx.ErrorT(w, r, http.StatusUnprocessableEntity, "admin.import.fetchFailed")
 			return
 		}
 		data = fetched
@@ -133,7 +133,7 @@ func (h *Handler) importSpec(w http.ResponseWriter, r *http.Request) {
 
 	draft, err := parseSpec(data)
 	if err != nil {
-		httpx.Error(w, http.StatusUnprocessableEntity, "spec could not be parsed (need OpenAPI 3.x or Swagger 2.0 with a title)")
+		httpx.ErrorT(w, r, http.StatusUnprocessableEntity, "admin.import.parseFailed")
 		return
 	}
 	draft.OpenAPISpec = string(data)
@@ -152,20 +152,20 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 	p.ID = id
 	updated, err := h.svc.Update(r.Context(), p)
 	if errors.Is(err, ErrNotFound) {
-		httpx.Error(w, http.StatusNotFound, "product not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.productNotFound")
 		return
 	}
 	if errors.Is(err, ErrSlugTaken) {
-		httpx.Error(w, http.StatusConflict, "slug already exists")
+		httpx.ErrorT(w, r, http.StatusConflict, "admin.product.slugTaken")
 		return
 	}
 	if errors.Is(err, ErrContextPathTaken) {
-		httpx.Error(w, http.StatusConflict, "contextPath conflicts with an existing product")
+		httpx.ErrorT(w, r, http.StatusConflict, "admin.product.contextPathTaken")
 		return
 	}
 	if err != nil {
 		log.Printf("admin update product %d: %v", id, err)
-		httpx.Error(w, http.StatusInternalServerError, "failed to update product")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "admin.product.updateFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, updated)
@@ -178,16 +178,16 @@ func (h *Handler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 	err := h.svc.Delete(r.Context(), id)
 	if errors.Is(err, ErrNotFound) {
-		httpx.Error(w, http.StatusNotFound, "product not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.productNotFound")
 		return
 	}
 	if errors.Is(err, ErrHasSubscriptions) {
-		httpx.Error(w, http.StatusConflict, "product has active subscriptions")
+		httpx.ErrorT(w, r, http.StatusConflict, "admin.product.hasSubscriptions")
 		return
 	}
 	if err != nil {
 		log.Printf("admin delete product %d: %v", id, err)
-		httpx.Error(w, http.StatusInternalServerError, "failed to delete product")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "admin.product.deleteFailed")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -206,25 +206,25 @@ func (h *Handler) addChangelog(w http.ResponseWriter, r *http.Request) {
 	}
 	var e ChangelogEntry
 	if err := json.NewDecoder(r.Body).Decode(&e); err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid body")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "common.invalidBody")
 		return
 	}
 	if strings.TrimSpace(e.Version) == "" {
-		httpx.Error(w, http.StatusBadRequest, "version is required")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.changelog.versionRequired")
 		return
 	}
 	if !validChangelogKinds[e.Kind] {
-		httpx.Error(w, http.StatusBadRequest, "kind must be one of added, changed, fixed, removed, deprecated, security")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.changelog.badKind")
 		return
 	}
 	if _, err := time.Parse("2006-01-02", e.Date); err != nil {
-		httpx.Error(w, http.StatusBadRequest, "date must be a valid YYYY-MM-DD date")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.changelog.badDate")
 		return
 	}
 	created, err := h.svc.AddChangelog(r.Context(), id, e)
 	if err != nil {
 		log.Printf("admin add changelog for product %d: %v", id, err)
-		httpx.Error(w, http.StatusInternalServerError, "failed to add changelog entry")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "admin.changelog.addFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, created)
@@ -241,7 +241,7 @@ func (h *Handler) listChangelog(w http.ResponseWriter, r *http.Request) {
 	entries, err := h.svc.ListChangelog(r.Context(), id)
 	if err != nil {
 		log.Printf("admin list changelog for product %d: %v", id, err)
-		httpx.Error(w, http.StatusInternalServerError, "failed to list changelog entries")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "admin.changelog.listFailed")
 		return
 	}
 	if entries == nil {
@@ -257,16 +257,16 @@ func (h *Handler) deleteChangelog(w http.ResponseWriter, r *http.Request) {
 	}
 	entryID, err := strconv.ParseInt(chi.URLParam(r, "entryId"), 10, 64)
 	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "bad changelog entry id")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.changelog.badID")
 		return
 	}
 	if err := h.svc.DeleteChangelog(r.Context(), id, entryID); err != nil {
 		if errors.Is(err, ErrNotFound) {
-			httpx.Error(w, http.StatusNotFound, "changelog entry not found")
+			httpx.ErrorT(w, r, http.StatusNotFound, "admin.changelog.notFound")
 			return
 		}
 		log.Printf("admin delete changelog entry %d for product %d: %v", entryID, id, err)
-		httpx.Error(w, http.StatusInternalServerError, "failed to delete changelog entry")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "admin.changelog.deleteFailed")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -275,7 +275,7 @@ func (h *Handler) deleteChangelog(w http.ResponseWriter, r *http.Request) {
 func parseID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "bad product id")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "subscribe.badProductID")
 		return 0, false
 	}
 	return id, true
@@ -284,23 +284,23 @@ func parseID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 func (h *Handler) decodeProduct(w http.ResponseWriter, r *http.Request) (Product, bool) {
 	var p Product
 	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid body")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "common.invalidBody")
 		return Product{}, false
 	}
 	if p.Tags == nil {
 		p.Tags = []string{}
 	}
 	if msg := p.validate(h.allowPrivate); msg != "" {
-		httpx.Error(w, http.StatusBadRequest, msg)
+		httpx.ErrorT(w, r, http.StatusBadRequest, msg)
 		return Product{}, false
 	}
 	if p.AuthType == "oauth2" && !h.oidcConfigured {
-		httpx.Error(w, http.StatusBadRequest, "OAuth2 is not configured on this portal")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.product.oauthNotConfigured")
 		return Product{}, false
 	}
 	if p.OpenAPISpec != "" {
 		if _, err := parseSpec([]byte(p.OpenAPISpec)); err != nil {
-			httpx.Error(w, http.StatusBadRequest, "openapiSpec is not a valid OpenAPI 3.x / Swagger 2.0 document")
+			httpx.ErrorT(w, r, http.StatusBadRequest, "admin.product.badOpenapiSpec")
 			return Product{}, false
 		}
 	}

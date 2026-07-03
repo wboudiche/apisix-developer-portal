@@ -51,32 +51,32 @@ type credentials struct {
 func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 	var c credentials
 	if err := json.NewDecoder(r.Body).Decode(&c); err != nil || c.Email == "" || len(c.Password) < 8 {
-		httpx.Error(w, http.StatusBadRequest, "email and password (min 8 chars) required")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "auth.register.credentialsRequired")
 		return
 	}
 	hash, err := HashPassword(c.Password)
 	if errors.Is(err, ErrPasswordTooLong) {
-		httpx.Error(w, http.StatusBadRequest, "password must be at most 72 bytes")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "auth.password.tooLong")
 		return
 	}
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "could not hash password")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "auth.password.hashFailed")
 		return
 	}
 	u, err := h.store.Create(r.Context(), c.Email, hash, c.Name)
 	if errors.Is(err, ErrEmailTaken) {
 		// NOTE: a distinct 409 is an intentional UX trade-off (users must learn an
 		// email is taken). The timing oracle on login is the closed leak (M3).
-		httpx.Error(w, http.StatusConflict, "email already registered")
+		httpx.ErrorT(w, r, http.StatusConflict, "auth.register.emailTaken")
 		return
 	}
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "could not create account")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "auth.register.createFailed")
 		return
 	}
 	token, err := h.tk.Issue(u.ID, u.Email, u.Role)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "could not issue token")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "auth.token.issueFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, map[string]any{"user": u, "token": token})
@@ -85,14 +85,14 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	var c credentials
 	if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid body")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "common.invalidBody")
 		return
 	}
 	if h.loginLimiter != nil && !h.loginLimiter.Allow(strings.ToLower(c.Email)) {
 		if ra := h.loginLimiter.RetryAfter(); ra != "" {
 			w.Header().Set("Retry-After", ra)
 		}
-		httpx.Error(w, http.StatusTooManyRequests, "too many attempts")
+		httpx.ErrorT(w, r, http.StatusTooManyRequests, "auth.login.tooManyAttempts")
 		return
 	}
 	u, hash, err := h.store.GetByEmail(r.Context(), c.Email)
@@ -100,16 +100,16 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		// Equalize timing: run a comparison against a dummy hash so an absent
 		// account is indistinguishable from a wrong password.
 		CheckPassword(dummyHash, c.Password)
-		httpx.Error(w, http.StatusUnauthorized, "invalid credentials")
+		httpx.ErrorT(w, r, http.StatusUnauthorized, "auth.login.invalidCredentials")
 		return
 	}
 	if !CheckPassword(hash, c.Password) {
-		httpx.Error(w, http.StatusUnauthorized, "invalid credentials")
+		httpx.ErrorT(w, r, http.StatusUnauthorized, "auth.login.invalidCredentials")
 		return
 	}
 	token, err := h.tk.Issue(u.ID, u.Email, u.Role)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "could not issue token")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "auth.token.issueFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"user": u, "token": token})

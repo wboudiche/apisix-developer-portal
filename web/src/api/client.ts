@@ -74,27 +74,26 @@ export async function getProducts(q: ProductQuery, page?: PageOpts): Promise<Pag
   appendPage(params, page)
   const qs = params.toString()
   const url = qs ? `/api/products?${qs}` : '/api/products'
-  const res = await fetch(url)
+  const res = await fetch(url, { headers: langHeaders() })
   return parse<Paginated<Product>>(res, url)
 }
 
 export async function getProduct(slug: string): Promise<Product> {
   const url = `/api/products/${encodeURIComponent(slug)}`
-  return parse<Product>(await fetch(url), url)
+  return parse<Product>(await fetch(url, { headers: langHeaders() }), url)
 }
 
 export async function getRatings(slug: string, token?: string): Promise<RatingsView> {
   const url = `/api/ratings/${encodeURIComponent(slug)}`
-  const headers = token ? authHeaders(token) : undefined
-  return parse<RatingsView>(await fetch(url, headers ? { headers } : undefined), url)
+  return parse<RatingsView>(await fetch(url, { headers: langHeaders(token) }), url)
 }
 export async function submitRating(token: string, slug: string, body: { stars: number; comment: string }): Promise<RatingsView> {
   const url = `/api/ratings/${encodeURIComponent(slug)}`
-  return parse<RatingsView>(await fetch(url, { method: 'PUT', headers: authHeaders(token), body: JSON.stringify(body) }), url)
+  return parse<RatingsView>(await fetch(url, { method: 'PUT', headers: langHeaders(token), body: JSON.stringify(body) }), url)
 }
 
 export async function getProductSpec(slug: string): Promise<string | null> {
-  const res = await fetch(`/api/products/${encodeURIComponent(slug)}/spec`)
+  const res = await fetch(`/api/products/${encodeURIComponent(slug)}/spec`, { headers: langHeaders() })
   if (res.status === 404) return null
   if (!res.ok) throw new ApiError(`spec fetch failed (${res.status})`, res.status)
   return res.text()
@@ -102,13 +101,13 @@ export async function getProductSpec(slug: string): Promise<string | null> {
 
 export async function getChangelog(slug: string): Promise<ChangelogEntry[]> {
   const url = `/api/products/${slug}/changelog`
-  return parse<ChangelogEntry[]>(await fetch(url, {}), url)
+  return parse<ChangelogEntry[]>(await fetch(url, { headers: langHeaders() }), url)
 }
 
 function postJSON(url: string, body: unknown): Promise<Response> {
   return fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...langHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
 }
@@ -121,8 +120,10 @@ export async function register(email: string, password: string, name: string): P
   return parse<AuthResponse>(await postJSON('/api/auth/register', { email, password, name }), '/api/auth/register')
 }
 
-function authHeaders(token: string): HeadersInit {
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+function langHeaders(token?: string): HeadersInit {
+  const h: Record<string, string> = { 'Accept-Language': localStorage.getItem('lang') || 'fr' }
+  if (token) { h['Content-Type'] = 'application/json'; h['Authorization'] = `Bearer ${token}` }
+  return h
 }
 
 export async function getPlans(page?: PageOpts): Promise<Paginated<Plan>> {
@@ -130,7 +131,7 @@ export async function getPlans(page?: PageOpts): Promise<Paginated<Plan>> {
   appendPage(params, page)
   const qs = params.toString()
   const url = qs ? `/api/plans?${qs}` : '/api/plans'
-  return parse<Paginated<Plan>>(await fetch(url), url)
+  return parse<Paginated<Plan>>(await fetch(url, { headers: langHeaders() }), url)
 }
 
 export async function getApplications(token: string, page?: PageOpts): Promise<Paginated<Application>> {
@@ -138,47 +139,47 @@ export async function getApplications(token: string, page?: PageOpts): Promise<P
   appendPage(params, page)
   const qs = params.toString()
   const url = qs ? `/api/applications?${qs}` : '/api/applications'
-  return parse<Paginated<Application>>(await fetch(url, { headers: authHeaders(token) }), url)
+  return parse<Paginated<Application>>(await fetch(url, { headers: langHeaders(token) }), url)
 }
 
 export async function createApplication(token: string, name: string, description: string, teamId?: number): Promise<Application> {
   const body: { name: string; description: string; teamId?: number } = { name, description }
   if (teamId != null) body.teamId = teamId
   return parse<Application>(await fetch('/api/applications', {
-    method: 'POST', headers: authHeaders(token), body: JSON.stringify(body),
+    method: 'POST', headers: langHeaders(token), body: JSON.stringify(body),
   }), '/api/applications')
 }
 
 export async function getApplicationDetail(token: string, appId: number): Promise<AppDetail> {
   const url = `/api/applications/${appId}`
-  return parse<AppDetail>(await fetch(url, { headers: authHeaders(token) }), url)
+  return parse<AppDetail>(await fetch(url, { headers: langHeaders(token) }), url)
 }
 
 export async function getUsage(token: string, appId: number, range: UsageRange): Promise<Usage> {
   const url = `/api/applications/${appId}/usage?range=${range}`
-  return parse<Usage>(await fetch(url, { headers: authHeaders(token) }), url)
+  return parse<Usage>(await fetch(url, { headers: langHeaders(token) }), url)
 }
 
 export async function getQuota(token: string, appId: number): Promise<Quota> {
   const url = `/api/applications/${appId}/quota`
-  return parse<Quota>(await fetch(url, { headers: authHeaders(token) }), url)
+  return parse<Quota>(await fetch(url, { headers: langHeaders(token) }), url)
 }
 
 export async function subscribe(token: string, appId: number, productId: number, planId: number): Promise<Credential> {
   const url = `/api/applications/${appId}/subscriptions`
   return parse<Credential>(await fetch(url, {
-    method: 'POST', headers: authHeaders(token), body: JSON.stringify({ productId, planId }),
+    method: 'POST', headers: langHeaders(token), body: JSON.stringify({ productId, planId }),
   }), url)
 }
 
 export async function rotateKey(token: string, appId: number): Promise<{ apiKey: string }> {
   const url = `/api/applications/${appId}/credentials/rotate`
-  return parse<{ apiKey: string }>(await fetch(url, { method: 'POST', headers: authHeaders(token) }), url)
+  return parse<{ apiKey: string }>(await fetch(url, { method: 'POST', headers: langHeaders(token) }), url)
 }
 
 export async function enableSandbox(token: string, appId: number): Promise<{ sandboxApiKey: string }> {
   const url = `/api/applications/${appId}/sandbox/enable`
-  return parse<{ sandboxApiKey: string }>(await fetch(url, { method: 'POST', headers: authHeaders(token) }), url)
+  return parse<{ sandboxApiKey: string }>(await fetch(url, { method: 'POST', headers: langHeaders(token) }), url)
 }
 
 export async function setOidcClient(token: string, appId: number, clientId: string): Promise<void> {
@@ -187,12 +188,12 @@ export async function setOidcClient(token: string, appId: number, clientId: stri
 
 export async function rotateSandboxKey(token: string, appId: number): Promise<{ sandboxApiKey: string }> {
   const url = `/api/applications/${appId}/sandbox/rotate`
-  return parse<{ sandboxApiKey: string }>(await fetch(url, { method: 'POST', headers: authHeaders(token) }), url)
+  return parse<{ sandboxApiKey: string }>(await fetch(url, { method: 'POST', headers: langHeaders(token) }), url)
 }
 
 export async function unsubscribe(token: string, appId: number, productId: number): Promise<void> {
   const url = `/api/applications/${appId}/subscriptions/${productId}`
-  const res = await fetch(url, { method: 'DELETE', headers: authHeaders(token) })
+  const res = await fetch(url, { method: 'DELETE', headers: langHeaders(token) })
   if (!res.ok) {
     handle401(res.status, url)
     throw new ApiError(`unsubscribe failed (${res.status})`, res.status)
@@ -202,7 +203,7 @@ export async function unsubscribe(token: string, appId: number, productId: numbe
 async function sendAuthed(method: string, url: string, token: string, body?: unknown): Promise<void> {
   const res = await fetch(url, {
     method,
-    headers: authHeaders(token),
+    headers: langHeaders(token),
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   if (!res.ok) {
@@ -215,17 +216,17 @@ async function sendAuthed(method: string, url: string, token: string, body?: unk
 // --- Teams ---
 export async function getTeams(token: string): Promise<Team[]> {
   const url = '/api/teams'
-  return parse<Team[]>(await fetch(url, { headers: authHeaders(token) }), url)
+  return parse<Team[]>(await fetch(url, { headers: langHeaders(token) }), url)
 }
 
 export async function createTeam(token: string, name: string): Promise<Team> {
   const url = '/api/teams'
-  return parse<Team>(await fetch(url, { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ name }) }), url)
+  return parse<Team>(await fetch(url, { method: 'POST', headers: langHeaders(token), body: JSON.stringify({ name }) }), url)
 }
 
 export async function getTeamMembers(token: string, teamId: number): Promise<TeamMember[]> {
   const url = `/api/teams/${teamId}/members`
-  return parse<TeamMember[]>(await fetch(url, { headers: authHeaders(token) }), url)
+  return parse<TeamMember[]>(await fetch(url, { headers: langHeaders(token) }), url)
 }
 
 export async function addTeamMember(token: string, teamId: number, email: string): Promise<void> {
@@ -246,7 +247,7 @@ export async function deleteTeam(token: string, teamId: number): Promise<void> {
 
 export async function getTryContext(token: string, slug: string): Promise<{ apps: TryApp[]; sandboxAvailable?: boolean }> {
   const url = `/api/try/${encodeURIComponent(slug)}/context`
-  return parse<{ apps: TryApp[]; sandboxAvailable?: boolean }>(await fetch(url, { headers: authHeaders(token) }), url)
+  return parse<{ apps: TryApp[]; sandboxAvailable?: boolean }>(await fetch(url, { headers: langHeaders(token) }), url)
 }
 
 // --- Admin: products ---
@@ -255,26 +256,26 @@ export async function adminGetProducts(token: string, page?: PageOpts): Promise<
   appendPage(params, page)
   const qs = params.toString()
   const url = qs ? `/api/admin/products?${qs}` : '/api/admin/products'
-  return parse<Paginated<AdminProduct>>(await fetch(url, { headers: authHeaders(token) }), url)
+  return parse<Paginated<AdminProduct>>(await fetch(url, { headers: langHeaders(token) }), url)
 }
 export async function adminCreateProduct(token: string, p: AdminProduct): Promise<AdminProduct> {
-  return parse<AdminProduct>(await fetch('/api/admin/products', { method: 'POST', headers: authHeaders(token), body: JSON.stringify(p) }), '/api/admin/products')
+  return parse<AdminProduct>(await fetch('/api/admin/products', { method: 'POST', headers: langHeaders(token), body: JSON.stringify(p) }), '/api/admin/products')
 }
 export async function adminUpdateProduct(token: string, id: number, p: AdminProduct): Promise<AdminProduct> {
   const url = `/api/admin/products/${id}`
-  return parse<AdminProduct>(await fetch(url, { method: 'PUT', headers: authHeaders(token), body: JSON.stringify(p) }), url)
+  return parse<AdminProduct>(await fetch(url, { method: 'PUT', headers: langHeaders(token), body: JSON.stringify(p) }), url)
 }
 export async function adminDeleteProduct(token: string, id: number): Promise<void> {
   return sendAuthed('DELETE', `/api/admin/products/${id}`, token)
 }
 export async function adminImportProduct(token: string, src: { spec: string } | { url: string }): Promise<AdminProduct> {
   const url = '/api/admin/products/import'
-  return parse<AdminProduct>(await fetch(url, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(src) }), url)
+  return parse<AdminProduct>(await fetch(url, { method: 'POST', headers: langHeaders(token), body: JSON.stringify(src) }), url)
 }
 
 export async function addChangelogEntry(token: string, productId: number, entry: { version: string; kind: string; notes: string; date: string }): Promise<ChangelogEntry> {
   const url = `/api/admin/products/${productId}/changelog`
-  return parse<ChangelogEntry>(await fetch(url, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(entry) }), url)
+  return parse<ChangelogEntry>(await fetch(url, { method: 'POST', headers: langHeaders(token), body: JSON.stringify(entry) }), url)
 }
 
 export async function deleteChangelogEntry(token: string, productId: number, entryId: number): Promise<void> {
@@ -285,7 +286,7 @@ export async function deleteChangelogEntry(token: string, productId: number, ent
 // entries for draft/unpublished products too.
 export async function adminGetChangelog(token: string, productId: number): Promise<ChangelogEntry[]> {
   const url = `/api/admin/products/${productId}/changelog`
-  return parse<ChangelogEntry[]>(await fetch(url, { headers: authHeaders(token) }), url)
+  return parse<ChangelogEntry[]>(await fetch(url, { headers: langHeaders(token) }), url)
 }
 
 // --- Admin: plans ---
@@ -294,14 +295,14 @@ export async function adminGetPlans(token: string, page?: PageOpts): Promise<Pag
   appendPage(params, page)
   const qs = params.toString()
   const url = qs ? `/api/admin/plans?${qs}` : '/api/admin/plans'
-  return parse<Paginated<Plan>>(await fetch(url, { headers: authHeaders(token) }), url)
+  return parse<Paginated<Plan>>(await fetch(url, { headers: langHeaders(token) }), url)
 }
 export async function adminCreatePlan(token: string, p: Plan): Promise<Plan> {
-  return parse<Plan>(await fetch('/api/admin/plans', { method: 'POST', headers: authHeaders(token), body: JSON.stringify(p) }), '/api/admin/plans')
+  return parse<Plan>(await fetch('/api/admin/plans', { method: 'POST', headers: langHeaders(token), body: JSON.stringify(p) }), '/api/admin/plans')
 }
 export async function adminUpdatePlan(token: string, id: number, p: Plan): Promise<Plan> {
   const url = `/api/admin/plans/${id}`
-  return parse<Plan>(await fetch(url, { method: 'PUT', headers: authHeaders(token), body: JSON.stringify(p) }), url)
+  return parse<Plan>(await fetch(url, { method: 'PUT', headers: langHeaders(token), body: JSON.stringify(p) }), url)
 }
 export async function adminDeletePlan(token: string, id: number): Promise<void> {
   return sendAuthed('DELETE', `/api/admin/plans/${id}`, token)
@@ -314,7 +315,7 @@ export async function adminGetSubscriptions(token: string, status?: string, page
   appendPage(params, page)
   const qs = params.toString()
   const url = qs ? `/api/admin/subscriptions?${qs}` : '/api/admin/subscriptions'
-  return parse<Paginated<AdminSubscription>>(await fetch(url, { headers: authHeaders(token) }), url)
+  return parse<Paginated<AdminSubscription>>(await fetch(url, { headers: langHeaders(token) }), url)
 }
 export async function adminApproveSubscription(token: string, id: number): Promise<void> {
   return sendAuthed('POST', `/api/admin/subscriptions/${id}/approve`, token)
