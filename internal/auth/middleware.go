@@ -23,12 +23,12 @@ func RequireAuth(tk *Tokenizer) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			h := r.Header.Get("Authorization")
 			if !strings.HasPrefix(h, "Bearer ") {
-				httpx.Error(w, http.StatusUnauthorized, "missing bearer token")
+				httpx.ErrorT(w, r, http.StatusUnauthorized, "auth.middleware.missingToken")
 				return
 			}
 			claims, err := tk.Parse(strings.TrimPrefix(h, "Bearer "))
 			if err != nil {
-				httpx.Error(w, http.StatusUnauthorized, "invalid token")
+				httpx.ErrorT(w, r, http.StatusUnauthorized, "auth.middleware.invalidToken")
 				return
 			}
 			ctx := WithUserID(r.Context(), claims.UserID)
@@ -72,27 +72,27 @@ func RequireAdmin(tk *Tokenizer, lookup RoleLookup) func(http.Handler) http.Hand
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			h := r.Header.Get("Authorization")
 			if !strings.HasPrefix(h, "Bearer ") {
-				httpx.Error(w, http.StatusUnauthorized, "missing bearer token")
+				httpx.ErrorT(w, r, http.StatusUnauthorized, "auth.middleware.missingToken")
 				return
 			}
 			claims, err := tk.Parse(strings.TrimPrefix(h, "Bearer "))
 			if err != nil {
-				httpx.Error(w, http.StatusUnauthorized, "invalid token")
+				httpx.ErrorT(w, r, http.StatusUnauthorized, "auth.middleware.invalidToken")
 				return
 			}
 			role, err := lookup(r.Context(), claims.UserID)
 			if errors.Is(err, ErrUserNotFound) {
 				// A deleted user's token must stop working — authz failure, not server fault.
-				httpx.Error(w, http.StatusForbidden, "admin only")
+				httpx.ErrorT(w, r, http.StatusForbidden, "auth.middleware.adminOnly")
 				return
 			}
 			if err != nil {
 				// A failed lookup (DB outage) is "could not verify", not "admin only".
-				httpx.Error(w, http.StatusInternalServerError, "could not verify role")
+				httpx.ErrorT(w, r, http.StatusInternalServerError, "auth.middleware.roleCheckFailed")
 				return
 			}
 			if role != "admin" {
-				httpx.Error(w, http.StatusForbidden, "admin only")
+				httpx.ErrorT(w, r, http.StatusForbidden, "auth.middleware.adminOnly")
 				return
 			}
 			ctx := WithUserID(r.Context(), claims.UserID)
