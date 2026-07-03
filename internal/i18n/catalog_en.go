@@ -34,4 +34,35 @@ var en = map[string]string{
 
 	// common
 	"common.invalidBody": "invalid body",
+
+	// subscribe
+	"subscribe.badAppID":                "bad application id",
+	"subscribe.ownershipCheckFailed":    "ownership check failed",
+	"subscribe.notYourApplication":      "not your application",
+	"subscribe.productPlanRequired":     "productId and planId are required",
+	"subscribe.productPlanNotFound":     "product or plan not found",
+	"subscribe.alreadySubscribed":       "already subscribed to this product",
+	"subscribe.productDeprecated":       "This API no longer accepts new subscriptions.",
+	"subscribe.subscribeFailed":         "subscription failed",
+	"subscribe.badProductID":            "bad product id",
+	"subscribe.unsubscribeFailed":       "unsubscribe failed",
+	"subscribe.credentialLoadFailed":    "failed to load credential",
+	"subscribe.subscriptionsLoadFailed": "failed to load subscriptions",
+	"subscribe.noKeyToRotate":           "no key to rotate — subscribe and get approved first",
+	"subscribe.rotationFailed":          "rotation failed",
+	"subscribe.planLoadFailed":          "failed to load plan",
+	"subscribe.sandboxUnavailable":      "sandbox unavailable — subscribe to a sandbox-enabled API first",
+	"subscribe.enableSandboxFailed":     "enable sandbox failed",
+	"subscribe.noSandboxKeyToRotate":    "no sandbox key to rotate — enable sandbox first",
+	"subscribe.badBody":                 "bad body",
+	"subscribe.invalidClientID":         "invalid client id",
+	"subscribe.oidcSetFailed":           "failed",
+	"subscribe.unsupportedRange":        "unsupported range",
+	"subscribe.metricsUnavailable":      "metrics unavailable",
+
+	"subscribe.admin.listFailed":        "failed to list subscriptions",
+	"subscribe.admin.badSubscriptionID": "bad subscription id",
+	"subscribe.admin.notFound":          "subscription not found",
+	"subscribe.admin.invalidTransition": "subscription cannot change from its current state",
+	"subscribe.admin.actionFailed":      "%s failed",
 }

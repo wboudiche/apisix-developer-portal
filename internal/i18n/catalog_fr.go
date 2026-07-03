@@ -35,4 +35,35 @@ var fr = map[string]string{
 
 	// common
 	"common.invalidBody": "corps de requête invalide",
+
+	// subscribe
+	"subscribe.badAppID":                "identifiant d'application invalide",
+	"subscribe.ownershipCheckFailed":    "échec de la vérification de propriété",
+	"subscribe.notYourApplication":      "cette application ne vous appartient pas",
+	"subscribe.productPlanRequired":     "productId et planId sont requis",
+	"subscribe.productPlanNotFound":     "produit ou offre introuvable",
+	"subscribe.alreadySubscribed":       "déjà abonné à ce produit",
+	"subscribe.productDeprecated":       "Cette API n'accepte plus de nouveaux abonnements.",
+	"subscribe.subscribeFailed":         "échec de l'abonnement",
+	"subscribe.badProductID":            "identifiant de produit invalide",
+	"subscribe.unsubscribeFailed":       "échec du désabonnement",
+	"subscribe.credentialLoadFailed":    "impossible de charger les identifiants",
+	"subscribe.subscriptionsLoadFailed": "impossible de charger les abonnements",
+	"subscribe.noKeyToRotate":           "aucune clé à faire tourner — abonnez-vous et attendez d'abord l'approbation",
+	"subscribe.rotationFailed":          "échec de la rotation",
+	"subscribe.planLoadFailed":          "impossible de charger l'offre",
+	"subscribe.sandboxUnavailable":      "bac à sable indisponible — abonnez-vous d'abord à une API compatible bac à sable",
+	"subscribe.enableSandboxFailed":     "échec de l'activation du bac à sable",
+	"subscribe.noSandboxKeyToRotate":    "aucune clé de bac à sable à faire tourner — activez d'abord le bac à sable",
+	"subscribe.badBody":                 "corps de requête incorrect",
+	"subscribe.invalidClientID":         "identifiant client invalide",
+	"subscribe.oidcSetFailed":           "échec",
+	"subscribe.unsupportedRange":        "plage non prise en charge",
+	"subscribe.metricsUnavailable":      "métriques indisponibles",
+
+	"subscribe.admin.listFailed":        "impossible de lister les abonnements",
+	"subscribe.admin.badSubscriptionID": "identifiant d'abonnement invalide",
+	"subscribe.admin.notFound":          "abonnement introuvable",
+	"subscribe.admin.invalidTransition": "l'abonnement ne peut pas changer depuis son état actuel",
+	"subscribe.admin.actionFailed":      "échec de l'action %s",
 }

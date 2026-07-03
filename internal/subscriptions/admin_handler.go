@@ -41,7 +41,7 @@ func (h *AdminHandler) list(w http.ResponseWriter, r *http.Request) {
 	items, total, err := h.svc.AdminSubscriptions(r.Context(), r.URL.Query().Get("status"), p)
 	if err != nil {
 		log.Printf("admin list subscriptions: %v", err)
-		httpx.Error(w, http.StatusInternalServerError, "failed to list subscriptions")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.admin.listFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, paging.New(items, total, p))
@@ -58,20 +58,20 @@ func (h *AdminHandler) reject(w http.ResponseWriter, r *http.Request) {
 func (h *AdminHandler) transition(w http.ResponseWriter, r *http.Request, act func(context.Context, int64) error, name string) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "bad subscription id")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "subscribe.admin.badSubscriptionID")
 		return
 	}
 	if err := act(r.Context(), id); err != nil {
 		if errors.Is(err, ErrNotFound) {
-			httpx.Error(w, http.StatusNotFound, "subscription not found")
+			httpx.ErrorT(w, r, http.StatusNotFound, "subscribe.admin.notFound")
 			return
 		}
 		if errors.Is(err, ErrInvalidTransition) {
-			httpx.Error(w, http.StatusConflict, "subscription cannot change from its current state")
+			httpx.ErrorT(w, r, http.StatusConflict, "subscribe.admin.invalidTransition")
 			return
 		}
 		log.Printf("admin %s subscription %d: %v", name, id, err)
-		httpx.Error(w, http.StatusInternalServerError, name+" failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.admin.actionFailed", name)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

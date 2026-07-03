@@ -96,16 +96,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.S
 func (h *Handler) authorize(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	appID, err := strconv.ParseInt(chi.URLParam(r, "appID"), 10, 64)
 	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "bad application id")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "subscribe.badAppID")
 		return 0, false
 	}
 	ok, err := h.owns(r.Context(), appID, auth.UserID(r.Context()))
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "ownership check failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.ownershipCheckFailed")
 		return 0, false
 	}
 	if !ok {
-		httpx.Error(w, http.StatusForbidden, "not your application")
+		httpx.ErrorT(w, r, http.StatusForbidden, "subscribe.notYourApplication")
 		return 0, false
 	}
 	return appID, true
@@ -121,25 +121,25 @@ func (h *Handler) subscribe(w http.ResponseWriter, r *http.Request) {
 		PlanID    int64 `json:"planId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ProductID == 0 || body.PlanID == 0 {
-		httpx.Error(w, http.StatusBadRequest, "productId and planId are required")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "subscribe.productPlanRequired")
 		return
 	}
 	cred, err := h.svc.Subscribe(r.Context(), appID, body.ProductID, body.PlanID)
 	if errors.Is(err, ErrNotFound) {
-		httpx.Error(w, http.StatusNotFound, "product or plan not found")
+		httpx.ErrorT(w, r, http.StatusNotFound, "subscribe.productPlanNotFound")
 		return
 	}
 	if errors.Is(err, ErrAlreadySubscribed) {
-		httpx.Error(w, http.StatusConflict, "already subscribed to this product")
+		httpx.ErrorT(w, r, http.StatusConflict, "subscribe.alreadySubscribed")
 		return
 	}
 	if errors.Is(err, ErrProductDeprecated) {
-		httpx.Error(w, http.StatusConflict, "This API no longer accepts new subscriptions.")
+		httpx.ErrorT(w, r, http.StatusConflict, "subscribe.productDeprecated")
 		return
 	}
 	if err != nil {
 		log.Printf("subscribe failed (app=%d product=%d): %v", appID, body.ProductID, err)
-		httpx.Error(w, http.StatusInternalServerError, "subscription failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.subscribeFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, cred)
@@ -152,12 +152,12 @@ func (h *Handler) unsubscribe(w http.ResponseWriter, r *http.Request) {
 	}
 	productID, err := strconv.ParseInt(chi.URLParam(r, "productID"), 10, 64)
 	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "bad product id")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "subscribe.badProductID")
 		return
 	}
 	if err := h.svc.Unsubscribe(r.Context(), appID, productID); err != nil {
 		log.Printf("unsubscribe failed (app=%d product=%d): %v", appID, productID, err)
-		httpx.Error(w, http.StatusInternalServerError, "unsubscribe failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.unsubscribeFailed")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -174,12 +174,12 @@ func (h *Handler) detail(w http.ResponseWriter, r *http.Request) {
 		out.APIKey = cred.APIKey
 		out.ConsumerUsername = cred.ConsumerUsername
 	} else if err != ErrNotFound {
-		httpx.Error(w, http.StatusInternalServerError, "failed to load credential")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.credentialLoadFailed")
 		return
 	}
 	subs, err := h.reader.SubscriptionsForApp(r.Context(), appID)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to load subscriptions")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.subscriptionsLoadFailed")
 		return
 	}
 	if subs != nil {
@@ -218,12 +218,12 @@ func (h *Handler) rotateKey(w http.ResponseWriter, r *http.Request) {
 	}
 	newKey, err := h.svc.RotateKey(r.Context(), appID)
 	if errors.Is(err, ErrNoCredential) || errors.Is(err, ErrNoActiveSubscription) {
-		httpx.Error(w, http.StatusConflict, "no key to rotate — subscribe and get approved first")
+		httpx.ErrorT(w, r, http.StatusConflict, "subscribe.noKeyToRotate")
 		return
 	}
 	if err != nil {
 		log.Printf("rotate key failed (app=%d): %v", appID, err)
-		httpx.Error(w, http.StatusInternalServerError, "rotation failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.rotationFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]string{"apiKey": newKey})
@@ -244,7 +244,7 @@ func (h *Handler) quotaHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to load credential")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.credentialLoadFailed")
 		return
 	}
 	plan, err := h.reader.ActivePlanForApp(r.Context(), appID)
@@ -253,7 +253,7 @@ func (h *Handler) quotaHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to load plan")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.planLoadFailed")
 		return
 	}
 
@@ -277,12 +277,12 @@ func (h *Handler) enableSandbox(w http.ResponseWriter, r *http.Request) {
 	}
 	key, err := h.svc.EnableSandbox(r.Context(), appID)
 	if errors.Is(err, ErrNoSandboxEligibleSubscription) || errors.Is(err, ErrSandboxNotConfigured) {
-		httpx.Error(w, http.StatusConflict, "sandbox unavailable — subscribe to a sandbox-enabled API first")
+		httpx.ErrorT(w, r, http.StatusConflict, "subscribe.sandboxUnavailable")
 		return
 	}
 	if err != nil {
 		log.Printf("enable sandbox failed (app=%d): %v", appID, err)
-		httpx.Error(w, http.StatusInternalServerError, "enable sandbox failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.enableSandboxFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]string{"sandboxApiKey": key})
@@ -295,12 +295,12 @@ func (h *Handler) rotateSandbox(w http.ResponseWriter, r *http.Request) {
 	}
 	key, err := h.svc.RotateSandboxKey(r.Context(), appID)
 	if errors.Is(err, ErrNoSandboxKey) || errors.Is(err, ErrSandboxNotConfigured) {
-		httpx.Error(w, http.StatusConflict, "no sandbox key to rotate — enable sandbox first")
+		httpx.ErrorT(w, r, http.StatusConflict, "subscribe.noSandboxKeyToRotate")
 		return
 	}
 	if err != nil {
 		log.Printf("rotate sandbox key failed (app=%d): %v", appID, err)
-		httpx.Error(w, http.StatusInternalServerError, "rotation failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.rotationFailed")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]string{"sandboxApiKey": key})
@@ -315,15 +315,15 @@ func (h *Handler) setOIDCClient(w http.ResponseWriter, r *http.Request) {
 		ClientID string `json:"clientId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpx.Error(w, http.StatusBadRequest, "bad body")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "subscribe.badBody")
 		return
 	}
 	if err := h.svc.SetOIDCClientID(r.Context(), appID, body.ClientID); errors.Is(err, ErrInvalidClientID) {
-		httpx.Error(w, http.StatusBadRequest, "invalid client id")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "subscribe.invalidClientID")
 		return
 	} else if err != nil {
 		log.Printf("set oidc client (app=%d): %v", appID, err)
-		httpx.Error(w, http.StatusInternalServerError, "failed")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.oidcSetFailed")
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -342,7 +342,7 @@ func (h *Handler) usageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	rng, err := metrics.ParseRange(rangeKey)
 	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "unsupported range")
+		httpx.ErrorT(w, r, http.StatusBadRequest, "subscribe.unsupportedRange")
 		return
 	}
 	// The metrics are usage data per tenant — same no-store posture as detail.
@@ -356,18 +356,18 @@ func (h *Handler) usageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to load credential")
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.credentialLoadFailed")
 		return
 	}
 	if h.usage == nil {
-		httpx.Error(w, http.StatusServiceUnavailable, "metrics unavailable")
+		httpx.ErrorT(w, r, http.StatusServiceUnavailable, "subscribe.metricsUnavailable")
 		return
 	}
 	u, err := h.usage.Usage(r.Context(), cred.ConsumerUsername, rng)
 	if err != nil {
 		// Surface the dependency outage explicitly; never fall back to demo data.
 		log.Printf("usage for app %d (consumer %s): %v", appID, cred.ConsumerUsername, err)
-		httpx.Error(w, http.StatusServiceUnavailable, "metrics unavailable")
+		httpx.ErrorT(w, r, http.StatusServiceUnavailable, "subscribe.metricsUnavailable")
 		return
 	}
 	if u.Series == nil {
