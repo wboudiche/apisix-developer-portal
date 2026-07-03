@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ImportModal } from './ImportModal'
 import { AuthProvider } from '../../auth/AuthProvider'
+import { LanguageProvider } from '../../i18n/LanguageProvider'
 import * as api from '../../api/client'
 import type { AdminProduct } from '../../api/types'
 
@@ -13,13 +14,14 @@ const draft: AdminProduct = {
 
 beforeEach(() => {
   localStorage.clear()
+  localStorage.setItem('lang', 'fr')
   localStorage.setItem('token', 'jwt')
   localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'Admin', role: 'admin' }))
 })
 afterEach(() => vi.restoreAllMocks())
 
 function renderModal(onImported = vi.fn(), onClose = vi.fn()) {
-  render(<AuthProvider><ImportModal open onClose={onClose} onImported={onImported} /></AuthProvider>)
+  render(<LanguageProvider><AuthProvider><ImportModal open onClose={onClose} onImported={onImported} /></AuthProvider></LanguageProvider>)
   return { onImported, onClose }
 }
 

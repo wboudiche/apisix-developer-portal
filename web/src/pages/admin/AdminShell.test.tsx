@@ -3,10 +3,12 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { AdminShell } from './AdminShell'
 import { AuthProvider } from '../../auth/AuthProvider'
+import { LanguageProvider } from '../../i18n/LanguageProvider'
 import * as api from '../../api/client'
 
 beforeEach(() => {
   localStorage.clear()
+  localStorage.setItem('lang', 'fr')
   localStorage.setItem('token', 'jwt')
   localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'Admin', role: 'admin' }))
   vi.restoreAllMocks()
@@ -21,11 +23,13 @@ beforeEach(() => {
 function renderShell(counts?: { products?: number; plans?: number; pending?: number }) {
   return render(
     <MemoryRouter>
-      <AuthProvider>
-        <AdminShell active="products" title="Produits" description="desc" counts={counts}>
-          <p>CHILD</p>
-        </AdminShell>
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <AdminShell active="products" title="Produits" description="desc" counts={counts}>
+            <p>CHILD</p>
+          </AdminShell>
+        </AuthProvider>
+      </LanguageProvider>
     </MemoryRouter>
   )
 }

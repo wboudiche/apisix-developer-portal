@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { TopBar } from '../../components/TopBar'
 import { useAuth } from '../../auth/AuthProvider'
 import { adminGetProducts, adminGetPlans, adminGetSubscriptions } from '../../api/client'
+import { useT } from '../../i18n/LanguageProvider'
 import '../../styles/admin.css'
 
 export type AdminTab = 'products' | 'plans' | 'approvals'
@@ -19,6 +20,7 @@ export function AdminShell({ active, title, description, action, counts, childre
   children: ReactNode
 }) {
   const { token } = useAuth()
+  const t = useT()
   const [fetched, setFetched] = useState<{ products?: number; plans?: number; pending?: number }>({})
   // Which keys the page provides is fixed per call site — capture at mount.
   const provided = useRef({
@@ -50,10 +52,10 @@ export function AdminShell({ active, title, description, action, counts, childre
     <>
       <TopBar search="" onSearch={() => {}} />
       <div className="adminpage">
-        <nav className="subnav" aria-label="Sections d’administration">
-          <Link className={active === 'products' ? 'active' : ''} to="/admin/products">Produits {badge(n.products)}</Link>
-          <Link className={active === 'plans' ? 'active' : ''} to="/admin/plans">Plans {badge(n.plans)}</Link>
-          <Link className={active === 'approvals' ? 'active' : ''} to="/admin/approvals">Abonnements {badge(n.pending)}</Link>
+        <nav className="subnav" aria-label={t('admin.navAriaLabel')}>
+          <Link className={active === 'products' ? 'active' : ''} to="/admin/products">{t('admin.productsLabel')} {badge(n.products)}</Link>
+          <Link className={active === 'plans' ? 'active' : ''} to="/admin/plans">{t('admin.plansNavLabel')} {badge(n.plans)}</Link>
+          <Link className={active === 'approvals' ? 'active' : ''} to="/admin/approvals">{t('admin.approvalsNavLabel')} {badge(n.pending)}</Link>
         </nav>
         <div className="apanel">
           <div className="phead">

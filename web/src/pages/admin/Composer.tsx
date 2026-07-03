@@ -1,4 +1,5 @@
 import type { FormEvent, ReactNode } from 'react'
+import { useT } from '../../i18n/LanguageProvider'
 
 // Blueprint .composer: header (dot + title + hint), body (page-provided field
 // grid), dashed-top foot (left slot + Annuler/submit). Unmounted when closed,
@@ -13,6 +14,7 @@ export function Composer({ open, title, hint, submitLabel, onSubmit, onCancel, f
   footLeft?: ReactNode
   children: ReactNode
 }) {
+  const t = useT()
   if (!open) return null
   function submit(e: FormEvent) { e.preventDefault(); onSubmit() }
   return (
@@ -27,7 +29,7 @@ export function Composer({ open, title, hint, submitLabel, onSubmit, onCancel, f
         <div className="composer-foot">
           {footLeft}
           <div className="foot-acts">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Annuler</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>{t('common.cancel')}</button>
             <button type="submit" className="btn btn-primary btn-sm">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
               {submitLabel}
