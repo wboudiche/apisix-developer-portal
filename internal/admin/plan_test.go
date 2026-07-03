@@ -3,7 +3,7 @@ package admin
 import "testing"
 
 func TestPlanValidate(t *testing.T) {
-	base := Plan{Name: "Silver", RateLimit: 100, WindowSeconds: 60}
+	base := Plan{Name: "Silver", RateLimit: 100, WindowSeconds: 60, PriceCents: 2900, Currency: "EUR"}
 
 	cases := []struct {
 		name    string
@@ -17,6 +17,10 @@ func TestPlanValidate(t *testing.T) {
 		{"negative rate", func(p *Plan) { p.RateLimit = -5 }, true},
 		{"zero window", func(p *Plan) { p.WindowSeconds = 0 }, true},
 		{"negative window", func(p *Plan) { p.WindowSeconds = -1 }, true},
+		{"negative price", func(p *Plan) { p.PriceCents = -1 }, true},
+		{"lowercase currency", func(p *Plan) { p.Currency = "eur" }, true},
+		{"too-long currency", func(p *Plan) { p.Currency = "EURO" }, true},
+		{"empty currency", func(p *Plan) { p.Currency = "" }, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

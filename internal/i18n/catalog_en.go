@@ -89,6 +89,12 @@ var en = map[string]string{
 	"subscribe.admin.invalidTransition": "subscription cannot change from its current state",
 	"subscribe.admin.actionFailed":      "%s failed",
 
+	"billing.listFailed":        "could not list invoices",
+	"billing.badInvoiceID":      "bad invoice id",
+	"billing.invoiceNotFound":   "invoice not found",
+	"billing.invalidTransition": "invoice cannot change to that status",
+	"billing.actionFailed":      "invoice action failed",
+
 	// admin (product/plan/changelog CRUD)
 	"admin.product.slugTaken":           "slug already exists",
 	"admin.product.contextPathTaken":    "contextPath conflicts with an existing product",
@@ -131,6 +137,8 @@ var en = map[string]string{
 	"admin.plan.badID":            "bad plan id",
 	"admin.plan.badRateLimit":     "rateLimit must be greater than zero",
 	"admin.plan.badWindowSeconds": "windowSeconds must be greater than zero",
+	"admin.plan.badPrice":         "price must be zero or positive",
+	"admin.plan.badCurrency":      "currency must be a 3-letter code",
 
 	// tryit
 	"tryit.unauthenticated":            "unauthenticated",

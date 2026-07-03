@@ -62,3 +62,25 @@ func TestGetByIDNotFound(t *testing.T) {
 		t.Fatalf("want ErrNotFound, got %v", err)
 	}
 }
+
+func TestListExposesPrice(t *testing.T) {
+	ctx, repo := testRepo(t)
+	pool := repo.pool
+	// seed a priced plan
+	var id int64
+	err := pool.QueryRow(ctx,
+		`INSERT INTO plans(name, rate_limit_count, rate_limit_window_s, price_cents, currency)
+		 VALUES('PriceTest', 10, 60, 2900, 'EUR') RETURNING id`).Scan(&id)
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	defer pool.Exec(ctx, `DELETE FROM plans WHERE id=$1`, id)
+
+	p, err := repo.GetByID(ctx, id)
+	if err != nil {
+		t.Fatalf("getbyid: %v", err)
+	}
+	if p.PriceCents != 2900 || p.Currency != "EUR" {
+		t.Fatalf("price=%d cur=%q, want 2900/EUR", p.PriceCents, p.Currency)
+	}
+}

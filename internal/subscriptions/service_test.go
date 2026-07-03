@@ -304,6 +304,43 @@ func TestApproveRejectNotifyDeveloper(t *testing.T) {
 	}
 }
 
+type fakeBiller struct{ calls [][3]int64 } // {appID, subID, planID}
+
+func (f *fakeBiller) SubscriptionActivated(_ context.Context, appID, subID, planID int64) error {
+	f.calls = append(f.calls, [3]int64{appID, subID, planID})
+	return nil
+}
+
+func TestApproveFiresBillerKeyAuth(t *testing.T) {
+	store := newMemStore() // product 3 key-auth published, plan 2
+	fb := &fakeBiller{}
+	svc := NewService(store, apisix.NewFake(), nil, func() string { return "k" }, nil)
+	svc.SetBiller(fb)
+	store.records[10] = &SubscriptionRecord{ID: 10, AppID: 11, ProductID: 3, PlanID: 2, Status: StatusPending}
+	if err := svc.Approve(context.Background(), 10); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+	if len(fb.calls) != 1 || fb.calls[0] != [3]int64{11, 10, 2} {
+		t.Fatalf("biller calls = %+v, want one {11,10,2}", fb.calls)
+	}
+}
+
+func TestApproveFiresBillerOAuth2(t *testing.T) {
+	store := newMemStore()
+	store.products[9] = ProductInfo{ID: 9, ContextPath: "/orders", Upstream: "echo:8080", AuthType: "oauth2"}
+	fb := &fakeBiller{}
+	svc := NewService(store, apisix.NewFake(), nil, func() string { return "k" }, nil)
+	svc.ConfigureOIDC("https://idp.example/realms/dev", "azp")
+	svc.SetBiller(fb)
+	store.records[20] = &SubscriptionRecord{ID: 20, AppID: 12, ProductID: 9, PlanID: 4, Status: StatusPending}
+	if err := svc.Approve(context.Background(), 20); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+	if len(fb.calls) != 1 || fb.calls[0] != [3]int64{12, 20, 4} {
+		t.Fatalf("biller calls = %+v, want one {12,20,4}", fb.calls)
+	}
+}
+
 func TestNilNotifierSafe(t *testing.T) {
 	store := newMemStore()
 	svc := NewService(store, apisix.NewFake(), nil, func() string { return "k" }, nil)

@@ -9,6 +9,8 @@ type Plan struct {
 	Name          string `json:"name"`
 	RateLimit     int    `json:"rateLimit"`
 	WindowSeconds int    `json:"windowSeconds"`
+	PriceCents    int    `json:"priceCents"`
+	Currency      string `json:"currency"`
 }
 
 // validate returns "" when the plan is valid, otherwise an i18n message key
@@ -23,5 +25,24 @@ func (p Plan) validate() string {
 	if p.WindowSeconds <= 0 {
 		return "admin.plan.badWindowSeconds"
 	}
+	if p.PriceCents < 0 {
+		return "admin.plan.badPrice"
+	}
+	if !validCurrency(p.Currency) {
+		return "admin.plan.badCurrency"
+	}
 	return ""
+}
+
+// validCurrency accepts exactly three ASCII uppercase letters (ISO 4217 shape).
+func validCurrency(c string) bool {
+	if len(c) != 3 {
+		return false
+	}
+	for _, r := range c {
+		if r < 'A' || r > 'Z' {
+			return false
+		}
+	}
+	return true
 }
