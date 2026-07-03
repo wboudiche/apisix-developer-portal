@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import type { User } from '../api/types'
 import * as api from '../api/client'
+import { useLang } from '../i18n/LanguageProvider'
 
 interface AuthState {
   user: User | null
@@ -19,11 +20,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!raw) return null
     try { return JSON.parse(raw) as User } catch { return null }
   })
+  const { setLang } = useLang()
 
   function apply(res: { user: User; token: string }) {
     setUser(res.user); setToken(res.token)
     localStorage.setItem('token', res.token)
     localStorage.setItem('user', JSON.stringify(res.user))
+    if (res.user.language) setLang(res.user.language)
   }
 
   const login = async (email: string, password: string) => apply(await api.login(email, password))

@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { Link, useLocation } from 'react-router-dom'
 import type { User } from '../api/types'
 import { useT, useLang } from '../i18n/LanguageProvider'
+import { setMyLanguage } from '../api/client'
 
 // ── Nav-tab icons ──────────────────────────────────────────────────────────────
 
@@ -111,7 +112,7 @@ export function TopBar({
   onMenu?: () => void
 }) {
   const { theme, toggle } = useTheme()
-  const { user, logout } = useAuth()
+  const { user, token, logout } = useAuth()
   const { pathname } = useLocation()
   const t = useT()
   const { lang, setLang } = useLang()
@@ -218,7 +219,11 @@ export function TopBar({
 
       <button
         className="langtoggle"
-        onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
+        onClick={() => {
+          const next = lang === 'fr' ? 'en' : 'fr'
+          setLang(next)
+          if (token) setMyLanguage(token, next).catch(() => { /* best-effort */ })
+        }}
         title={lang === 'fr' ? 'English' : 'Français'}
       >
         {lang === 'fr' ? 'EN' : 'FR'}

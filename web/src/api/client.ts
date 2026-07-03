@@ -186,6 +186,10 @@ export async function setOidcClient(token: string, appId: number, clientId: stri
   return sendAuthed('PUT', `/api/applications/${appId}/oidc-client`, token, { clientId })
 }
 
+export async function setMyLanguage(token: string, language: 'fr' | 'en'): Promise<void> {
+  await sendAuthed('PUT', '/api/me/language', token, { language })
+}
+
 export async function rotateSandboxKey(token: string, appId: number): Promise<{ sandboxApiKey: string }> {
   const url = `/api/applications/${appId}/sandbox/rotate`
   return parse<{ sandboxApiKey: string }>(await fetch(url, { method: 'POST', headers: langHeaders(token) }), url)
