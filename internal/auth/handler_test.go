@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"apisix-portal/internal/httpx"
+	"apisix-portal/internal/i18n"
 )
 
 // memRepo is an in-memory UserStore for handler tests.
@@ -29,12 +31,12 @@ func newMemRepo() *memRepo {
 	}{}}
 }
 
-func (m *memRepo) Create(_ context.Context, email, hash, name string) (User, error) {
+func (m *memRepo) Create(_ context.Context, email, hash, name, lang string) (User, error) {
 	if _, ok := m.byEmail[email]; ok {
 		return User{}, ErrEmailTaken
 	}
 	m.nextID++
-	u := User{ID: m.nextID, Email: email, Name: name, Role: "developer"}
+	u := User{ID: m.nextID, Email: email, Name: name, Role: "developer", Language: lang}
 	m.byEmail[email] = struct {
 		u    User
 		hash string
@@ -48,6 +50,17 @@ func (m *memRepo) GetByEmail(_ context.Context, email string) (User, string, err
 		return User{}, "", errors.New("not found")
 	}
 	return v.u, v.hash, nil
+}
+
+func (m *memRepo) SetLanguage(_ context.Context, userID int64, lang string) error {
+	for email, v := range m.byEmail {
+		if v.u.ID == userID {
+			v.u.Language = lang
+			m.byEmail[email] = v
+			return nil
+		}
+	}
+	return errors.New("not found")
 }
 
 func newTestHandler() *Handler {
@@ -116,12 +129,16 @@ func TestRegisterShortPasswordRejected(t *testing.T) {
 // brokenRepo always fails Create with a generic (non-duplicate) error.
 type brokenRepo struct{}
 
-func (b *brokenRepo) Create(_ context.Context, _, _, _ string) (User, error) {
+func (b *brokenRepo) Create(_ context.Context, _, _, _, _ string) (User, error) {
 	return User{}, errors.New("db down")
 }
 
 func (b *brokenRepo) GetByEmail(_ context.Context, _ string) (User, string, error) {
 	return User{}, "", errors.New("db down")
+}
+
+func (b *brokenRepo) SetLanguage(_ context.Context, _ int64, _ string) error {
+	return errors.New("db down")
 }
 
 func TestRegisterDBErrorReturns500(t *testing.T) {
@@ -205,5 +222,36 @@ func TestLoginPerAccountRateLimitBlocks(t *testing.T) {
 	// Third attempt from yet another IP must be blocked by the per-email limiter.
 	if code := login("10.0.0.3:1"); code != http.StatusTooManyRequests {
 		t.Fatalf("3rd attempt: got %d, want 429", code)
+	}
+}
+
+// TestRegisterSeedsLanguageFromAcceptLanguage verifies that register seeds the
+// new user's stored language from the request locale resolved by the i18n
+// middleware (via i18n.FromContext), not by re-parsing Accept-Language itself.
+func TestRegisterSeedsLanguageFromAcceptLanguage(t *testing.T) {
+	h := newTestHandler()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/register",
+		strings.NewReader(`{"email":"seed@x.io","password":"password1","name":"Ada"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Language", "en")
+	// The handler test bypasses the real i18n.Middleware, so set the context
+	// locale explicitly — in production the outermost middleware does this.
+	req = req.WithContext(i18n.WithLang(req.Context(), "en"))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("code=%d body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		User struct {
+			Language string `json:"language"`
+		} `json:"user"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if out.User.Language != "en" {
+		t.Fatalf("seeded language=%q, want en", out.User.Language)
 	}
 }

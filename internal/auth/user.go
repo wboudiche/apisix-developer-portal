@@ -11,10 +11,11 @@ import (
 var ErrPasswordTooLong = errors.New("password must be at most 72 bytes")
 
 type User struct {
-	ID    int64  `json:"id"`
-	Email string `json:"email"`
-	Name  string `json:"name"`
-	Role  string `json:"role"`
+	ID       int64  `json:"id"`
+	Email    string `json:"email"`
+	Name     string `json:"name"`
+	Role     string `json:"role"`
+	Language string `json:"language"`
 }
 
 // HashPassword returns a bcrypt hash (cost 12) of the plaintext password.

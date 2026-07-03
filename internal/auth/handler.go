@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"apisix-portal/internal/httpx"
+	"apisix-portal/internal/i18n"
 )
 
 // dummyHash is a valid bcrypt hash compared against when the user is absent, so
@@ -20,8 +21,9 @@ const dummyHash = "$2a$12$kBCKU4PMSdprqnbX9uYhN.uuNofR4mwH3zF5a8xEADAFoRn2M2FMC"
 
 // UserStore is the persistence surface the handler needs (satisfied by *Repo).
 type UserStore interface {
-	Create(ctx context.Context, email, passwordHash, name string) (User, error)
+	Create(ctx context.Context, email, passwordHash, name, lang string) (User, error)
 	GetByEmail(ctx context.Context, email string) (User, string, error)
+	SetLanguage(ctx context.Context, userID int64, lang string) error
 }
 
 type Handler struct {
@@ -63,7 +65,8 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		httpx.ErrorT(w, r, http.StatusInternalServerError, "auth.password.hashFailed")
 		return
 	}
-	u, err := h.store.Create(r.Context(), c.Email, hash, c.Name)
+	lang := string(i18n.FromContext(r.Context()))
+	u, err := h.store.Create(r.Context(), c.Email, hash, c.Name, lang)
 	if errors.Is(err, ErrEmailTaken) {
 		// NOTE: a distinct 409 is an intentional UX trade-off (users must learn an
 		// email is taken). The timing oracle on login is the closed leak (M3).
