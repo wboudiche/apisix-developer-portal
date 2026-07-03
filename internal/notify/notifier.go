@@ -17,8 +17,8 @@ const deliverTimeout = 20 * time.Second
 
 // Resolver resolves recipient emails + display names (satisfied by *Repo).
 type Resolver interface {
-	OwnerEmailsForApp(ctx context.Context, appID int64) ([]string, string, error)
-	AdminEmails(ctx context.Context) ([]string, error)
+	OwnerEmailsForApp(ctx context.Context, appID int64) ([]Recipient, string, error)
+	AdminEmails(ctx context.Context) ([]Recipient, error)
 	ProductName(ctx context.Context, productID int64) (string, error)
 	PlanName(ctx context.Context, planID int64) (string, error)
 }
@@ -44,8 +44,53 @@ func (n *Notifier) SubscriptionRejected(appID, productID int64) {
 	go n.deliver(kindRejected, appID, productID, 0)
 }
 
-// deliver resolves recipients, renders the template, and sends. Synchronous and
-// best-effort: all errors are logged and dropped; empty recipients are skipped.
+type emailTemplate struct{ subject, body string }
+
+// emailTemplates[kind][lang]. body is a fmt format string; the arg order per
+// kind is fixed across languages (see deliver()).
+var emailTemplates = map[string]map[string]emailTemplate{
+	kindRequested: {
+		"fr": {
+			subject: "Nouvelle demande d'abonnement à examiner",
+			body:    "Une nouvelle demande d'abonnement attend votre validation.\n\nApplication : %s\nAPI : %s\nForfait : %s\n\nExaminez-la ici : %s/admin/approvals\n",
+		},
+		"en": {
+			subject: "New subscription request to review",
+			body:    "A new subscription request is awaiting your approval.\n\nApplication: %s\nAPI: %s\nPlan: %s\n\nReview it here: %s/admin/approvals\n",
+		},
+	},
+	kindApproved: {
+		"fr": {
+			subject: "Votre abonnement est approuvé",
+			body:    "Bonne nouvelle ! L'abonnement de %s à %s (%s) est approuvé.\n\nRetrouvez vos identifiants ici : %s/applications\n",
+		},
+		"en": {
+			subject: "Your subscription is approved",
+			body:    "Good news! The subscription of %s to %s (%s) is approved.\n\nFind your credentials here: %s/applications\n",
+		},
+	},
+	kindRejected: {
+		"fr": {
+			subject: "Votre demande d'abonnement a été refusée",
+			body:    "La demande d'abonnement de %s à %s n'a pas été approuvée.\n\nParcourez le catalogue : %s/\n",
+		},
+		"en": {
+			subject: "Your subscription request was declined",
+			body:    "The subscription request of %s to %s was not approved.\n\nBrowse the catalog: %s/\n",
+		},
+	},
+}
+
+func normalizeLang(l string) string {
+	if l == "en" {
+		return "en"
+	}
+	return "fr"
+}
+
+// deliver resolves recipients, renders the template in each recipient's
+// language, and sends one message per recipient. Best-effort: all errors are
+// logged and dropped; empty recipient emails are skipped.
 func (n *Notifier) deliver(kind string, appID, productID, planID int64) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -63,7 +108,7 @@ func (n *Notifier) deliver(kind string, appID, productID, planID int64) {
 	if product == "" {
 		product = "une API"
 	}
-	ownerEmails, appName, err := n.repo.OwnerEmailsForApp(ctx, appID)
+	owners, appName, err := n.repo.OwnerEmailsForApp(ctx, appID)
 	if err != nil {
 		log.Printf("notify: owner emails (app=%d): %v", appID, err)
 	}
@@ -71,8 +116,8 @@ func (n *Notifier) deliver(kind string, appID, productID, planID int64) {
 		appName = "votre application"
 	}
 
-	var to []string
-	var subject, body string
+	var to []Recipient
+	var args []any
 	switch kind {
 	case kindRequested:
 		admins, err := n.repo.AdminEmails(ctx)
@@ -85,38 +130,29 @@ func (n *Notifier) deliver(kind string, appID, productID, planID int64) {
 		if plan == "" {
 			plan = "un forfait"
 		}
-		subject = "Nouvelle demande d'abonnement à examiner"
-		body = fmt.Sprintf("Une nouvelle demande d'abonnement attend votre validation.\n\nApplication : %s\nAPI : %s\nForfait : %s\n\nExaminez-la ici : %s/admin/approvals\n",
-			appName, product, plan, n.baseURL)
+		args = []any{appName, product, plan, n.baseURL}
 	case kindApproved:
-		to = ownerEmails
+		to = owners
 		plan, _ := n.repo.PlanName(ctx, planID)
 		if plan == "" {
 			plan = "votre forfait"
 		}
-		subject = "Votre abonnement est approuvé"
-		body = fmt.Sprintf("Bonne nouvelle ! L'abonnement de %s à %s (%s) est approuvé.\n\nRetrouvez vos identifiants ici : %s/applications\n",
-			appName, product, plan, n.baseURL)
+		args = []any{appName, product, plan, n.baseURL}
 	case kindRejected:
-		to = ownerEmails
-		subject = "Votre demande d'abonnement a été refusée"
-		body = fmt.Sprintf("La demande d'abonnement de %s à %s n'a pas été approuvée.\n\nParcourez le catalogue : %s/\n",
-			appName, product, n.baseURL)
+		to = owners
+		args = []any{appName, product, n.baseURL}
 	default:
 		return
 	}
 
-	// Drop empty recipients (e.g. a missing owner email or no admins).
-	clean := to[:0]
-	for _, addr := range to {
-		if addr != "" {
-			clean = append(clean, addr)
+	for _, rc := range to {
+		if rc.Email == "" {
+			continue
 		}
-	}
-	if len(clean) == 0 {
-		return
-	}
-	if err := n.sender.Send(ctx, clean, subject, body); err != nil {
-		log.Printf("notify: send %q to %v: %v", kind, clean, err)
+		tpl := emailTemplates[kind][normalizeLang(rc.Lang)]
+		body := fmt.Sprintf(tpl.body, args...)
+		if err := n.sender.Send(ctx, []string{rc.Email}, tpl.subject, body); err != nil {
+			log.Printf("notify: send %q to %s: %v", kind, rc.Email, err)
+		}
 	}
 }
