@@ -11,6 +11,7 @@ export const fr = {
     applications: 'Applications',
     teams: 'Équipes',
     admin: 'Admin',
+    billing: 'Facturation',
     searchPlaceholder: 'Rechercher une API, un tag, un contexte…',
     searchLabel: 'Rechercher',
     toggleTheme: 'Basculer le thème',
@@ -279,6 +280,7 @@ export const fr = {
     productsLabel: 'Produits',
     plansNavLabel: 'Plans',
     approvalsNavLabel: 'Abonnements',
+    invoicesNavLabel: 'Factures',
     plansPageTitle: 'Plans de débit',
     approvalsPageTitle: 'Abonnements en attente',
     // meta.tsx
@@ -376,6 +378,10 @@ export const fr = {
     planSavedNotify: 'Plan {name} enregistré',
     planCreatedNotify: 'Plan {name} créé',
     loadPlansError: 'Impossible de charger les plans.',
+    plan: {
+      priceLabel: 'Prix (centimes)',
+      currencyLabel: 'Devise',
+    },
     // ApprovalsPage
     approvalsDescription: "Validez ou refusez les demandes d'abonnement des applications. À l'approbation, APISIX crée le consumer et active la politique de débit du plan choisi.",
     loadSubscriptionsError: 'Impossible de charger les abonnements.',
@@ -414,6 +420,33 @@ export const fr = {
     remove: 'Retirer',
     addMemberEmailPlaceholder: "Email d'un utilisateur",
     deleteTeam: "Supprimer l'équipe",
+  },
+  billing: {
+    title: 'Facturation',
+    hint: "Une facture est émise lorsqu'un abonnement payant est approuvé.",
+    none: 'Aucune facture.',
+    free: 'Gratuit',
+    perMonthSuffix: '/mois',
+    filterAll: 'Toutes',
+    status: {
+      pending: 'En attente',
+      paid: 'Payée',
+      void: 'Annulée',
+    },
+    col: {
+      plan: 'Offre',
+      amount: 'Montant',
+      team: 'Équipe',
+      status: 'Statut',
+      created: 'Créée',
+    },
+    admin: {
+      title: 'Factures',
+      desc: "Gérez les factures d'abonnement.",
+      none: 'Aucune facture.',
+      pay: 'Payer',
+      void: 'Annuler',
+    },
   },
   activity: {
     justNow: "à l'instant",

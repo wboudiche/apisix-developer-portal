@@ -26,7 +26,7 @@ function renderModal() {
 describe('SubscribeModal', () => {
   it('loads apps + plans, subscribes, and shows the issued key', async () => {
     vi.spyOn(api, 'getApplications').mockResolvedValue({ items: [{ id: 9, name: 'My App', ownerId: 5, description: '', createdAt: '' }], total: 1, page: 1, pageSize: 20 })
-    vi.spyOn(api, 'getPlans').mockResolvedValue({ items: [{ id: 2, name: 'Silver', rateLimit: 300, windowSeconds: 60 }], total: 1, page: 1, pageSize: 20 })
+    vi.spyOn(api, 'getPlans').mockResolvedValue({ items: [{ id: 2, name: 'Silver', rateLimit: 300, windowSeconds: 60, priceCents: 0, currency: 'EUR' }], total: 1, page: 1, pageSize: 20 })
     const sub = vi.spyOn(api, 'subscribe').mockResolvedValue({ applicationId: 9, apiKey: 'SECRET-KEY', consumerUsername: 'app_9' })
 
     renderModal()
@@ -37,9 +37,27 @@ describe('SubscribeModal', () => {
     expect(sub).toHaveBeenCalledWith('tok', 9, 3, 2)
   })
 
+  it('shows the formatted price in a paid plan option', async () => {
+    vi.spyOn(api, 'getApplications').mockResolvedValue({ items: [{ id: 9, name: 'My App', ownerId: 5, description: '', createdAt: '' }], total: 1, page: 1, pageSize: 20 })
+    vi.spyOn(api, 'getPlans').mockResolvedValue({ items: [{ id: 4, name: 'Gold', rateLimit: 1000, windowSeconds: 60, priceCents: 2900, currency: 'EUR' }], total: 1, page: 1, pageSize: 20 })
+    const { container } = renderModal()
+    await waitFor(() => expect(screen.getByText('My App')).toBeInTheDocument())
+    const option = container.querySelector('option[value="4"]')
+    expect(option?.textContent).toMatch(/29,00.€\/mois/)
+  })
+
+  it('shows "Gratuit" in a free plan option', async () => {
+    vi.spyOn(api, 'getApplications').mockResolvedValue({ items: [{ id: 9, name: 'My App', ownerId: 5, description: '', createdAt: '' }], total: 1, page: 1, pageSize: 20 })
+    vi.spyOn(api, 'getPlans').mockResolvedValue({ items: [{ id: 2, name: 'Silver', rateLimit: 300, windowSeconds: 60, priceCents: 0, currency: 'EUR' }], total: 1, page: 1, pageSize: 20 })
+    const { container } = renderModal()
+    await waitFor(() => expect(screen.getByText('My App')).toBeInTheDocument())
+    const option = container.querySelector('option[value="2"]')
+    expect(option?.textContent).toContain('Gratuit')
+  })
+
   it('shows the server error when subscribe fails', async () => {
     vi.spyOn(api, 'getApplications').mockResolvedValue({ items: [{ id: 9, name: 'My App', ownerId: 5, description: '', createdAt: '' }], total: 1, page: 1, pageSize: 20 })
-    vi.spyOn(api, 'getPlans').mockResolvedValue({ items: [{ id: 2, name: 'Silver', rateLimit: 300, windowSeconds: 60 }], total: 1, page: 1, pageSize: 20 })
+    vi.spyOn(api, 'getPlans').mockResolvedValue({ items: [{ id: 2, name: 'Silver', rateLimit: 300, windowSeconds: 60, priceCents: 0, currency: 'EUR' }], total: 1, page: 1, pageSize: 20 })
     vi.spyOn(api, 'subscribe').mockRejectedValue(new Error('provisioning failed'))
     renderModal()
     await waitFor(() => expect(screen.getByText('My App')).toBeInTheDocument())
@@ -49,7 +67,7 @@ describe('SubscribeModal', () => {
 
   it('shows copy feedback when the key is copied', async () => {
     vi.spyOn(api, 'getApplications').mockResolvedValue({ items: [{ id: 9, name: 'My App', ownerId: 5, description: '', createdAt: '' }], total: 1, page: 1, pageSize: 20 })
-    vi.spyOn(api, 'getPlans').mockResolvedValue({ items: [{ id: 2, name: 'Silver', rateLimit: 300, windowSeconds: 60 }], total: 1, page: 1, pageSize: 20 })
+    vi.spyOn(api, 'getPlans').mockResolvedValue({ items: [{ id: 2, name: 'Silver', rateLimit: 300, windowSeconds: 60, priceCents: 0, currency: 'EUR' }], total: 1, page: 1, pageSize: 20 })
     vi.spyOn(api, 'subscribe').mockResolvedValue({ applicationId: 9, apiKey: 'SECRET-KEY', consumerUsername: 'app_9' })
     renderModal()
     await waitFor(() => expect(screen.getByText('My App')).toBeInTheDocument())

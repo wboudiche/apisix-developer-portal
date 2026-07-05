@@ -8,7 +8,8 @@ import { planRate, planPreview } from './meta'
 import { Toast, useToast } from '../../components/Toast'
 import { Pagination } from '../../components/Pagination'
 import { ConfirmModal, type ModalSpec } from '../../components/ConfirmModal'
-import { useT } from '../../i18n/LanguageProvider'
+import { useT, useLang } from '../../i18n/LanguageProvider'
+import { priceLabel } from '../../money'
 
 const TIERS = ['Free', 'Silver', 'Gold']
 
@@ -19,6 +20,7 @@ function PlusIcon() {
 export function PlansPage() {
   const { token } = useAuth()
   const t = useT()
+  const { lang } = useLang()
   const [plans, setPlans] = useState<Plan[]>([])
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
@@ -28,6 +30,8 @@ export function PlansPage() {
   const [name, setName] = useState('')
   const [limit, setLimit] = useState(100)
   const [windowS, setWindowS] = useState(60)
+  const [priceCents, setPriceCents] = useState(0)
+  const [currency, setCurrency] = useState('EUR')
   const [modal, setModal] = useState<ModalSpec | null>(null)
   const [err, setErr] = useState('')
   const { toast, notify } = useToast()
@@ -43,12 +47,12 @@ export function PlansPage() {
   }, [token, page])
   useEffect(reload, [reload])
 
-  function openCreate() { setEditing(null); setName(''); setLimit(100); setWindowS(60); setOpen(true) }
-  function openEdit(p: Plan) { setEditing(p); setName(p.name); setLimit(p.rateLimit); setWindowS(p.windowSeconds); setOpen(true) }
+  function openCreate() { setEditing(null); setName(''); setLimit(100); setWindowS(60); setPriceCents(0); setCurrency('EUR'); setOpen(true) }
+  function openEdit(p: Plan) { setEditing(p); setName(p.name); setLimit(p.rateLimit); setWindowS(p.windowSeconds); setPriceCents(p.priceCents); setCurrency(p.currency); setOpen(true) }
 
   async function submit() {
     if (!token || !name.trim()) return
-    const payload: Plan = { id: editing?.id ?? 0, name: name.trim(), rateLimit: limit || 100, windowSeconds: windowS || 60 }
+    const payload: Plan = { id: editing?.id ?? 0, name: name.trim(), rateLimit: limit || 100, windowSeconds: windowS || 60, priceCents: priceCents || 0, currency: (currency || 'EUR').toUpperCase() }
     try {
       if (editing) { await adminUpdatePlan(token, editing.id, payload); notify(t('admin.planSavedNotify', { name: payload.name })) }
       else { await adminCreatePlan(token, payload); notify(t('admin.planCreatedNotify', { name: payload.name })) }
@@ -114,6 +118,16 @@ export function PlansPage() {
             <input id="p-window" className="ipt mono" type="number" min={1}
               value={windowS} onChange={e => setWindowS(Number(e.target.value))} />
           </div>
+          <div className="field">
+            <label htmlFor="p-price">{t('admin.plan.priceLabel')}</label>
+            <input id="p-price" className="ipt mono" type="number" min={0}
+              value={priceCents} onChange={e => setPriceCents(Number(e.target.value))} />
+          </div>
+          <div className="field">
+            <label htmlFor="p-currency">{t('admin.plan.currencyLabel')}</label>
+            <input id="p-currency" className="ipt mono" maxLength={3}
+              value={currency} onChange={e => setCurrency(e.target.value.toUpperCase())} />
+          </div>
         </div>
       </Composer>
 
@@ -128,7 +142,7 @@ export function PlansPage() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M13 2L3 14h7l-1 8 10-12h-7z" /></svg>
             </div>
             <div className="main">
-              <div className="nm"><b>{p.name}</b><span className="limit">{p.rateLimit} req / {p.windowSeconds}s</span></div>
+              <div className="nm"><b>{p.name}</b><span className="limit">{p.rateLimit} req / {p.windowSeconds}s</span><span className="price">{priceLabel(p.priceCents, p.currency, lang, t('billing.free'), t('billing.perMonthSuffix'))}</span></div>
               <div className="meta">{planRate(p.rateLimit, p.windowSeconds, t)}{t('admin.policySuffix')}<span className="up">limit-count</span></div>
             </div>
             <div className="actions">

@@ -8,8 +8,10 @@ import { AdminGuard } from './admin/AdminGuard'
 import { ProductsPage } from './pages/admin/ProductsPage'
 import { PlansPage } from './pages/admin/PlansPage'
 import { ApprovalsPage } from './pages/admin/ApprovalsPage'
+import { InvoicesPage } from './pages/admin/InvoicesPage'
 import { ProductDetailPage } from './pages/ProductDetailPage'
 import TeamsPage from './pages/teams/TeamsPage'
+import BillingPage from './pages/billing/BillingPage'
 
 export default function App() {
   return (
@@ -21,10 +23,12 @@ export default function App() {
       <Route path="/applications" element={<ApplicationsIndex />} />
       <Route path="/applications/:id" element={<AppDetailPage />} />
       <Route path="/teams" element={<TeamsPage />} />
+      <Route path="/billing" element={<BillingPage />} />
       <Route path="/admin" element={<Navigate to="/admin/products" replace />} />
       <Route path="/admin/products" element={<AdminGuard><ProductsPage /></AdminGuard>} />
       <Route path="/admin/plans" element={<AdminGuard><PlansPage /></AdminGuard>} />
       <Route path="/admin/approvals" element={<AdminGuard><ApprovalsPage /></AdminGuard>} />
+      <Route path="/admin/invoices" element={<AdminGuard><InvoicesPage /></AdminGuard>} />
     </Routes>
   )
 }

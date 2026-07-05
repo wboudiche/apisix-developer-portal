@@ -43,6 +43,20 @@ export interface Plan {
   name: string
   rateLimit: number
   windowSeconds: number
+  priceCents: number
+  currency: string
+}
+
+export interface Invoice {
+  id: number
+  teamId: number
+  subscriptionId: number | null
+  planName: string
+  priceCents: number
+  currency: string
+  status: 'pending' | 'paid' | 'void'
+  createdAt: string
+  paidAt: string | null
 }
 
 export interface Application {

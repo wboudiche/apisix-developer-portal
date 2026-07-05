@@ -16,8 +16,8 @@ describe('helpers', () => {
     expect(maskKey('short')).toBe('short')
   })
   it('labels plan rates, minute window as /min', () => {
-    expect(rateLabel({ id: 1, name: 'Gold', rateLimit: 1000, windowSeconds: 60 })).toBe('1 000 / min')
-    expect(rateLabel({ id: 2, name: 'X', rateLimit: 50, windowSeconds: 10 })).toBe('50 / 10s')
+    expect(rateLabel({ id: 1, name: 'Gold', rateLimit: 1000, windowSeconds: 60, priceCents: 0, currency: 'EUR' })).toBe('1 000 / min')
+    expect(rateLabel({ id: 2, name: 'X', rateLimit: 50, windowSeconds: 10, priceCents: 0, currency: 'EUR' })).toBe('50 / 10s')
     expect(rateLabel(undefined)).toBe('—')
   })
   it('maps subscription status to pill class/label', () => {

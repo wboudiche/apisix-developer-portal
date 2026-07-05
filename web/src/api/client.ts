@@ -1,7 +1,7 @@
 import type {
   Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail,
   AdminProduct, AdminSubscription, Usage, UsageRange, Paginated, TryApp, Quota,
-  RatingsView, Team, TeamMember, ChangelogEntry,
+  RatingsView, Team, TeamMember, ChangelogEntry, Invoice,
 } from './types'
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. 409 when
@@ -326,4 +326,19 @@ export async function adminApproveSubscription(token: string, id: number): Promi
 }
 export async function adminRejectSubscription(token: string, id: number): Promise<void> {
   return sendAuthed('POST', `/api/admin/subscriptions/${id}/reject`, token)
+}
+
+// --- Billing ---
+export async function getBillingInvoices(token: string): Promise<Invoice[]> {
+  return parse<Invoice[]>(await fetch('/api/billing/invoices', { headers: langHeaders(token) }), '/api/billing/invoices')
+}
+export async function adminGetInvoices(token: string, status?: string): Promise<Invoice[]> {
+  const url = status ? `/api/admin/invoices?status=${encodeURIComponent(status)}` : '/api/admin/invoices'
+  return parse<Invoice[]>(await fetch(url, { headers: langHeaders(token) }), url)
+}
+export async function adminPayInvoice(token: string, id: number): Promise<void> {
+  return sendAuthed('POST', `/api/admin/invoices/${id}/pay`, token)
+}
+export async function adminVoidInvoice(token: string, id: number): Promise<void> {
+  return sendAuthed('POST', `/api/admin/invoices/${id}/void`, token)
 }

@@ -12,6 +12,7 @@ export const en: Messages = {
     applications: 'Applications',
     teams: 'Teams',
     admin: 'Admin',
+    billing: 'Billing',
     searchPlaceholder: 'Search an API, a tag, a context…',
     searchLabel: 'Search',
     toggleTheme: 'Toggle theme',
@@ -280,6 +281,7 @@ export const en: Messages = {
     productsLabel: 'Products',
     plansNavLabel: 'Plans',
     approvalsNavLabel: 'Subscriptions',
+    invoicesNavLabel: 'Invoices',
     plansPageTitle: 'Rate plans',
     approvalsPageTitle: 'Pending subscriptions',
     // meta.tsx
@@ -377,6 +379,10 @@ export const en: Messages = {
     planSavedNotify: 'Plan {name} saved',
     planCreatedNotify: 'Plan {name} created',
     loadPlansError: 'Unable to load plans.',
+    plan: {
+      priceLabel: 'Price (cents)',
+      currencyLabel: 'Currency',
+    },
     // ApprovalsPage
     approvalsDescription: 'Approve or reject application subscription requests. On approval, APISIX creates the consumer and activates the chosen plan’s rate policy.',
     loadSubscriptionsError: 'Unable to load subscriptions.',
@@ -415,6 +421,33 @@ export const en: Messages = {
     remove: 'Remove',
     addMemberEmailPlaceholder: "A user's email",
     deleteTeam: 'Delete team',
+  },
+  billing: {
+    title: 'Billing',
+    hint: 'An invoice is issued when a paid subscription is approved.',
+    none: 'No invoices.',
+    free: 'Free',
+    perMonthSuffix: '/mo',
+    filterAll: 'All',
+    status: {
+      pending: 'Pending',
+      paid: 'Paid',
+      void: 'Void',
+    },
+    col: {
+      plan: 'Plan',
+      amount: 'Amount',
+      team: 'Team',
+      status: 'Status',
+      created: 'Created',
+    },
+    admin: {
+      title: 'Invoices',
+      desc: 'Manage subscription invoices.',
+      none: 'No invoices.',
+      pay: 'Pay',
+      void: 'Void',
+    },
   },
   activity: {
     justNow: 'just now',
