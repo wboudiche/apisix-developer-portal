@@ -299,7 +299,7 @@ Expected: **200** for the subscribed client; **403** for a token whose client-id
 
 - [ ] **Step 4: Write the docs**
 
-Add a "Full test stack" section to `README.md`: the `/etc/hosts` line (`127.0.0.1 auth.example.com manager.example.com`), `make full`, open `http://localhost:8088`, the admin-restart step, `make full-down`, and the LL::NG client creds. Cross-reference the QA runbook.
+Add a "Full test stack" section to `README.md`: the `/etc/hosts` line (`127.0.0.1 auth.example.com manager.example.com`), `make full`, open `http://localhost:8088`, the admin-restart step, `make full-down`, and the LL::NG client creds. Include a **component/URL table** so each piece is obvious — web `:8088`, portal API `:8090`, **Mailpit (internal mail — the portal sends approval-loop emails here; read them at `:8025`)**, LemonLDAP::NG `:8081`, APISIX gateway `:9080` / sandbox `:9081`, Prometheus `:9099`. Cross-reference the QA runbook.
 
 - [ ] **Step 5: Commit**
 
