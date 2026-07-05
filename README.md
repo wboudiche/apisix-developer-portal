@@ -18,12 +18,16 @@ with no host-side Go or Node processes.
 
 ### Prerequisites
 
-The OAuth2 issuer must resolve to the same hostname from both the host and
-inside the Docker network. Add this line to your host `/etc/hosts` **once**:
+None. In-network issuer resolution (APISIX → LemonLDAP) is handled
+automatically by compose **network aliases** (`auth.example.com` /
+`manager.example.com`), and the host-side OAuth2 commands below reach
+LemonLDAP at `localhost:8081` with an explicit `Host:` header — so no
+`/etc/hosts` change is required.
 
-```
-127.0.0.1   auth.example.com manager.example.com
-```
+> Optional: to browse the LemonLDAP portal/manager by name you could add
+> `127.0.0.1 auth.example.com manager.example.com` to `/etc/hosts`, but note
+> that maps to port **80** while LemonLDAP is published on **8081** — the
+> `Host:`-header commands below are the supported path.
 
 ### Run it
 
