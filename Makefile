@@ -1,6 +1,8 @@
-.PHONY: up down run test test-e2e e2e test-it test-e2e-web tidy
+.PHONY: up down run test test-e2e e2e test-it test-e2e-web tidy full full-down
 up:          ; docker compose up -d
 down:        ; docker compose down
+full:        ; docker compose -f docker-compose.yml -f docker-compose.full.yml up -d --build
+full-down:   ; docker compose -f docker-compose.yml -f docker-compose.full.yml down -v
 # PORTAL_ENV=dev: unset is treated as production, which refuses the built-in
 # dev secrets. UPSTREAM_ALLOW_PRIVATE=1: lets products target docker-internal
 # upstreams (echo:8080), blocked by the SSRF guard otherwise.
