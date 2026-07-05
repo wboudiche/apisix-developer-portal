@@ -26,9 +26,13 @@ was used instead.
 | Token endpoint | `http://auth.example.com/oauth2/token` |
 | JWKS endpoint | `http://auth.example.com/oauth2/jwks` |
 | Discovery | `http://auth.example.com/.well-known/openid-configuration` |
-| `client_id` | `apisix-portal-app` |
-| `client_secret` | `apisix-portal-secret` |
+| `client_id` | `apisix-portal-app` (RP 1) / `apisix-portal-app2` (RP 2) |
+| `client_secret` | `apisix-portal-secret` / `apisix-portal-secret2` |
 | Grant type | `client_credentials` (send `scope=openid`, see note below) |
+
+Two relying parties are seeded so the OAuth2 E2E test (`internal/e2e`,
+`TestOAuth2TwoClients`) can bind a distinct real client id to each API and
+prove cross-client rejection (a token for RP 1 gets 403 on RP 2's API).
 
 ## THE key finding: which claim carries the client id
 
