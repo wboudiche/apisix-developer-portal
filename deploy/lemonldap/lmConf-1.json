@@ -339,7 +339,8 @@
    "oidcAuthnLevel": 1,
    "oidcRPCallbackGetParam": "openidconnectcallback",
    "oidcRPMetaDataExportedVars": {
-      "apisix-portal-app": {}
+      "apisix-portal-app": {},
+      "apisix-portal-app2": {}
    },
    "oidcRPMetaDataOptions": {
       "apisix-portal-app": {
@@ -349,6 +350,16 @@
          "oidcRPMetaDataOptionsBypassConsent": 1,
          "oidcRPMetaDataOptionsClientID": "apisix-portal-app",
          "oidcRPMetaDataOptionsClientSecret": "apisix-portal-secret",
+         "oidcRPMetaDataOptionsIDTokenSignAlg": "RS256",
+         "oidcRPMetaDataOptionsRedirectUris": "http://localhost/callback"
+      },
+      "apisix-portal-app2": {
+         "oidcRPMetaDataOptionsAccessTokenJWT": 1,
+         "oidcRPMetaDataOptionsAccessTokenSignAlg": "RS256",
+         "oidcRPMetaDataOptionsAllowClientCredentialsGrant": 1,
+         "oidcRPMetaDataOptionsBypassConsent": 1,
+         "oidcRPMetaDataOptionsClientID": "apisix-portal-app2",
+         "oidcRPMetaDataOptionsClientSecret": "apisix-portal-secret2",
          "oidcRPMetaDataOptionsIDTokenSignAlg": "RS256",
          "oidcRPMetaDataOptionsRedirectUris": "http://localhost/callback"
       }

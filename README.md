@@ -61,12 +61,18 @@ make full-down                  # ... down -v
 | **APISIX sandbox** | <http://localhost:9081> | Isolated try-it gateway. |
 | **Prometheus** | <http://localhost:9099> | Scrapes APISIX; backs the usage/quota views. |
 
-### LemonLDAP::NG client-credentials app (pre-seeded)
+### LemonLDAP::NG client-credentials apps (pre-seeded)
+
+Two relying parties are baked in, so you can test one API per client and see a
+token for one client rejected (403) on another API:
+
+| client_id | client_secret |
+|-----------|---------------|
+| `apisix-portal-app` | `apisix-portal-secret` |
+| `apisix-portal-app2` | `apisix-portal-secret2` |
 
 | Field | Value |
 |-------|-------|
-| client_id | `apisix-portal-app` |
-| client_secret | `apisix-portal-secret` |
 | issuer | `http://auth.example.com` |
 | grant | `client_credentials` (RS256 JWT access token) |
 | client-id claim | `client_id` (portal `OIDC_CLIENT_ID_CLAIM`) |
@@ -95,6 +101,25 @@ curl -H "Authorization: Bearer $JWT" http://localhost:9080/<contextPath>/...   #
 curl                                   http://localhost:9080/<contextPath>/...   # 401  no token
 #                                        (a valid token whose client_id isn't subscribed → 403)
 ```
+
+### Automated end-to-end tests against the stack
+
+With `make full` up, the `internal/e2e` suite runs the real portal handler
+against the live containers:
+
+```bash
+PORTAL_ENV=dev UPSTREAM_ALLOW_PRIVATE=1 RUN_E2E=1 \
+  OIDC_ISSUER=http://auth.example.com OIDC_CLIENT_ID_CLAIM=client_id \
+  go test ./internal/e2e/...
+```
+
+`TestOAuth2TwoClients` drives the OAuth2 path end-to-end: it publishes two
+`authType=oauth2` APIs (one per pre-seeded client), then asserts each client's
+token gets **200** on its own API, **403** on the other (valid signature, but
+its `client_id` isn't on that route's allow-list), and **401** with no token.
+The `OIDC_*` vars are required only for the OAuth2 test — omit them and it
+skips; the key-auth suites still run. `PORTAL_ENV`/`UPSTREAM_ALLOW_PRIVATE`
+match `make run` (the harness mounts the portal in-process).
 
 For the full manual walkthrough of every feature (subscribe → approve →
 gateway, emails, usage/quota, sandbox isolation, ratings), see
