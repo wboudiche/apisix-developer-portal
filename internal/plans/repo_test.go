@@ -29,20 +29,26 @@ func testRepo(t *testing.T) (context.Context, *Repo) {
 
 func TestListReturnsThreeSeededPlans(t *testing.T) {
 	ctx, repo := testRepo(t)
-	all, _, err := repo.List(ctx, paging.Params{Page: 1, Size: 20})
-	if err != nil {
-		t.Fatalf("List: %v", err)
-	}
 	// Assert the three seeded plans are present rather than an exact total: the
-	// E2E suite (internal/e2e) creates extra plans against the same shared DB,
-	// so an exact-count check is brittle. Presence of the seeds is the invariant.
-	names := make(map[string]bool, len(all))
-	for _, p := range all {
-		names[p.Name] = true
+	// E2E suite (internal/e2e) creates extra plans against the same shared DB.
+	// Those extras can push a seed onto a later page (List orders by
+	// rate_limit_count, not id), so page through the whole set before checking.
+	names := map[string]bool{}
+	for page := 1; ; page++ {
+		batch, total, err := repo.List(ctx, paging.Params{Page: page, Size: paging.MaxPageSize})
+		if err != nil {
+			t.Fatalf("List: %v", err)
+		}
+		for _, p := range batch {
+			names[p.Name] = true
+		}
+		if len(batch) == 0 || page*paging.MaxPageSize >= total {
+			break
+		}
 	}
 	for _, want := range []string{"Free", "Silver", "Gold"} {
 		if !names[want] {
-			t.Fatalf("seeded plan %q missing; got %d plans", want, len(all))
+			t.Fatalf("seeded plan %q missing across all pages", want)
 		}
 	}
 }

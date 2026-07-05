@@ -142,7 +142,7 @@ func TestLifecycle(t *testing.T) {
 		ID int64 `json:"id"`
 	}
 	if code := h.api(http.MethodPost, "/api/admin/plans", admin, map[string]any{
-		"name": uniq("Plan"), "rateLimit": 2, "windowSeconds": 60,
+		"name": uniq("Plan"), "rateLimit": 2, "windowSeconds": 60, "currency": "USD",
 	}, &plan); code != http.StatusCreated {
 		t.Fatalf("create plan: got %d want 201", code)
 	}
@@ -176,22 +176,24 @@ func TestLifecycle(t *testing.T) {
 	// 4. admin approves. The pending queue is GLOBAL; a dirty/shared DB may hold
 	// other pending subscriptions, so filter to THIS run's subscription by the
 	// generated app name (applicationName) rather than blindly taking the last.
-	var queue []struct {
-		ID              int64  `json:"id"`
-		ApplicationName string `json:"applicationName"`
+	var queue struct {
+		Items []struct {
+			ID              int64  `json:"id"`
+			ApplicationName string `json:"applicationName"`
+		} `json:"items"`
 	}
 	if code := h.api(http.MethodGet, "/api/admin/subscriptions?status=pending", admin, nil, &queue); code != http.StatusOK {
 		t.Fatalf("admin queue: got %d want 200", code)
 	}
 	var subID int64
-	for _, q := range queue {
+	for _, q := range queue.Items {
 		if q.ApplicationName == appName {
 			subID = q.ID
 			break
 		}
 	}
 	if subID == 0 {
-		t.Fatalf("no pending subscription found for app %q in queue of %d", appName, len(queue))
+		t.Fatalf("no pending subscription found for app %q in queue of %d", appName, len(queue.Items))
 	}
 	if code := h.api(http.MethodPost, "/api/admin/subscriptions/"+itoa(subID)+"/approve", admin, nil, nil); code != http.StatusNoContent {
 		t.Fatalf("approve: got %d want 204", code)
@@ -264,7 +266,7 @@ func TestRejectPath(t *testing.T) {
 		ID int64 `json:"id"`
 	}
 	if code := h.api(http.MethodPost, "/api/admin/plans", admin, map[string]any{
-		"name": uniq("Plan"), "rateLimit": 5, "windowSeconds": 60,
+		"name": uniq("Plan"), "rateLimit": 5, "windowSeconds": 60, "currency": "USD",
 	}, &plan); code != http.StatusCreated {
 		t.Fatalf("create plan: got %d want 201", code)
 	}
@@ -287,15 +289,17 @@ func TestRejectPath(t *testing.T) {
 	}
 
 	// admin finds THIS run's pending subscription and rejects it
-	var queue []struct {
-		ID              int64  `json:"id"`
-		ApplicationName string `json:"applicationName"`
+	var queue struct {
+		Items []struct {
+			ID              int64  `json:"id"`
+			ApplicationName string `json:"applicationName"`
+		} `json:"items"`
 	}
 	if code := h.api(http.MethodGet, "/api/admin/subscriptions?status=pending", admin, nil, &queue); code != http.StatusOK {
 		t.Fatalf("admin queue: got %d want 200", code)
 	}
 	var subID int64
-	for _, q := range queue {
+	for _, q := range queue.Items {
 		if q.ApplicationName == appName {
 			subID = q.ID
 			break

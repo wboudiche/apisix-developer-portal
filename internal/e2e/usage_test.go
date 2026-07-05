@@ -82,7 +82,7 @@ func TestUsageReflectsTraffic(t *testing.T) {
 		ID int64 `json:"id"`
 	}
 	if code := h.api(http.MethodPost, "/api/admin/plans", admin, map[string]any{
-		"name": uniq("Plan"), "rateLimit": 1000000, "windowSeconds": 60,
+		"name": uniq("Plan"), "rateLimit": 1000000, "windowSeconds": 60, "currency": "USD",
 	}, &plan); code != http.StatusCreated {
 		t.Fatalf("create plan: got %d want 201", code)
 	}
@@ -105,15 +105,17 @@ func TestUsageReflectsTraffic(t *testing.T) {
 	}
 
 	// Approve so the consumer + route are provisioned in APISIX.
-	var queue []struct {
-		ID              int64  `json:"id"`
-		ApplicationName string `json:"applicationName"`
+	var queue struct {
+		Items []struct {
+			ID              int64  `json:"id"`
+			ApplicationName string `json:"applicationName"`
+		} `json:"items"`
 	}
 	if code := h.api(http.MethodGet, "/api/admin/subscriptions?status=pending", admin, nil, &queue); code != http.StatusOK {
 		t.Fatalf("admin queue: got %d want 200", code)
 	}
 	var subID int64
-	for _, q := range queue {
+	for _, q := range queue.Items {
 		if q.ApplicationName == appName {
 			subID = q.ID
 			break
