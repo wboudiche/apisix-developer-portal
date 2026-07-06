@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"time"
 
 	"apisix-portal/internal/paging"
 )
@@ -24,6 +25,8 @@ type Store interface {
 	AddChangelog(ctx context.Context, productID int64, e ChangelogEntry) (ChangelogEntry, error)
 	ListChangelog(ctx context.Context, productID int64) ([]ChangelogEntry, error)
 	DeleteChangelog(ctx context.Context, productID, entryID int64) error
+	SetUploadedIcon(ctx context.Context, productID int64, png []byte) (time.Time, error)
+	DeleteIcon(ctx context.Context, productID int64) error
 }
 
 // Provisioner triggers APISIX route changes (satisfied by *subscriptions.Service).
@@ -81,6 +84,11 @@ func (s *Service) Update(ctx context.Context, p Product) (Product, error) {
 	if err != nil {
 		return Product{}, err
 	}
+	if updated.Icon != "upload" {
+		if err := s.store.DeleteIcon(ctx, p.ID); err != nil {
+			return Product{}, err
+		}
+	}
 	if updated.UpstreamURL != old.UpstreamURL || updated.AuthType != old.AuthType {
 		n, err := s.store.CountActiveSubscriptions(ctx, p.ID)
 		if err != nil {
@@ -98,6 +106,11 @@ func (s *Service) Update(ctx context.Context, p Product) (Product, error) {
 		}
 	}
 	return updated, nil
+}
+
+// SetUploadedIcon stores a re-encoded PNG icon for a product.
+func (s *Service) SetUploadedIcon(ctx context.Context, productID int64, png []byte) (time.Time, error) {
+	return s.store.SetUploadedIcon(ctx, productID, png)
 }
 
 // AddChangelog records a changelog entry for a product.
