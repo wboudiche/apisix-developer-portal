@@ -91,10 +91,14 @@ without HTTP, plus a thin handler for steps 1 and 6.
 
 ## Serving
 
-`GET /api/products/{id}/icon` — **public** (the catalog is public), mounted on the
-catalog handler:
+`GET /api/products/{slug}/icon` — **public** (the catalog is public), mounted on
+the catalog handler. Slug-based to match the sibling public sub-resources
+(`/api/products/{slug}/spec`, `/api/products/{slug}/changelog`); chi requires the
+same wildcard name at that position, so it is `{slug}`, not `{id}`. (Admin upload
+stays id-based: `/api/admin/products/{id}/icon`, matching the admin router.)
 
-- SELECT `data, updated_at` from `product_icons`; **404** when absent.
+- SELECT `pi.data, pi.updated_at FROM product_icons pi JOIN api_products p ON
+  p.id = pi.product_id WHERE p.slug = $1`; **404** when absent.
 - Headers: `Content-Type: image/png`; `Cache-Control: public, max-age=60`;
   `ETag: "<updated_at unix>"`. On `If-None-Match` matching the ETag → **304**.
   `X-Content-Type-Options: nosniff` is already applied globally by
@@ -122,11 +126,11 @@ In `ProductsPage.tsx` Composer:
   select → `POST` to the icon endpoint; on success the picker shows the custom
   image as the selected icon and `form.icon` becomes `"upload"`.
 - **Preview** of the current selection: built-in → `<ApiIcon name={icon}>`;
-  custom → `<img src="/api/products/{id}/icon?v={updatedAt}">` (the `?v` cache-busts
-  after a replace).
+  custom → `<img src="/api/products/{slug}/icon?v={updatedAt}">` (the `?v`
+  cache-busts after a replace).
 
 `ApiCard.tsx` and `ProductDetailPage.tsx` gain the same branch: `icon==='upload'`
-→ `<img src="/api/products/{id}/icon">`; else `<ApiIcon name={icon}>`. `apiIcons.tsx`
+→ `<img src="/api/products/{slug}/icon">`; else `<ApiIcon name={icon}>`. `apiIcons.tsx`
 exports the list of built-in keys so the picker and the render branch share one
 source of truth.
 
