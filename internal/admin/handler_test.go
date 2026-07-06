@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"apisix-portal/internal/paging"
 )
@@ -72,6 +73,9 @@ func (f *fakeService) ListChangelog(_ context.Context, productID int64) ([]Chang
 }
 func (f *fakeService) DeleteChangelog(_ context.Context, productID, entryID int64) error {
 	return f.deleteChangelogErr
+}
+func (f *fakeService) SetUploadedIcon(_ context.Context, _ int64, _ []byte) (time.Time, error) {
+	return time.Time{}, nil
 }
 
 func newTestHandler(svc ProductService) *Handler { return NewHandler(svc, true, false) }

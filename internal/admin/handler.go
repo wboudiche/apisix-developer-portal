@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -26,6 +27,7 @@ type ProductService interface {
 	AddChangelog(ctx context.Context, productID int64, e ChangelogEntry) (ChangelogEntry, error)
 	ListChangelog(ctx context.Context, productID int64) ([]ChangelogEntry, error)
 	DeleteChangelog(ctx context.Context, productID, entryID int64) error
+	SetUploadedIcon(ctx context.Context, productID int64, png []byte) (time.Time, error)
 }
 
 type Handler struct {
@@ -46,6 +48,7 @@ func NewHandler(svc ProductService, allowPrivate bool, oidcConfigured bool) *Han
 	h.router.Post("/api/admin/products/{id}/changelog", h.addChangelog)
 	h.router.Get("/api/admin/products/{id}/changelog", h.listChangelog)
 	h.router.Delete("/api/admin/products/{id}/changelog/{entryId}", h.deleteChangelog)
+	h.router.Post("/api/admin/products/{id}/icon", h.uploadIcon)
 	return h
 }
 
@@ -267,6 +270,54 @@ func (h *Handler) deleteChangelog(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Printf("admin delete changelog entry %d for product %d: %v", entryID, id, err)
 		httpx.ErrorT(w, r, http.StatusInternalServerError, "admin.changelog.deleteFailed")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+const iconMaxUpload = 256 << 10 // 256 KiB
+
+func (h *Handler) uploadIcon(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r)
+	if !ok {
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, iconMaxUpload)
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		var mbe *http.MaxBytesError
+		if errors.As(err, &mbe) {
+			httpx.ErrorT(w, r, http.StatusRequestEntityTooLarge, "admin.icon.tooLarge")
+			return
+		}
+		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.icon.badBody")
+		return
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(file)
+	if err != nil {
+		var mbe *http.MaxBytesError
+		if errors.As(err, &mbe) {
+			httpx.ErrorT(w, r, http.StatusRequestEntityTooLarge, "admin.icon.tooLarge")
+			return
+		}
+		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.icon.badBody")
+		return
+	}
+	png, err := DecodeAndReencode(raw)
+	if errors.Is(err, ErrIconType) {
+		httpx.ErrorT(w, r, http.StatusUnsupportedMediaType, "admin.icon.badType")
+		return
+	} else if err != nil {
+		httpx.ErrorT(w, r, http.StatusUnprocessableEntity, "admin.icon.undecodable")
+		return
+	}
+	if _, err := h.svc.SetUploadedIcon(r.Context(), id, png); errors.Is(err, ErrNotFound) {
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.productNotFound")
+		return
+	} else if err != nil {
+		log.Printf("upload icon (product=%d): %v", id, err)
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "catalog.list.failed")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
