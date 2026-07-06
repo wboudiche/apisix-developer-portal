@@ -77,6 +77,9 @@ func (f *fakeService) DeleteChangelog(_ context.Context, productID, entryID int6
 func (f *fakeService) SetUploadedIcon(_ context.Context, _ int64, _ []byte) (time.Time, error) {
 	return time.Time{}, nil
 }
+func (f *fakeService) GetIcon(_ context.Context, _ int64) ([]byte, time.Time, error) {
+	return nil, time.Time{}, ErrNotFound
+}
 
 func newTestHandler(svc ProductService) *Handler { return NewHandler(svc, true, false) }
 

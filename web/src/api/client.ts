@@ -355,3 +355,13 @@ export async function adminUploadProductIcon(token: string, id: number, file: Fi
   const res = await fetch(url, { method: 'POST', headers, body: form })
   return parse<{ updatedAt: string }>(res, url)
 }
+
+// adminFetchProductIcon fetches a product's stored icon (any publish state)
+// with the admin bearer token, for the Composer's draft-icon preview — a
+// plain <img src> can't send an Authorization header, so the caller renders
+// the returned Blob via an object URL instead.
+export async function adminFetchProductIcon(token: string, id: number): Promise<Blob> {
+  const res = await fetch(`/api/admin/products/${id}/icon`, { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new ApiError(`HTTP ${res.status}`, res.status)
+  return res.blob()
+}

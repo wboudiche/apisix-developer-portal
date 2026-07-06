@@ -226,6 +226,23 @@ func (r *Repo) SetUploadedIcon(ctx context.Context, productID int64, png []byte)
 	return updatedAt, nil
 }
 
+// GetIcon returns a product's stored custom-icon PNG regardless of publish
+// state (used by the admin Composer preview). ErrNotFound when absent.
+func (r *Repo) GetIcon(ctx context.Context, productID int64) ([]byte, time.Time, error) {
+	var data []byte
+	var updatedAt time.Time
+	err := r.pool.QueryRow(ctx,
+		`SELECT data, updated_at FROM product_icons WHERE product_id=$1`, productID).
+		Scan(&data, &updatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, time.Time{}, ErrNotFound
+		}
+		return nil, time.Time{}, err
+	}
+	return data, updatedAt, nil
+}
+
 // DeleteIcon removes any stored custom icon for a product (idempotent).
 func (r *Repo) DeleteIcon(ctx context.Context, productID int64) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM product_icons WHERE product_id=$1`, productID)

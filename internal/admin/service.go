@@ -27,6 +27,7 @@ type Store interface {
 	DeleteChangelog(ctx context.Context, productID, entryID int64) error
 	SetUploadedIcon(ctx context.Context, productID int64, png []byte) (time.Time, error)
 	DeleteIcon(ctx context.Context, productID int64) error
+	GetIcon(ctx context.Context, productID int64) ([]byte, time.Time, error)
 }
 
 // Provisioner triggers APISIX route changes (satisfied by *subscriptions.Service).
@@ -111,6 +112,11 @@ func (s *Service) Update(ctx context.Context, p Product) (Product, error) {
 // SetUploadedIcon stores a re-encoded PNG icon for a product.
 func (s *Service) SetUploadedIcon(ctx context.Context, productID int64, png []byte) (time.Time, error) {
 	return s.store.SetUploadedIcon(ctx, productID, png)
+}
+
+// GetIcon returns a product's stored custom icon (admin preview; any publish state).
+func (s *Service) GetIcon(ctx context.Context, productID int64) ([]byte, time.Time, error) {
+	return s.store.GetIcon(ctx, productID)
 }
 
 // AddChangelog records a changelog entry for a product.

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AdminProduct, ChangelogEntry } from '../../api/types'
-import { adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminGetChangelog, addChangelogEntry, deleteChangelogEntry, adminUploadProductIcon, ApiError } from '../../api/client'
+import { adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminGetChangelog, addChangelogEntry, deleteChangelogEntry, adminUploadProductIcon, adminFetchProductIcon, ApiError } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { AdminShell } from './AdminShell'
 import { Composer } from './Composer'
@@ -10,7 +10,7 @@ import { Pagination } from '../../components/Pagination'
 import { ConfirmModal, type ModalSpec } from '../../components/ConfirmModal'
 import { ImportModal } from './ImportModal'
 import { useT } from '../../i18n/LanguageProvider'
-import { BUILTIN_ICON_KEYS, ApiIcon, iconSrc } from '../../components/apiIcons'
+import { BUILTIN_ICON_KEYS, ApiIcon } from '../../components/apiIcons'
 
 interface FormState {
   name: string; slug: string; category: string; contextPath: string
@@ -130,6 +130,20 @@ export function ProductsPage() {
   const [iconV, setIconV] = useState<number>(0)      // cache-bust after replace
   const [iconErr, setIconErr] = useState<string>('')
   const [iconBusy, setIconBusy] = useState(false)
+  const [iconPreview, setIconPreview] = useState<string>('')
+
+  // Load the Composer's draft-icon preview via an authenticated fetch (a
+  // plain <img src> can't send the bearer token, and the public icon
+  // endpoint is published-only) — re-runs after a fresh upload (iconV bump).
+  useEffect(() => {
+    if (form.icon !== 'upload' || !editing?.id || !token) { setIconPreview(''); return }
+    let url = ''
+    let cancelled = false
+    adminFetchProductIcon(token, editing.id)
+      .then(blob => { if (!cancelled) { url = URL.createObjectURL(blob); setIconPreview(url) } })
+      .catch(() => { if (!cancelled) setIconPreview('') })
+    return () => { cancelled = true; if (url) URL.revokeObjectURL(url) }
+  }, [form.icon, editing?.id, token, iconV])
 
   // Monotonic guard: only the latest list request may write state, so a slow
   // response can't overwrite a fresher one after rapid mutations.
@@ -347,9 +361,9 @@ export function ProductsPage() {
                   <ApiIcon name={k} />
                 </button>
               ))}
-              {form.icon === 'upload' && editing && (
+              {form.icon === 'upload' && editing && iconPreview && (
                 <span className="icon-tile is-upload" aria-pressed="true">
-                  <img className="ico-img" src={iconSrc(editing.slug, iconV || undefined)} alt="" width={24} height={24} />
+                  <img className="ico-img" src={iconPreview} alt="" width={24} height={24} />
                 </span>
               )}
             </div>

@@ -28,6 +28,7 @@ type ProductService interface {
 	ListChangelog(ctx context.Context, productID int64) ([]ChangelogEntry, error)
 	DeleteChangelog(ctx context.Context, productID, entryID int64) error
 	SetUploadedIcon(ctx context.Context, productID int64, png []byte) (time.Time, error)
+	GetIcon(ctx context.Context, productID int64) ([]byte, time.Time, error)
 }
 
 type Handler struct {
@@ -49,6 +50,7 @@ func NewHandler(svc ProductService, allowPrivate bool, oidcConfigured bool) *Han
 	h.router.Get("/api/admin/products/{id}/changelog", h.listChangelog)
 	h.router.Delete("/api/admin/products/{id}/changelog/{entryId}", h.deleteChangelog)
 	h.router.Post("/api/admin/products/{id}/icon", h.uploadIcon)
+	h.router.Get("/api/admin/products/{id}/icon", h.serveIcon)
 	return h
 }
 
@@ -321,6 +323,30 @@ func (h *Handler) uploadIcon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// serveIcon returns a product's stored custom icon regardless of publish
+// state. Mounted behind requireAdmin, so it is admin-only — used by the
+// Composer's draft-icon preview, which can't use a plain <img src> against
+// the published-only public endpoint.
+func (h *Handler) serveIcon(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r)
+	if !ok {
+		return
+	}
+	data, _, err := h.svc.GetIcon(r.Context(), id)
+	if errors.Is(err, ErrNotFound) {
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.productNotFound")
+		return
+	}
+	if err != nil {
+		log.Printf("serve admin icon (product=%d): %v", id, err)
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "catalog.list.failed")
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write(data)
 }
 
 func parseID(w http.ResponseWriter, r *http.Request) (int64, bool) {

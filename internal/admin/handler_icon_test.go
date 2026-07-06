@@ -19,13 +19,21 @@ import (
 // SetUploadedIcon is exercised by these tests.
 type fakeIconService struct {
 	ProductService
-	got    []byte
-	setErr error
+	got      []byte
+	setErr   error
+	iconData []byte
 }
 
 func (f *fakeIconService) SetUploadedIcon(_ context.Context, _ int64, png []byte) (time.Time, error) {
 	f.got = png
 	return time.Unix(1700000000, 0), f.setErr
+}
+
+func (f *fakeIconService) GetIcon(_ context.Context, _ int64) ([]byte, time.Time, error) {
+	if f.iconData == nil {
+		return nil, time.Time{}, ErrNotFound
+	}
+	return f.iconData, time.Unix(1700000000, 0), nil
 }
 
 func multipartIcon(t *testing.T, field string, data []byte) (*bytes.Buffer, string) {
@@ -83,6 +91,32 @@ func TestUploadIconProductNotFound(t *testing.T) {
 	body, ct := multipartIcon(t, "file", smallPNG(t))
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/products/999/icon", body)
 	req.Header.Set("Content-Type", ct)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("got %d want 404", rec.Code)
+	}
+}
+
+func TestServeIconReturnsPNG(t *testing.T) {
+	h := NewHandler(&fakeIconService{iconData: []byte("PNGBYTES")}, true, false)
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/products/7/icon", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("got %d want 200", rec.Code)
+	}
+	if rec.Header().Get("Content-Type") != "image/png" {
+		t.Fatalf("content-type %q", rec.Header().Get("Content-Type"))
+	}
+	if rec.Body.String() != "PNGBYTES" {
+		t.Fatalf("body=%q", rec.Body.String())
+	}
+}
+
+func TestServeIconMissing(t *testing.T) {
+	h := NewHandler(&fakeIconService{}, true, false)
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/products/7/icon", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {

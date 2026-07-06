@@ -177,7 +177,7 @@ func (r *Repo) GetIconBySlug(ctx context.Context, slug string) ([]byte, time.Tim
 	var updatedAt time.Time
 	err := r.pool.QueryRow(ctx,
 		`SELECT i.data, i.updated_at FROM product_icons i
-		 JOIN api_products p ON p.id = i.product_id WHERE p.slug = $1`, slug).
+		 JOIN api_products p ON p.id = i.product_id WHERE p.slug = $1 AND p.published = true`, slug).
 		Scan(&data, &updatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
