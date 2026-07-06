@@ -141,6 +141,11 @@ var fr = map[string]string{
 	"admin.plan.badPrice":         "le prix doit être positif ou nul",
 	"admin.plan.badCurrency":      "la devise doit être un code à 3 lettres",
 
+	"admin.icon.tooLarge":    "image trop volumineuse (max 256 Ko)",
+	"admin.icon.badType":     "type d'image non pris en charge (PNG, JPEG ou WebP)",
+	"admin.icon.undecodable": "image illisible (doit faire 16 à 512 px)",
+	"admin.icon.badBody":     "envoi invalide",
+
 	// tryit
 	"tryit.unauthenticated":            "non authentifié",
 	"tryit.badAppID":                   "identifiant d'application invalide",

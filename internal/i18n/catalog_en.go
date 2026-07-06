@@ -140,6 +140,11 @@ var en = map[string]string{
 	"admin.plan.badPrice":         "price must be zero or positive",
 	"admin.plan.badCurrency":      "currency must be a 3-letter code",
 
+	"admin.icon.tooLarge":    "image is too large (max 256 KB)",
+	"admin.icon.badType":     "unsupported image type (use PNG, JPEG, or WebP)",
+	"admin.icon.undecodable": "could not read the image (must be 16–512 px square-ish)",
+	"admin.icon.badBody":     "invalid upload",
+
 	// tryit
 	"tryit.unauthenticated":            "unauthenticated",
 	"tryit.badAppID":                   "bad app id",

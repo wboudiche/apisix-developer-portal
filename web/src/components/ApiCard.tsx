@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { Product } from '../api/types'
-import { ApiIcon, categoryTint } from './apiIcons'
+import { ApiIcon, categoryTint, iconSrc } from './apiIcons'
 import { LifecycleBadge } from './LifecycleBadge'
 import { useT } from '../i18n/LanguageProvider'
 
@@ -40,7 +40,9 @@ export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Produ
       <div className="thumb">
         <span className="catbadge">{p.category}</span>
         <span className="ico">
-          <ApiIcon name={p.icon} />
+          {p.icon === 'upload'
+            ? <img className="ico-img" src={iconSrc(p.slug)} alt="" width={24} height={24} />
+            : <ApiIcon name={p.icon} />}
         </span>
       </div>
       <div className="cbody">

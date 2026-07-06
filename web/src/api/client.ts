@@ -342,3 +342,16 @@ export async function adminPayInvoice(token: string, id: number): Promise<void> 
 export async function adminVoidInvoice(token: string, id: number): Promise<void> {
   return sendAuthed('POST', `/api/admin/invoices/${id}/void`, token)
 }
+
+// --- Admin: product icon upload ---
+// Multipart upload: do NOT set Content-Type — the browser sets the boundary.
+export async function adminUploadProductIcon(token: string, id: number, file: File): Promise<{ updatedAt: string }> {
+  const form = new FormData()
+  form.append('file', file)
+  const url = `/api/admin/products/${id}/icon`
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
+  const lang = localStorage.getItem('lang')
+  if (lang) headers['Accept-Language'] = lang
+  const res = await fetch(url, { method: 'POST', headers, body: form })
+  return parse<{ updatedAt: string }>(res, url)
+}
