@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"apisix-portal/internal/paging"
 )
@@ -50,6 +51,9 @@ func (f fakeLister) ListChangelogBySlug(_ context.Context, slug string) ([]Chang
 		return nil, ErrNotFound
 	}
 	return entries, nil
+}
+func (f fakeLister) GetIconBySlug(_ context.Context, slug string) ([]byte, time.Time, error) {
+	return nil, time.Time{}, ErrNotFound
 }
 
 func TestProductsEndpointReturnsJSON(t *testing.T) {

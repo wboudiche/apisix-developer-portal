@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -167,6 +168,24 @@ func (r *Repo) ListChangelogBySlug(ctx context.Context, slug string) ([]Changelo
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+// GetIconBySlug returns a product's stored custom-icon PNG and its updated_at.
+// Returns ErrNotFound when the product has no uploaded icon.
+func (r *Repo) GetIconBySlug(ctx context.Context, slug string) ([]byte, time.Time, error) {
+	var data []byte
+	var updatedAt time.Time
+	err := r.pool.QueryRow(ctx,
+		`SELECT i.data, i.updated_at FROM product_icons i
+		 JOIN api_products p ON p.id = i.product_id WHERE p.slug = $1`, slug).
+		Scan(&data, &updatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, time.Time{}, ErrNotFound
+		}
+		return nil, time.Time{}, err
+	}
+	return data, updatedAt, nil
 }
 
 // scanProducts collects all rows into a slice of Product.
