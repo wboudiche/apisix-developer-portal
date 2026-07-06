@@ -382,6 +382,14 @@ export const fr = {
       priceLabel: 'Prix (centimes)',
       currencyLabel: 'Devise',
     },
+    icon: {
+      label: 'Icône',
+      defaultOption: 'Par défaut',
+      builtinHeading: 'Intégrées',
+      uploadCta: 'Importer une icône…',
+      uploadHint: 'Enregistrez d’abord l’API, puis importez une icône personnalisée.',
+      uploading: 'Import…',
+    },
     // ApprovalsPage
     approvalsDescription: "Validez ou refusez les demandes d'abonnement des applications. À l'approbation, APISIX crée le consumer et active la politique de débit du plan choisi.",
     loadSubscriptionsError: 'Impossible de charger les abonnements.',
