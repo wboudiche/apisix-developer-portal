@@ -16,6 +16,15 @@ const ICONS: Record<string, string> = {
 
 const ICONS_FALLBACK = '<rect x="4" y="4" width="16" height="16" rx="3"/>'
 
+export const BUILTIN_ICON_KEYS = Object.keys(ICONS)
+
+// iconSrc builds the public custom-icon URL for a product slug, with an optional
+// cache-busting version token used after an admin replaces the icon.
+export function iconSrc(slug: string, v?: string | number): string {
+  const base = `/api/products/${encodeURIComponent(slug)}/icon`
+  return v ? `${base}?v=${encodeURIComponent(String(v))}` : base
+}
+
 export function ApiIcon({ name }: { name: string }) {
   return (
     <svg

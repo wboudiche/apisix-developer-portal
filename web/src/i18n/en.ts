@@ -383,6 +383,14 @@ export const en: Messages = {
       priceLabel: 'Price (cents)',
       currencyLabel: 'Currency',
     },
+    icon: {
+      label: 'Icon',
+      defaultOption: 'Default',
+      builtinHeading: 'Built-in',
+      uploadCta: 'Upload custom…',
+      uploadHint: 'Save the API first, then upload a custom icon.',
+      uploading: 'Uploading…',
+    },
     // ApprovalsPage
     approvalsDescription: 'Approve or reject application subscription requests. On approval, APISIX creates the consumer and activates the chosen plan’s rate policy.',
     loadSubscriptionsError: 'Unable to load subscriptions.',

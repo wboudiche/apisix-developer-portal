@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AdminProduct, ChangelogEntry } from '../../api/types'
-import { adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminGetChangelog, addChangelogEntry, deleteChangelogEntry, ApiError } from '../../api/client'
+import { adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminGetChangelog, addChangelogEntry, deleteChangelogEntry, adminUploadProductIcon, adminFetchProductIcon, ApiError } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { AdminShell } from './AdminShell'
 import { Composer } from './Composer'
@@ -10,13 +10,14 @@ import { Pagination } from '../../components/Pagination'
 import { ConfirmModal, type ModalSpec } from '../../components/ConfirmModal'
 import { ImportModal } from './ImportModal'
 import { useT } from '../../i18n/LanguageProvider'
+import { BUILTIN_ICON_KEYS, ApiIcon } from '../../components/apiIcons'
 
 interface FormState {
   name: string; slug: string; category: string; contextPath: string
   upstreamUrl: string; sandboxUpstreamUrl: string; authType: string; version: string; published: boolean; openapiSpec: string
-  lifecycleStatus: string; sunsetDate: string
+  lifecycleStatus: string; sunsetDate: string; icon: string
 }
-const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', upstreamUrl: '', sandboxUpstreamUrl: '', authType: 'key-auth', version: '1.0.0', published: true, openapiSpec: '', lifecycleStatus: 'active', sunsetDate: '' }
+const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', upstreamUrl: '', sandboxUpstreamUrl: '', authType: 'key-auth', version: '1.0.0', published: true, openapiSpec: '', lifecycleStatus: 'active', sunsetDate: '', icon: '' }
 
 const CHANGELOG_KINDS = ['added', 'changed', 'fixed', 'removed', 'deprecated', 'security'] as const
 
@@ -126,6 +127,23 @@ export function ProductsPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [err, setErr] = useState('')
   const { toast, notify } = useToast()
+  const [iconV, setIconV] = useState<number>(0)      // cache-bust after replace
+  const [iconErr, setIconErr] = useState<string>('')
+  const [iconBusy, setIconBusy] = useState(false)
+  const [iconPreview, setIconPreview] = useState<string>('')
+
+  // Load the Composer's draft-icon preview via an authenticated fetch (a
+  // plain <img src> can't send the bearer token, and the public icon
+  // endpoint is published-only) — re-runs after a fresh upload (iconV bump).
+  useEffect(() => {
+    if (form.icon !== 'upload' || !editing?.id || !token) { setIconPreview(''); return }
+    let url = ''
+    let cancelled = false
+    adminFetchProductIcon(token, editing.id)
+      .then(blob => { if (!cancelled) { url = URL.createObjectURL(blob); setIconPreview(url) } })
+      .catch(() => { if (!cancelled) setIconPreview('') })
+    return () => { cancelled = true; if (url) URL.revokeObjectURL(url) }
+  }, [form.icon, editing?.id, token, iconV])
 
   // Monotonic guard: only the latest list request may write state, so a slow
   // response can't overwrite a fresher one after rapid mutations.
@@ -145,7 +163,7 @@ export function ProductsPage() {
 
   function set<K extends keyof FormState>(k: K, v: FormState[K]) { setForm(f => ({ ...f, [k]: v })) }
 
-  function openCreate() { setEditing(null); setForm(EMPTY); setSlugTouched(false); setOpen(true) }
+  function openCreate() { setEditing(null); setForm(EMPTY); setSlugTouched(false); setIconV(0); setIconErr(''); setOpen(true) }
 
   function onImported(draft: AdminProduct) {
     setEditing(null)
@@ -155,7 +173,7 @@ export function ProductsPage() {
       sandboxUpstreamUrl: draft.sandboxUpstreamUrl ?? '',
       authType: draft.authType ?? 'key-auth',
       version: draft.version, published: false, openapiSpec: draft.openapiSpec ?? '',
-      lifecycleStatus: 'active', sunsetDate: '',
+      lifecycleStatus: 'active', sunsetDate: '', icon: draft.icon ?? '',
     })
     setSlugTouched(true)
     setOpen(true)
@@ -163,8 +181,9 @@ export function ProductsPage() {
 
   function openEdit(p: AdminProduct) {
     setEditing(p)
-    setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, sandboxUpstreamUrl: p.sandboxUpstreamUrl ?? '', authType: p.authType ?? 'key-auth', version: p.version, published: p.published, openapiSpec: '', lifecycleStatus: p.lifecycleStatus ?? 'active', sunsetDate: p.sunsetDate ?? '' })
+    setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, sandboxUpstreamUrl: p.sandboxUpstreamUrl ?? '', authType: p.authType ?? 'key-auth', version: p.version, published: p.published, openapiSpec: '', lifecycleStatus: p.lifecycleStatus ?? 'active', sunsetDate: p.sunsetDate ?? '', icon: p.icon ?? '' })
     setSlugTouched(true)
+    setIconV(0); setIconErr('')
     setOpen(true)
   }
 
@@ -185,6 +204,7 @@ export function ProductsPage() {
       openapiSpec: form.openapiSpec,
       lifecycleStatus: form.lifecycleStatus as AdminProduct['lifecycleStatus'],
       sunsetDate: form.sunsetDate || null,
+      icon: form.icon,
     }
     try {
       if (editing?.id != null) {
@@ -328,6 +348,48 @@ export function ProductsPage() {
               <input id="f-sunset" type="date" className="ipt" value={form.sunsetDate} onChange={e => set('sunsetDate', e.target.value)} />
             </div>
           )}
+          <div className="field" style={{ gridColumn: '1 / -1' }}>
+            <label>{t('admin.icon.label')}</label>
+            <div className="icon-picker" data-testid="icon-picker">
+              <button type="button" className="icon-tile" data-key="" aria-pressed={form.icon === ''}
+                title={t('admin.icon.defaultOption')} onClick={() => set('icon', '')}>
+                <span className="icon-default">—</span>
+              </button>
+              {BUILTIN_ICON_KEYS.map(k => (
+                <button type="button" key={k} className="icon-tile" data-key={k} aria-pressed={form.icon === k}
+                  title={k} onClick={() => set('icon', k)}>
+                  <ApiIcon name={k} />
+                </button>
+              ))}
+              {form.icon === 'upload' && editing && iconPreview && (
+                <span className="icon-tile is-upload" aria-pressed="true">
+                  <img className="ico-img" src={iconPreview} alt="" width={24} height={24} />
+                </span>
+              )}
+            </div>
+            <input
+              type="file" data-testid="icon-upload" accept="image/png,image/jpeg,image/webp"
+              disabled={!editing || iconBusy}
+              onChange={async e => {
+                const f = e.target.files?.[0]
+                if (!f || !editing || editing.id == null || !token) return
+                setIconErr(''); setIconBusy(true)
+                try {
+                  const { updatedAt } = await adminUploadProductIcon(token, editing.id, f)
+                  set('icon', 'upload')
+                  setIconV(new Date(updatedAt).getTime())
+                } catch (err) {
+                  setIconErr(err instanceof Error ? err.message : String(err))
+                } finally {
+                  setIconBusy(false)
+                  e.target.value = ''
+                }
+              }}
+            />
+            {!editing && <p className="help" data-testid="icon-upload-hint">{t('admin.icon.uploadHint')}</p>}
+            {iconBusy && <p className="help">{t('admin.icon.uploading')}</p>}
+            {iconErr && <p className="autherr" role="alert">{iconErr}</p>}
+          </div>
           <div className="field" style={{ gridColumn: '1 / -1' }}>
             <label htmlFor="f-spec">{t('admin.openapiSpecLabel')} <span className="opt">{t('admin.optionalTag')}</span></label>
             <input id="f-spec-file" type="file" accept=".json,.yaml,.yml"

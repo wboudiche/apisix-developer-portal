@@ -5,7 +5,7 @@ import type { ChangelogEntry, Product, TryApp } from '../api/types'
 import { useAuth } from '../auth/AuthProvider'
 import { TopBar } from '../components/TopBar'
 import { SubscribeModal } from '../components/SubscribeModal'
-import { ApiIcon, categoryDotColor } from '../components/apiIcons'
+import { ApiIcon, categoryDotColor, iconSrc } from '../components/apiIcons'
 import { LifecycleBadge } from '../components/LifecycleBadge'
 import { Reviews } from '../components/Reviews'
 import { useT } from '../i18n/LanguageProvider'
@@ -69,7 +69,11 @@ export function ProductDetailPage() {
         {product && (
           <>
             <header className="apihead">
-              <span className="glyph" style={{ background: categoryDotColor(product.category) }}><ApiIcon name={product.icon} /></span>
+              <span className="glyph" style={{ background: categoryDotColor(product.category) }}>
+                {product.icon === 'upload'
+                  ? <img className="ico-img" src={iconSrc(product.slug)} alt="" width={24} height={24} />
+                  : <ApiIcon name={product.icon} />}
+              </span>
               <div className="htext">
                 <h1>{product.name}</h1>
                 <p className="sub"><span className="cat">{product.category}</span> · v{product.version} · {product.ratingCount > 0 ? <>★ {product.rating.toFixed(1)} ({product.ratingCount})</> : t('catalog.notYetRated')}{product.authType === 'oauth2' && <> · <span className="pill oauth">OAuth2</span></>}{product.lifecycleStatus && product.lifecycleStatus !== 'active' && <> · <LifecycleBadge status={product.lifecycleStatus} /></>}</p>

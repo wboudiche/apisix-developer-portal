@@ -54,6 +54,17 @@
 .adminpage .field .ipt:hover{border-color:var(--border)}
 .adminpage .field .ipt:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);background:var(--surface)}
 .adminpage .field .help{font-size:11.5px;color:var(--faint);margin-top:6px;font-family:var(--font-mono)}
+.adminpage .icon-picker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.adminpage .icon-tile{
+  width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex:none;
+  border:1px solid var(--border-2);border-radius:8px;background:var(--bg);color:var(--fg);cursor:pointer;transition:.15s;padding:0;
+}
+.adminpage .icon-tile svg{width:18px;height:18px}
+.adminpage .icon-tile:hover{border-color:var(--border)}
+.adminpage .icon-tile[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:var(--surface)}
+.adminpage .icon-tile.is-upload{cursor:default;overflow:hidden}
+.adminpage .icon-tile .icon-default{font-size:13px;color:var(--faint)}
+.adminpage .icon-tile .ico-img{width:24px;height:24px;object-fit:cover;border-radius:4px}
 .adminpage .composer-foot{display:flex;align-items:center;gap:18px;margin-top:20px;padding-top:18px;border-top:1px dashed var(--border)}
 .adminpage .composer-foot .foot-acts{margin-left:auto;display:flex;gap:10px}
 .adminpage .composer-foot .preview{font-size:12.5px;color:var(--faint);font-family:var(--font-mono)}

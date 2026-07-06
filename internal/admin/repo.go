@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -190,6 +191,62 @@ func (r *Repo) CountActiveSubscriptions(ctx context.Context, productID int64) (i
 		`SELECT count(*) FROM subscriptions WHERE api_product_id=$1 AND status='active'`, productID,
 	).Scan(&n)
 	return n, err
+}
+
+// SetUploadedIcon stores the re-encoded PNG for a product and flags the product
+// as using an uploaded icon, in one transaction. Returns the icon's updated_at.
+func (r *Repo) SetUploadedIcon(ctx context.Context, productID int64, png []byte) (time.Time, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return time.Time{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Flag the product first: a nonexistent id is caught as ErrNotFound here,
+	// before the FK-bound product_icons upsert would fail with a raw FK error.
+	tag, err := tx.Exec(ctx, `UPDATE api_products SET icon='upload' WHERE id=$1`, productID)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if tag.RowsAffected() == 0 {
+		return time.Time{}, ErrNotFound
+	}
+	var updatedAt time.Time
+	err = tx.QueryRow(ctx,
+		`INSERT INTO product_icons (product_id, data, updated_at)
+		 VALUES ($1, $2, now())
+		 ON CONFLICT (product_id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()
+		 RETURNING updated_at`, productID, png).Scan(&updatedAt)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return time.Time{}, err
+	}
+	return updatedAt, nil
+}
+
+// GetIcon returns a product's stored custom-icon PNG regardless of publish
+// state (used by the admin Composer preview). ErrNotFound when absent.
+func (r *Repo) GetIcon(ctx context.Context, productID int64) ([]byte, time.Time, error) {
+	var data []byte
+	var updatedAt time.Time
+	err := r.pool.QueryRow(ctx,
+		`SELECT data, updated_at FROM product_icons WHERE product_id=$1`, productID).
+		Scan(&data, &updatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, time.Time{}, ErrNotFound
+		}
+		return nil, time.Time{}, err
+	}
+	return data, updatedAt, nil
+}
+
+// DeleteIcon removes any stored custom icon for a product (idempotent).
+func (r *Repo) DeleteIcon(ctx context.Context, productID int64) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM product_icons WHERE product_id=$1`, productID)
+	return err
 }
 
 // isUniqueViolation returns true for Postgres 23505 unique-constraint errors.

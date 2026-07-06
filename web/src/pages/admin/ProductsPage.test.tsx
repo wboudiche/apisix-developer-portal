@@ -243,4 +243,24 @@ describe('ProductsPage', () => {
     const payload = create.mock.calls[0][1]
     expect(payload.openapiSpec).toContain('"openapi":"3.0.0"')
   })
+
+  it('shows the built-in icon grid and selects a glyph', async () => {
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getByRole('button', { name: /Nouveau produit/ }))
+    const grid = screen.getByTestId('icon-picker')
+    expect(grid).toBeTruthy()
+    // 9 built-in glyphs + 1 Default tile
+    expect(grid.querySelectorAll('button.icon-tile').length).toBe(10)
+    fireEvent.click(grid.querySelector('button.icon-tile[data-key="pizza"]')!)
+    expect(grid.querySelector('button.icon-tile[data-key="pizza"]')!.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('disables custom upload in create mode with a hint', async () => {
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getByRole('button', { name: /Nouveau produit/ }))
+    expect((screen.getByTestId('icon-upload') as HTMLInputElement).disabled).toBe(true)
+    expect(screen.getByTestId('icon-upload-hint')).toBeTruthy()
+  })
 })

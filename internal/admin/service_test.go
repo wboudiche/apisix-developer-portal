@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"apisix-portal/internal/paging"
 )
@@ -80,6 +81,19 @@ func (f *fakeStore) ListChangelog(_ context.Context, _ int64) ([]ChangelogEntry,
 	return nil, nil
 }
 func (f *fakeStore) DeleteChangelog(_ context.Context, _, _ int64) error { return nil }
+func (f *fakeStore) SetUploadedIcon(_ context.Context, id int64, _ []byte) (time.Time, error) {
+	p, ok := f.products[id]
+	if !ok {
+		return time.Time{}, ErrNotFound
+	}
+	p.Icon = "upload"
+	f.products[id] = p
+	return time.Now(), nil
+}
+func (f *fakeStore) DeleteIcon(_ context.Context, _ int64) error { return nil }
+func (f *fakeStore) GetIcon(_ context.Context, _ int64) ([]byte, time.Time, error) {
+	return nil, time.Time{}, ErrNotFound
+}
 
 type fakeProv struct {
 	reprovisioned        []int64

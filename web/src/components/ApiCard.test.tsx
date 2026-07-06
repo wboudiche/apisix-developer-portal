@@ -131,4 +131,11 @@ describe('ApiCard', () => {
     expect(btn).not.toBeDisabled()
     expect(btn).not.toHaveAttribute('title')
   })
+
+  it('renders an <img> for an uploaded icon', () => {
+    render(<MemoryRouter><LanguageProvider><ApiCard p={{ ...baseProduct, slug: 'pizza-api', icon: 'upload' }} onSubscribe={() => {}} /></LanguageProvider></MemoryRouter>)
+    const img = document.querySelector('img.ico-img') as HTMLImageElement
+    expect(img).toBeTruthy()
+    expect(img.getAttribute('src')).toBe('/api/products/pizza-api/icon')
+  })
 })

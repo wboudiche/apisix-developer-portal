@@ -3,7 +3,10 @@ package catalog
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -19,6 +22,7 @@ type Lister interface {
 	GetBySlug(ctx context.Context, slug string) (Product, error)
 	GetSpecBySlug(ctx context.Context, slug string) (string, error)
 	ListChangelogBySlug(ctx context.Context, slug string) ([]ChangelogEntry, error)
+	GetIconBySlug(ctx context.Context, slug string) ([]byte, time.Time, error)
 }
 
 type Handler struct {
@@ -32,6 +36,7 @@ func NewHandler(repo Lister) *Handler {
 	h.router.Get("/api/products/{slug}", h.getBySlug)
 	h.router.Get("/api/products/{slug}/spec", h.getSpec)
 	h.router.Get("/api/products/{slug}/changelog", h.getChangelog)
+	h.router.Get("/api/products/{slug}/icon", h.getIcon)
 	return h
 }
 
@@ -95,6 +100,28 @@ func (h *Handler) getChangelog(w http.ResponseWriter, r *http.Request) {
 		entries = []ChangelogEntry{}
 	}
 	httpx.JSON(w, http.StatusOK, entries)
+}
+
+func (h *Handler) getIcon(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	data, updatedAt, err := h.repo.GetIconBySlug(r.Context(), slug)
+	if err == ErrNotFound {
+		httpx.ErrorT(w, r, http.StatusNotFound, "catalog.productNotFound")
+		return
+	}
+	if err != nil {
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "catalog.list.failed")
+		return
+	}
+	etag := fmt.Sprintf("%q", strconv.FormatInt(updatedAt.Unix(), 10))
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=60")
+	w.Header().Set("ETag", etag)
+	w.Write(data)
 }
 
 // specContentType guesses JSON vs YAML from the first non-space byte.
