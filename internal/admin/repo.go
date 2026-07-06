@@ -202,6 +202,15 @@ func (r *Repo) SetUploadedIcon(ctx context.Context, productID int64, png []byte)
 	}
 	defer tx.Rollback(ctx)
 
+	// Flag the product first: a nonexistent id is caught as ErrNotFound here,
+	// before the FK-bound product_icons upsert would fail with a raw FK error.
+	tag, err := tx.Exec(ctx, `UPDATE api_products SET icon='upload' WHERE id=$1`, productID)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if tag.RowsAffected() == 0 {
+		return time.Time{}, ErrNotFound
+	}
 	var updatedAt time.Time
 	err = tx.QueryRow(ctx,
 		`INSERT INTO product_icons (product_id, data, updated_at)
@@ -210,13 +219,6 @@ func (r *Repo) SetUploadedIcon(ctx context.Context, productID int64, png []byte)
 		 RETURNING updated_at`, productID, png).Scan(&updatedAt)
 	if err != nil {
 		return time.Time{}, err
-	}
-	tag, err := tx.Exec(ctx, `UPDATE api_products SET icon='upload' WHERE id=$1`, productID)
-	if err != nil {
-		return time.Time{}, err
-	}
-	if tag.RowsAffected() == 0 {
-		return time.Time{}, ErrNotFound
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return time.Time{}, err

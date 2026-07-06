@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
@@ -82,6 +83,13 @@ func TestDeleteIconRemovesRow(t *testing.T) {
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM product_icons WHERE product_id=$1`, id).Scan(&n)
 	if n != 0 {
 		t.Fatalf("row not deleted, count=%d", n)
+	}
+}
+
+func TestSetUploadedIconNotFound(t *testing.T) {
+	ctx, repo, _ := iconTestRepo(t)
+	if _, err := repo.SetUploadedIcon(ctx, 999999999, []byte("X")); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("got %v, want ErrNotFound", err)
 	}
 }
 
