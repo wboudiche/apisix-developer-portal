@@ -36,6 +36,7 @@ type Config struct {
 	SMTPPassword            string
 	SMTPFrom                string
 	PortalBaseURL           string
+	RequireEmailVerification bool
 }
 
 func get(key, def string) string {
@@ -70,6 +71,7 @@ func Load() Config {
 		SMTPPassword:            get("SMTP_PASSWORD", ""),
 		SMTPFrom:                get("SMTP_FROM", ""),
 		PortalBaseURL:           get("PORTAL_BASE_URL", "http://localhost:5173"),
+		RequireEmailVerification: get("REQUIRE_EMAIL_VERIFICATION", "") == "1",
 	}
 }
 
@@ -107,6 +109,9 @@ func (c Config) SandboxConfigured() bool {
 // Unset PORTAL_ENV is treated as production (fail-closed). In a dev-like
 // environment it always returns nil (callers may still warn via UsesDevSecrets).
 func (c Config) Validate() error {
+	if c.RequireEmailVerification && !c.SMTPConfigured() {
+		return fmt.Errorf("REQUIRE_EMAIL_VERIFICATION=1 needs a mail server: set SMTP_HOST and SMTP_FROM, or unset REQUIRE_EMAIL_VERIFICATION")
+	}
 	if c.isDevLike() {
 		return nil
 	}
