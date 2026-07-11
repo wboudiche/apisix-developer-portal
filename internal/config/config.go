@@ -14,28 +14,28 @@ const (
 )
 
 type Config struct {
-	DatabaseURL             string
-	Addr                    string
-	JWTSecret               string
-	APISIXAdminURL          string
-	APISIXGatewayURL        string // base URL of the APISIX data-plane (gateway), used by the try-it proxy
-	APISIXAdminKey          string
-	APISIXSandboxAdminURL   string
-	APISIXSandboxGatewayURL string
-	APISIXSandboxAdminKey   string
-	AdminEmail              string
-	Env                     string
-	CredentialEncKey        string
-	TrustedProxies          string // comma-separated CIDRs whose X-Forwarded-For is trusted
-	PrometheusURL           string // base URL of the Prometheus read API; empty disables usage metrics
-	OIDCIssuer              string // OIDC issuer URL; empty means OAuth2 is disabled
-	OIDCClientIDClaim       string // JWT claim that carries the client_id (default "azp")
-	SMTPHost                string
-	SMTPPort                string
-	SMTPUsername            string
-	SMTPPassword            string
-	SMTPFrom                string
-	PortalBaseURL           string
+	DatabaseURL              string
+	Addr                     string
+	JWTSecret                string
+	APISIXAdminURL           string
+	APISIXGatewayURL         string // base URL of the APISIX data-plane (gateway), used by the try-it proxy
+	APISIXAdminKey           string
+	APISIXSandboxAdminURL    string
+	APISIXSandboxGatewayURL  string
+	APISIXSandboxAdminKey    string
+	AdminEmail               string
+	Env                      string
+	CredentialEncKey         string
+	TrustedProxies           string // comma-separated CIDRs whose X-Forwarded-For is trusted
+	PrometheusURL            string // base URL of the Prometheus read API; empty disables usage metrics
+	OIDCIssuer               string // OIDC issuer URL; empty means OAuth2 is disabled
+	OIDCClientIDClaim        string // JWT claim that carries the client_id (default "azp")
+	SMTPHost                 string
+	SMTPPort                 string
+	SMTPUsername             string
+	SMTPPassword             string
+	SMTPFrom                 string
+	PortalBaseURL            string
 	RequireEmailVerification bool
 }
 
@@ -49,28 +49,28 @@ func get(key, def string) string {
 // Load reads configuration from the environment, applying dev defaults.
 func Load() Config {
 	return Config{
-		DatabaseURL:             get("DATABASE_URL", "postgres://portal:portal@localhost:5432/portal?sslmode=disable"),
-		Addr:                    get("PORTAL_ADDR", ":8080"),
-		JWTSecret:               get("JWT_SECRET", DevJWTSecret),
-		APISIXAdminURL:          get("APISIX_ADMIN_URL", "http://localhost:19180"),
-		APISIXGatewayURL:        get("APISIX_GATEWAY_URL", "http://localhost:9080"),
-		APISIXAdminKey:          get("APISIX_ADMIN_KEY", DevAPISIXAdminKey),
-		APISIXSandboxAdminURL:   get("APISIX_SANDBOX_ADMIN_URL", "http://localhost:19280"),
-		APISIXSandboxGatewayURL: get("APISIX_SANDBOX_GATEWAY_URL", "http://localhost:9081"),
-		APISIXSandboxAdminKey:   get("APISIX_SANDBOX_ADMIN_KEY", get("APISIX_ADMIN_KEY", DevAPISIXAdminKey)),
-		AdminEmail:              get("ADMIN_EMAIL", "admin@portal.local"),
-		Env:                     get("PORTAL_ENV", ""),
-		CredentialEncKey:        get("CREDENTIAL_ENC_KEY", DevCredentialEncKey),
-		TrustedProxies:          get("TRUSTED_PROXIES", ""),
-		PrometheusURL:           get("PROMETHEUS_URL", "http://localhost:9099"),
-		OIDCIssuer:              get("OIDC_ISSUER", ""),
-		OIDCClientIDClaim:       get("OIDC_CLIENT_ID_CLAIM", "azp"),
-		SMTPHost:                get("SMTP_HOST", ""),
-		SMTPPort:                get("SMTP_PORT", "587"),
-		SMTPUsername:            get("SMTP_USERNAME", ""),
-		SMTPPassword:            get("SMTP_PASSWORD", ""),
-		SMTPFrom:                get("SMTP_FROM", ""),
-		PortalBaseURL:           get("PORTAL_BASE_URL", "http://localhost:5173"),
+		DatabaseURL:              get("DATABASE_URL", "postgres://portal:portal@localhost:5432/portal?sslmode=disable"),
+		Addr:                     get("PORTAL_ADDR", ":8080"),
+		JWTSecret:                get("JWT_SECRET", DevJWTSecret),
+		APISIXAdminURL:           get("APISIX_ADMIN_URL", "http://localhost:19180"),
+		APISIXGatewayURL:         get("APISIX_GATEWAY_URL", "http://localhost:9080"),
+		APISIXAdminKey:           get("APISIX_ADMIN_KEY", DevAPISIXAdminKey),
+		APISIXSandboxAdminURL:    get("APISIX_SANDBOX_ADMIN_URL", "http://localhost:19280"),
+		APISIXSandboxGatewayURL:  get("APISIX_SANDBOX_GATEWAY_URL", "http://localhost:9081"),
+		APISIXSandboxAdminKey:    get("APISIX_SANDBOX_ADMIN_KEY", get("APISIX_ADMIN_KEY", DevAPISIXAdminKey)),
+		AdminEmail:               get("ADMIN_EMAIL", "admin@portal.local"),
+		Env:                      get("PORTAL_ENV", ""),
+		CredentialEncKey:         get("CREDENTIAL_ENC_KEY", DevCredentialEncKey),
+		TrustedProxies:           get("TRUSTED_PROXIES", ""),
+		PrometheusURL:            get("PROMETHEUS_URL", "http://localhost:9099"),
+		OIDCIssuer:               get("OIDC_ISSUER", ""),
+		OIDCClientIDClaim:        get("OIDC_CLIENT_ID_CLAIM", "azp"),
+		SMTPHost:                 get("SMTP_HOST", ""),
+		SMTPPort:                 get("SMTP_PORT", "587"),
+		SMTPUsername:             get("SMTP_USERNAME", ""),
+		SMTPPassword:             get("SMTP_PASSWORD", ""),
+		SMTPFrom:                 get("SMTP_FROM", ""),
+		PortalBaseURL:            get("PORTAL_BASE_URL", "http://localhost:5173"),
 		RequireEmailVerification: get("REQUIRE_EMAIL_VERIFICATION", "") == "1",
 	}
 }
