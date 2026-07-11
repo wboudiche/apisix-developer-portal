@@ -16,6 +16,9 @@ var fr = map[string]string{
 	"auth.middleware.invalidToken":      "jeton invalide",
 	"auth.middleware.adminOnly":         "réservé aux administrateurs",
 	"auth.middleware.roleCheckFailed":   "impossible de vérifier le rôle",
+	"auth.login.emailNotVerified":       "adresse e-mail non vérifiée — consultez votre boîte de réception",
+	"auth.verify.invalidOrExpired":      "lien de vérification invalide ou expiré",
+	"auth.verify.failed":                "échec de la vérification",
 
 	// catalog
 	"catalog.list.failed":      "impossible de lister les produits",

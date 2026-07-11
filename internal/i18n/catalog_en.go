@@ -15,6 +15,9 @@ var en = map[string]string{
 	"auth.middleware.invalidToken":      "invalid token",
 	"auth.middleware.adminOnly":         "admin only",
 	"auth.middleware.roleCheckFailed":   "could not verify role",
+	"auth.login.emailNotVerified":       "email address not verified — check your inbox",
+	"auth.verify.invalidOrExpired":      "verification link invalid or expired",
+	"auth.verify.failed":                "verification failed",
 
 	// catalog
 	"catalog.list.failed":      "failed to list products",
