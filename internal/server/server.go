@@ -74,6 +74,15 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	if cfg.SMTPConfigured() {
 		sender := notify.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFrom)
 		subSvc.SetNotifier(notify.NewNotifier(sender, notify.NewRepo(pool), cfg.PortalBaseURL))
+		if cfg.RequireEmailVerification {
+			// Config.Validate() already guarantees SMTP is set when the flag is on;
+			// resends are limited to 3 quick tries then 1/min per email address.
+			authH.EnableEmailVerification(auth.VerificationConfig{
+				Sender:  sender,
+				BaseURL: cfg.PortalBaseURL,
+				Limiter: httpx.NewRateLimiter(3, 1.0/60),
+			})
+		}
 	}
 	owns := func(ctx context.Context, appID, userID int64) (bool, error) {
 		return teamsRepo.IsMemberOfApp(ctx, userID, appID)

@@ -30,6 +30,7 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
       SMTP_FROM: portal@local.test
+      # REQUIRE_EMAIL_VERIFICATION: "1"  # new accounts must click the emailed link before login (needs SMTP_*)
       OIDC_ISSUER: http://auth.example.com
       OIDC_CLIENT_ID_CLAIM: client_id   # confirmed in Task 3: LL::NG client-credentials JWT carries the client id in `client_id`
       ADMIN_EMAIL: admin@portal.local
