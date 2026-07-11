@@ -119,25 +119,34 @@ func (r *Repo) VerifyByTokenHash(ctx context.Context, tokenHash string) error {
 
 // ResetVerifyToken stores a fresh token hash/expiry for an unverified account
 // (invalidating any previous link) and returns the user for email rendering.
+// The not-yet-verified guard is part of the UPDATE itself (atomic), so a
+// token can never be written onto an account that a concurrent
+// VerifyByTokenHash just verified.
 func (r *Repo) ResetVerifyToken(ctx context.Context, email, tokenHash string, expiresAt time.Time) (User, error) {
 	var u User
-	var verified bool
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, name, role, language, email_verified FROM users WHERE email=$1`, email,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Language, &verified)
+		`UPDATE users SET verify_token_hash=$2, verify_token_expires_at=$3
+		 WHERE email=$1 AND NOT email_verified
+		 RETURNING id, email, name, role, language`,
+		email, tokenHash, expiresAt,
+	).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Language)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return User{}, ErrUserNotFound
+		// Nothing was written; classify why with a read-only lookup:
+		// no such account, or an account that no longer needs verification.
+		var exists bool
+		if err := r.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM users WHERE email=$1)`, email).Scan(&exists); err != nil {
+			return User{}, err
+		}
+		if !exists {
+			return User{}, ErrUserNotFound
+		}
+		return User{}, ErrAlreadyVerified
 	}
 	if err != nil {
 		return User{}, err
 	}
-	if verified {
-		return User{}, ErrAlreadyVerified
-	}
-	_, err = r.pool.Exec(ctx,
-		`UPDATE users SET verify_token_hash=$2, verify_token_expires_at=$3 WHERE id=$1`,
-		u.ID, tokenHash, expiresAt)
-	return u, err
+	return u, nil
 }
 
 // SetLanguage updates the user's stored UI language ('fr'|'en').
