@@ -146,6 +146,8 @@ export const fr = {
     verifySuccessBody: 'Votre adresse e-mail est confirmée. Vous pouvez maintenant vous connecter.',
     verifyFailedTitle: 'Lien invalide ou expiré',
     verifyFailedBody: 'Ce lien de vérification est invalide ou expiré. Déjà vérifié ? Connectez-vous simplement. Sinon, demandez un nouveau lien :',
+    verifyErrorTitle: 'Une erreur est survenue',
+    verifyErrorBody: 'Impossible de vérifier pour le moment — réessayez dans quelques instants.',
   },
   app: {
     // ApplicationsIndex

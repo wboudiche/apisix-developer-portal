@@ -147,6 +147,8 @@ export const en: Messages = {
     verifySuccessBody: 'Your email address is confirmed. You can now log in.',
     verifyFailedTitle: 'Link invalid or expired',
     verifyFailedBody: 'This verification link is invalid or expired. Already verified? Just log in. Otherwise, request a new link:',
+    verifyErrorTitle: 'Something went wrong',
+    verifyErrorBody: 'We could not verify right now — try again in a moment.',
   },
   app: {
     // ApplicationsIndex

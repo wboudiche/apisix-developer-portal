@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -46,5 +47,29 @@ describe('VerifyEmailPage', () => {
     renderAt('/verify-email')
     expect(await screen.findByRole('heading', { name: /invalide ou expiré/i })).toBeInTheDocument()
     expect(verify).not.toHaveBeenCalled()
+  })
+
+  it('calls verifyEmail exactly once even under StrictMode double-invocation', async () => {
+    // The verification token is single-use server-side (a second POST gets a
+    // 410), so StrictMode's dev-mode double-effect must not issue a second
+    // request — otherwise a real success can flip to "invalid".
+    const verify = vi.spyOn(api, 'verifyEmail').mockResolvedValue(undefined)
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={['/verify-email?token=tok123']}>
+          <LanguageProvider><VerifyEmailPage /></LanguageProvider>
+        </MemoryRouter>
+      </StrictMode>
+    )
+    expect(await screen.findByText(/vérifiée/i)).toBeInTheDocument()
+    expect(verify).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows a generic error state (no resend form) when verification fails for a non-410 reason', async () => {
+    vi.spyOn(api, 'verifyEmail').mockRejectedValue(new ApiError('server error', 500))
+    renderAt('/verify-email?token=tok500')
+    expect(await screen.findByText(/une erreur est survenue/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /renvoyer/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /connexion|se connecter/i })).toBeInTheDocument()
   })
 })

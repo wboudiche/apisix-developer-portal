@@ -88,7 +88,7 @@ export function LoginPage() {
               <button
                 type="button" className="linklike"
                 onClick={async () => {
-                  try { await resendVerification(email) } catch { /* always answers 204; network errors get the same copy */ }
+                  try { await resendVerification(email) } catch { /* uniform "sent" copy regardless of outcome — anti-enumeration posture */ }
                   setResent(true)
                 }}
               >
