@@ -132,15 +132,20 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, map[string]any{"user": u, "token": token})
 }
 
-// sendVerification emails the verification link; failures are logged only —
-// the resend endpoint is the recovery path (spec: best-effort like notify).
+// sendVerification emails the verification link asynchronously, best-effort:
+// failures are logged only — the resend endpoint is the recovery path (spec:
+// best-effort like notify). Async so resend answers 204 after DB work alone
+// whether or not a mail goes out (no account-existence timing oracle) and
+// register never blocks on SMTP.
 func (h *Handler) sendVerification(u User, lang, plainToken string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	link := h.verify.BaseURL + "/verify-email?token=" + plainToken
-	if err := notify.SendVerificationEmail(ctx, h.verify.Sender, lang, u.Email, u.Name, link); err != nil {
-		log.Printf("auth: verification email to %s: %v", u.Email, err)
-	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		link := h.verify.BaseURL + "/verify-email?token=" + plainToken
+		if err := notify.SendVerificationEmail(ctx, h.verify.Sender, lang, u.Email, u.Name, link); err != nil {
+			log.Printf("auth: verification email to %s: %v", u.Email, err)
+		}
+	}()
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {

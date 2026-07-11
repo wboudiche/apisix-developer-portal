@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -341,17 +342,48 @@ func TestPutLanguage(t *testing.T) {
 	}
 }
 
+// fakeVerifSender records sends; mutex-guarded because sendVerification
+// delivers from a goroutine. waitFor polls until the async send lands.
 type fakeVerifSender struct {
+	mu   sync.Mutex
 	to   string
 	body string
 	n    int
 }
 
 func (f *fakeVerifSender) Send(_ context.Context, to []string, _ string, body string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.n++
 	f.to = strings.Join(to, ",")
 	f.body = body
 	return nil
+}
+
+func (f *fakeVerifSender) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.n
+}
+
+func (f *fakeVerifSender) last() (to, body string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.to, f.body
+}
+
+// waitFor blocks until the send count reaches n (polling every 10ms, up to
+// 2s), failing the test on timeout.
+func (f *fakeVerifSender) waitFor(t *testing.T, n int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if f.count() >= n {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %d sends (got %d)", n, f.count())
 }
 
 func verifHandler(store UserStore, sender *fakeVerifSender) *Handler {
@@ -390,11 +422,13 @@ func TestRegisterWithVerificationWithholdsToken(t *testing.T) {
 	if body["verificationRequired"] != true {
 		t.Fatal("response must carry verificationRequired: true")
 	}
-	if sender.n != 1 || sender.to != "d@x.io" {
-		t.Fatalf("verification email not sent (n=%d to=%q)", sender.n, sender.to)
+	sender.waitFor(t, 1) // send is async — wait for the goroutine to deliver
+	to, mailBody := sender.last()
+	if to != "d@x.io" {
+		t.Fatalf("verification email not sent to registrant (to=%q)", to)
 	}
-	if !strings.Contains(sender.body, "http://localhost:8088/verify-email?token=fixedtoken") {
-		t.Fatalf("email body must contain the link, got %q", sender.body)
+	if !strings.Contains(mailBody, "http://localhost:8088/verify-email?token=fixedtoken") {
+		t.Fatalf("email body must contain the link, got %q", mailBody)
 	}
 }
 
@@ -446,23 +480,27 @@ func TestResendAlways204AndOnlyMailsUnverified(t *testing.T) {
 	store := newMemRepo()
 	h := verifHandler(store, sender)
 	postAuth(h, "/api/auth/register", credentials{Email: "d@x.io", Password: "longenough"})
-	base := sender.n
+	sender.waitFor(t, 1) // register's async send must land before counting
+	base := sender.count()
 
-	// unknown account: 204, no email
+	// unknown account: 204, no email. Deterministic even with the async send:
+	// ResetVerifyToken errors first, so no goroutine is ever spawned, and every
+	// earlier positive send was already waited on above.
 	rec := postAuth(h, "/api/auth/resend-verification", map[string]string{"email": "ghost@x.io"})
-	if rec.Code != http.StatusNoContent || sender.n != base {
-		t.Fatalf("unknown: code=%d mails=%d, want 204 and no mail", rec.Code, sender.n-base)
+	if rec.Code != http.StatusNoContent || sender.count() != base {
+		t.Fatalf("unknown: code=%d mails=%d, want 204 and no mail", rec.Code, sender.count()-base)
 	}
 	// unverified account: 204 + email
 	rec = postAuth(h, "/api/auth/resend-verification", map[string]string{"email": "d@x.io"})
-	if rec.Code != http.StatusNoContent || sender.n != base+1 {
-		t.Fatalf("unverified: code=%d mails=%d, want 204 and one mail", rec.Code, sender.n-base)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("unverified: code=%d, want 204", rec.Code)
 	}
-	// verify, then resend: 204, no new email
+	sender.waitFor(t, base+1)
+	// verify, then resend: 204, no new email (no goroutine spawned — see above)
 	postAuth(h, "/api/auth/verify", map[string]string{"token": "fixedtoken"})
 	rec = postAuth(h, "/api/auth/resend-verification", map[string]string{"email": "d@x.io"})
-	if rec.Code != http.StatusNoContent || sender.n != base+1 {
-		t.Fatalf("verified: code=%d mails=%d, want 204 and no mail", rec.Code, sender.n-base-1)
+	if rec.Code != http.StatusNoContent || sender.count() != base+1 {
+		t.Fatalf("verified: code=%d mails=%d, want 204 and no mail", rec.Code, sender.count()-base-1)
 	}
 }
 
