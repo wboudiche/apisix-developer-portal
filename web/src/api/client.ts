@@ -1,5 +1,5 @@
 import type {
-  Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail,
+  Product, AuthResponse, RegisterResponse, ProductQuery, Plan, Application, Credential, AppDetail,
   AdminMeta, AdminProduct, AdminSubscription, Usage, UsageRange, Paginated, TryApp, Quota,
   RatingsView, Team, TeamMember, ChangelogEntry, Invoice,
 } from './types'
@@ -116,8 +116,16 @@ export async function login(email: string, password: string): Promise<AuthRespon
   return parse<AuthResponse>(await postJSON('/api/auth/login', { email, password }), '/api/auth/login')
 }
 
-export async function register(email: string, password: string, name: string): Promise<AuthResponse> {
-  return parse<AuthResponse>(await postJSON('/api/auth/register', { email, password, name }), '/api/auth/register')
+export async function register(email: string, password: string, name: string): Promise<RegisterResponse> {
+  return parse<RegisterResponse>(await postJSON('/api/auth/register', { email, password, name }), '/api/auth/register')
+}
+
+export async function verifyEmail(token: string): Promise<void> {
+  await parse<unknown>(await postJSON('/api/auth/verify', { token }), '/api/auth/verify')
+}
+
+export async function resendVerification(email: string): Promise<void> {
+  await parse<unknown>(await postJSON('/api/auth/resend-verification', { email }), '/api/auth/resend-verification')
 }
 
 function langHeaders(token?: string): HeadersInit {

@@ -7,7 +7,7 @@ interface AuthState {
   user: User | null
   token: string | null
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, name: string) => Promise<void>
+  register: (email: string, password: string, name: string) => Promise<boolean>
   logout: () => void
 }
 
@@ -30,7 +30,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const login = async (email: string, password: string) => apply(await api.login(email, password))
-  const register = async (email: string, password: string, name: string) => apply(await api.register(email, password, name))
+  const register = async (email: string, password: string, name: string): Promise<boolean> => {
+    const res = await api.register(email, password, name)
+    if (res.token) {
+      apply({ user: res.user, token: res.token })
+      return false
+    }
+    return true // verification required; not logged in
+  }
   const logout = () => {
     setUser(null); setToken(null)
     localStorage.removeItem('token'); localStorage.removeItem('user')

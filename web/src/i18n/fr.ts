@@ -137,6 +137,17 @@ export const fr = {
     alreadyRegisteredPrefix: 'Déjà inscrit ? ',
     createAccount: 'Créer le compte',
     creatingAccount: 'Création…',
+    checkInboxTitle: 'Vérifiez votre boîte de réception',
+    checkInboxBody: 'Nous venons de vous envoyer un lien de vérification. Cliquez-le pour activer votre compte (valable 24 h).',
+    resendVerification: 'Renvoyer l’e-mail de vérification',
+    resendSent: 'E-mail envoyé si un compte existe — pensez aussi aux indésirables.',
+    verifying: 'Vérification en cours…',
+    verifySuccessTitle: 'Adresse vérifiée',
+    verifySuccessBody: 'Votre adresse e-mail est confirmée. Vous pouvez maintenant vous connecter.',
+    verifyFailedTitle: 'Lien invalide ou expiré',
+    verifyFailedBody: 'Ce lien de vérification est invalide ou expiré. Déjà vérifié ? Connectez-vous simplement. Sinon, demandez un nouveau lien :',
+    verifyErrorTitle: 'Une erreur est survenue',
+    verifyErrorBody: 'Impossible de vérifier pour le moment — réessayez dans quelques instants.',
   },
   app: {
     // ApplicationsIndex

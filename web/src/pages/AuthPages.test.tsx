@@ -7,6 +7,7 @@ import { RegisterPage } from './RegisterPage'
 import { AuthProvider } from '../auth/AuthProvider'
 import { LanguageProvider } from '../i18n/LanguageProvider'
 import * as api from '../api/client'
+import { ApiError } from '../api/client'
 
 beforeEach(() => {
   localStorage.clear()
@@ -75,6 +76,36 @@ describe('LoginPage', () => {
     await waitFor(() => expect(screen.getByText('CATALOG HOME')).toBeInTheDocument())
   })
 
+  it('offers resend when login fails with 403 (unverified email)', async () => {
+    vi.spyOn(api, 'login').mockRejectedValue(new ApiError('email address not verified — check your inbox', 403))
+    const resend = vi.spyOn(api, 'resendVerification').mockResolvedValue(undefined)
+    renderLogin()
+    await userEvent.type(screen.getByLabelText('Email'), 'd@x.io')
+    await userEvent.type(screen.getByLabelText('Mot de passe'), 'longenough')
+    await userEvent.click(screen.getByRole('button', { name: 'Se connecter' }))
+    const resendBtn = await screen.findByRole('button', { name: /Renvoyer/i })
+    await userEvent.click(resendBtn)
+    await waitFor(() => expect(resend).toHaveBeenCalledWith('d@x.io'))
+    expect(await screen.findByText(/envoyé/i)).toBeInTheDocument()
+  })
+
+  it('clears the resend/sent notice when a new submit fails with a different error', async () => {
+    const login = vi.spyOn(api, 'login').mockRejectedValue(new ApiError('email address not verified — check your inbox', 403))
+    vi.spyOn(api, 'resendVerification').mockResolvedValue(undefined)
+    renderLogin()
+    await userEvent.type(screen.getByLabelText('Email'), 'a@x.io')
+    await userEvent.type(screen.getByLabelText('Mot de passe'), 'longenough')
+    await userEvent.click(screen.getByRole('button', { name: 'Se connecter' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Renvoyer/i }))
+    expect(await screen.findByText(/envoyé/i)).toBeInTheDocument()
+    // second attempt (e.g. another account) fails with bad credentials
+    login.mockRejectedValue(new ApiError('invalid credentials', 401))
+    await userEvent.click(screen.getByRole('button', { name: 'Se connecter' }))
+    await waitFor(() => expect(screen.getByText('invalid credentials')).toBeInTheDocument())
+    expect(screen.queryByText(/envoyé/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Renvoyer/i })).not.toBeInTheDocument()
+  })
+
   it('renders the blueprint placeholder controls', () => {
     renderLogin()
     expect(screen.getByText('Rester connecté')).toBeInTheDocument()
@@ -137,5 +168,19 @@ describe('RegisterPage', () => {
     expect(await screen.findByText('Mot de passe : 8 caractères minimum')).toBeInTheDocument()
     await userEvent.type(screen.getByLabelText('Mot de passe'), 'x')
     expect(screen.queryByText('Mot de passe : 8 caractères minimum')).not.toBeInTheDocument()
+  })
+
+  it('shows the check-your-inbox panel when registration requires verification', async () => {
+    vi.spyOn(api, 'register').mockResolvedValue({
+      user: { id: 1, email: 'd@x.io', name: 'D', role: 'developer' },
+      verificationRequired: true,
+    })
+    renderRegister()
+    await userEvent.type(screen.getByLabelText('Email'), 'd@x.io')
+    await userEvent.type(screen.getByLabelText('Mot de passe'), 'longenough')
+    await userEvent.click(screen.getByRole('button', { name: 'Créer le compte' }))
+    expect(await screen.findByText('Vérifiez votre boîte de réception')).toBeInTheDocument()
+    // the form is replaced by the notice
+    expect(screen.queryByRole('button', { name: 'Créer le compte' })).not.toBeInTheDocument()
   })
 })

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { AuthShell } from '../components/AuthShell'
 import { useT } from '../i18n/LanguageProvider'
+import { ApiError, resendVerification } from '../api/client'
 
 export function EyeIcon({ off }: { off: boolean }) {
   return off ? (
@@ -51,15 +52,22 @@ export function LoginPage() {
   const [err, setErr] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [unverified, setUnverified] = useState(false)
+  const [resent, setResent] = useState(false)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setErr('')
+    setUnverified(false)
+    setResent(false)
     setLoading(true)
     try {
       await login(email, password)
       nav('/')
     } catch (e) {
+      if (e instanceof ApiError && e.status === 403) {
+        setUnverified(true)
+      }
       setErr(e instanceof Error ? e.message : t('auth.loginFailed'))
       setLoading(false)
     }
@@ -74,6 +82,21 @@ export function LoginPage() {
         </div>
 
         {err && <p className="form-err" role="alert">{err}</p>}
+        {unverified && (
+          <p className="form-err" role="alert">
+            {resent ? t('auth.resendSent') : (
+              <button
+                type="button" className="linklike"
+                onClick={async () => {
+                  try { await resendVerification(email) } catch { /* uniform "sent" copy regardless of outcome — anti-enumeration posture */ }
+                  setResent(true)
+                }}
+              >
+                {t('auth.resendVerification')}
+              </button>
+            )}
+          </p>
+        )}
 
         <div className="field">
           <label htmlFor="login-email">{t('auth.emailLabel')}</label>

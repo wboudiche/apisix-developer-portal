@@ -16,6 +16,7 @@ export function RegisterPage() {
   const [pwErr, setPwErr] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [sent, setSent] = useState(false)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -27,12 +28,29 @@ export function RegisterPage() {
     }
     setLoading(true)
     try {
-      await register(email, password, name)
-      nav('/')
+      const needsVerification = await register(email, password, name)
+      if (needsVerification) {
+        setSent(true)
+        setLoading(false)
+      } else {
+        nav('/')
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : t('auth.registerFailed'))
       setLoading(false)
     }
+  }
+
+  if (sent) {
+    return (
+      <AuthShell>
+        <div className="m-head">
+          <h2>{t('auth.checkInboxTitle')}</h2>
+          <p>{t('auth.checkInboxBody')}</p>
+          <p><Link to="/login">{t('auth.login')}</Link></p>
+        </div>
+      </AuthShell>
+    )
   }
 
   return (

@@ -45,6 +45,23 @@ func TestHashPasswordUsesCost12(t *testing.T) {
 	}
 }
 
+func TestGenerateVerifyToken(t *testing.T) {
+	plain, hash := GenerateVerifyToken()
+	if len(plain) != 32 {
+		t.Fatalf("plain len = %d, want 32 hex chars", len(plain))
+	}
+	if hash != HashVerifyToken(plain) {
+		t.Fatal("hash must equal HashVerifyToken(plain)")
+	}
+	if hash == plain {
+		t.Fatal("hash must not equal the plain token")
+	}
+	p2, _ := GenerateVerifyToken()
+	if p2 == plain {
+		t.Fatal("two tokens must differ")
+	}
+}
+
 func TestCheckPasswordRejectsTooLong(t *testing.T) {
 	// HashPassword already rejects >72 bytes, but CheckPassword must too
 	// (symmetric guard against silent truncation at verification time).

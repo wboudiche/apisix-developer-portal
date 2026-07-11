@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -15,32 +17,40 @@ import (
 	"apisix-portal/internal/i18n"
 )
 
-// memRepo is an in-memory UserStore for handler tests.
-type memRepo struct {
-	byEmail map[string]struct {
-		u    User
-		hash string
-	}
-	nextID int64
+// memUser is the value stored per-email by memRepo.
+type memUser struct {
+	u         User
+	hash      string
+	verified  bool
+	tokenHash string
+	expires   time.Time
 }
 
-func newMemRepo() *memRepo {
-	return &memRepo{byEmail: map[string]struct {
-		u    User
-		hash string
-	}{}}
+// memRepo is an in-memory UserStore for handler tests.
+type memRepo struct {
+	byEmail map[string]*memUser
+	nextID  int64
 }
+
+func newMemRepo() *memRepo { return &memRepo{byEmail: map[string]*memUser{}} }
 
 func (m *memRepo) Create(_ context.Context, email, hash, name, lang string) (User, error) {
 	if _, ok := m.byEmail[email]; ok {
 		return User{}, ErrEmailTaken
 	}
 	m.nextID++
+	u := User{ID: m.nextID, Email: email, Name: name, Role: "developer", Language: lang, Verified: true}
+	m.byEmail[email] = &memUser{u: u, hash: hash, verified: true}
+	return u, nil
+}
+
+func (m *memRepo) CreateUnverified(_ context.Context, email, hash, name, lang, tokenHash string, expiresAt time.Time) (User, error) {
+	if _, ok := m.byEmail[email]; ok {
+		return User{}, ErrEmailTaken
+	}
+	m.nextID++
 	u := User{ID: m.nextID, Email: email, Name: name, Role: "developer", Language: lang}
-	m.byEmail[email] = struct {
-		u    User
-		hash string
-	}{u, hash}
+	m.byEmail[email] = &memUser{u: u, hash: hash, tokenHash: tokenHash, expires: expiresAt}
 	return u, nil
 }
 
@@ -49,14 +59,38 @@ func (m *memRepo) GetByEmail(_ context.Context, email string) (User, string, err
 	if !ok {
 		return User{}, "", errors.New("not found")
 	}
-	return v.u, v.hash, nil
+	u := v.u
+	u.Verified = v.verified
+	return u, v.hash, nil
+}
+
+func (m *memRepo) VerifyByTokenHash(_ context.Context, tokenHash string) error {
+	for _, v := range m.byEmail {
+		if v.tokenHash == tokenHash && time.Now().Before(v.expires) {
+			v.verified, v.tokenHash = true, ""
+			return nil
+		}
+	}
+	return ErrTokenInvalid
+}
+
+func (m *memRepo) ResetVerifyToken(_ context.Context, email, tokenHash string, expiresAt time.Time) (User, error) {
+	v, ok := m.byEmail[email]
+	if !ok {
+		return User{}, ErrUserNotFound
+	}
+	if v.verified {
+		return User{}, ErrAlreadyVerified
+	}
+	v.tokenHash, v.expires = tokenHash, expiresAt
+	u := v.u
+	return u, nil
 }
 
 func (m *memRepo) SetLanguage(_ context.Context, userID int64, lang string) error {
-	for email, v := range m.byEmail {
+	for _, v := range m.byEmail {
 		if v.u.ID == userID {
 			v.u.Language = lang
-			m.byEmail[email] = v
 			return nil
 		}
 	}
@@ -133,12 +167,24 @@ func (b *brokenRepo) Create(_ context.Context, _, _, _, _ string) (User, error) 
 	return User{}, errors.New("db down")
 }
 
+func (b *brokenRepo) CreateUnverified(_ context.Context, _, _, _, _, _ string, _ time.Time) (User, error) {
+	return User{}, errors.New("db down")
+}
+
 func (b *brokenRepo) GetByEmail(_ context.Context, _ string) (User, string, error) {
 	return User{}, "", errors.New("db down")
 }
 
 func (b *brokenRepo) SetLanguage(_ context.Context, _ int64, _ string) error {
 	return errors.New("db down")
+}
+
+func (b *brokenRepo) VerifyByTokenHash(_ context.Context, _ string) error {
+	return errors.New("db down")
+}
+
+func (b *brokenRepo) ResetVerifyToken(_ context.Context, _, _ string, _ time.Time) (User, error) {
+	return User{}, errors.New("db down")
 }
 
 func TestRegisterDBErrorReturns500(t *testing.T) {
@@ -293,5 +339,204 @@ func TestPutLanguage(t *testing.T) {
 	}
 	if rec := call(`{"language":"fr"}`, false); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("no-user code=%d, want 401", rec.Code)
+	}
+}
+
+// fakeVerifSender records sends; mutex-guarded because sendVerification
+// delivers from a goroutine. waitFor polls until the async send lands.
+type fakeVerifSender struct {
+	mu   sync.Mutex
+	to   string
+	body string
+	n    int
+}
+
+func (f *fakeVerifSender) Send(_ context.Context, to []string, _ string, body string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.n++
+	f.to = strings.Join(to, ",")
+	f.body = body
+	return nil
+}
+
+func (f *fakeVerifSender) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.n
+}
+
+func (f *fakeVerifSender) last() (to, body string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.to, f.body
+}
+
+// waitFor blocks until the send count reaches n (polling every 10ms, up to
+// 2s), failing the test on timeout.
+func (f *fakeVerifSender) waitFor(t *testing.T, n int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if f.count() >= n {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %d sends (got %d)", n, f.count())
+}
+
+func verifHandler(store UserStore, sender *fakeVerifSender) *Handler {
+	h := NewHandler(store, NewTokenizer("test-secret"), nil)
+	h.EnableEmailVerification(VerificationConfig{
+		Sender:  sender,
+		BaseURL: "http://localhost:8088",
+		GenToken: func() (string, string) {
+			return "fixedtoken", HashVerifyToken("fixedtoken")
+		},
+	})
+	return h
+}
+
+func postAuth(h *Handler, path string, body any) *httptest.ResponseRecorder {
+	b, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(string(b)))
+	req = req.WithContext(i18n.WithLang(req.Context(), i18n.Lang("en")))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestRegisterWithVerificationWithholdsToken(t *testing.T) {
+	sender := &fakeVerifSender{}
+	h := verifHandler(newMemRepo(), sender)
+	rec := postAuth(h, "/api/auth/register", credentials{Email: "d@x.io", Password: "longenough", Name: "D"})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201 (body %s)", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if _, hasToken := body["token"]; hasToken {
+		t.Fatal("register must NOT return a token when verification is required")
+	}
+	if body["verificationRequired"] != true {
+		t.Fatal("response must carry verificationRequired: true")
+	}
+	sender.waitFor(t, 1) // send is async — wait for the goroutine to deliver
+	to, mailBody := sender.last()
+	if to != "d@x.io" {
+		t.Fatalf("verification email not sent to registrant (to=%q)", to)
+	}
+	if !strings.Contains(mailBody, "http://localhost:8088/verify-email?token=fixedtoken") {
+		t.Fatalf("email body must contain the link, got %q", mailBody)
+	}
+}
+
+func TestRegisterWithoutVerificationKeepsOldBehavior(t *testing.T) {
+	h := NewHandler(newMemRepo(), NewTokenizer("test-secret"), nil)
+	rec := postAuth(h, "/api/auth/register", credentials{Email: "d@x.io", Password: "longenough"})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201", rec.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["token"] == nil || body["token"] == "" {
+		t.Fatal("feature off: register must still auto-login with a token")
+	}
+}
+
+func TestLoginBlockedUntilVerified(t *testing.T) {
+	sender := &fakeVerifSender{}
+	store := newMemRepo()
+	h := verifHandler(store, sender)
+	postAuth(h, "/api/auth/register", credentials{Email: "d@x.io", Password: "longenough"})
+
+	rec := postAuth(h, "/api/auth/login", credentials{Email: "d@x.io", Password: "longenough"})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("unverified login status = %d, want 403 (body %s)", rec.Code, rec.Body.String())
+	}
+
+	rec = postAuth(h, "/api/auth/verify", map[string]string{"token": "fixedtoken"})
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("verify status = %d, want 204 (body %s)", rec.Code, rec.Body.String())
+	}
+
+	rec = postAuth(h, "/api/auth/login", credentials{Email: "d@x.io", Password: "longenough"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("verified login status = %d, want 200 (body %s)", rec.Code, rec.Body.String())
+	}
+}
+
+func TestVerifyBadTokenReturns410(t *testing.T) {
+	h := verifHandler(newMemRepo(), &fakeVerifSender{})
+	rec := postAuth(h, "/api/auth/verify", map[string]string{"token": "nope"})
+	if rec.Code != http.StatusGone {
+		t.Fatalf("status = %d, want 410", rec.Code)
+	}
+}
+
+func TestResendAlways204AndOnlyMailsUnverified(t *testing.T) {
+	sender := &fakeVerifSender{}
+	store := newMemRepo()
+	h := verifHandler(store, sender)
+	postAuth(h, "/api/auth/register", credentials{Email: "d@x.io", Password: "longenough"})
+	sender.waitFor(t, 1) // register's async send must land before counting
+	base := sender.count()
+
+	// unknown account: 204, no email. Deterministic even with the async send:
+	// ResetVerifyToken errors first, so no goroutine is ever spawned, and every
+	// earlier positive send was already waited on above.
+	rec := postAuth(h, "/api/auth/resend-verification", map[string]string{"email": "ghost@x.io"})
+	if rec.Code != http.StatusNoContent || sender.count() != base {
+		t.Fatalf("unknown: code=%d mails=%d, want 204 and no mail", rec.Code, sender.count()-base)
+	}
+	// unverified account: 204 + email
+	rec = postAuth(h, "/api/auth/resend-verification", map[string]string{"email": "d@x.io"})
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("unverified: code=%d, want 204", rec.Code)
+	}
+	sender.waitFor(t, base+1)
+	// verify, then resend: 204, no new email (no goroutine spawned — see above)
+	postAuth(h, "/api/auth/verify", map[string]string{"token": "fixedtoken"})
+	rec = postAuth(h, "/api/auth/resend-verification", map[string]string{"email": "d@x.io"})
+	if rec.Code != http.StatusNoContent || sender.count() != base+1 {
+		t.Fatalf("verified: code=%d mails=%d, want 204 and no mail", rec.Code, sender.count()-base-1)
+	}
+}
+
+// TestResendVerificationRateLimited verifies that repeated resend requests for
+// the same email are throttled by VerificationConfig.Limiter: the first
+// request goes through (204) and the second is blocked (429), mirroring the
+// per-account login limiter test above.
+func TestResendVerificationRateLimited(t *testing.T) {
+	sender := &fakeVerifSender{}
+	store := newMemRepo()
+	h := NewHandler(store, NewTokenizer("test-secret"), nil)
+	h.EnableEmailVerification(VerificationConfig{
+		Sender:  sender,
+		BaseURL: "http://localhost:8088",
+		Limiter: httpx.NewRateLimiter(1, 0), // burst 1, no refill
+		GenToken: func() (string, string) {
+			return "fixedtoken", HashVerifyToken("fixedtoken")
+		},
+	})
+	postAuth(h, "/api/auth/register", credentials{Email: "d@x.io", Password: "longenough"})
+	sender.waitFor(t, 1) // register's async send must land before counting
+
+	rec := postAuth(h, "/api/auth/resend-verification", map[string]string{"email": "d@x.io"})
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("first resend: code=%d, want 204 (body %s)", rec.Code, rec.Body.String())
+	}
+	rec = postAuth(h, "/api/auth/resend-verification", map[string]string{"email": "d@x.io"})
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("second resend: code=%d, want 429 (body %s)", rec.Code, rec.Body.String())
+	}
+}
+
+func TestVerifyRoutesAbsentWhenDisabled(t *testing.T) {
+	h := NewHandler(newMemRepo(), NewTokenizer("test-secret"), nil)
+	rec := postAuth(h, "/api/auth/verify", map[string]string{"token": "x"})
+	if rec.Code != http.StatusNotFound && rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("feature off: verify route must not exist, got %d", rec.Code)
 	}
 }

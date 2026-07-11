@@ -228,3 +228,29 @@ func TestSandboxConfigDefaultsAndPredicate(t *testing.T) {
 		t.Error("SandboxConfigured() = true with gateway URL empty")
 	}
 }
+
+func TestRequireEmailVerificationFlag(t *testing.T) {
+	t.Setenv("REQUIRE_EMAIL_VERIFICATION", "1")
+	if !Load().RequireEmailVerification {
+		t.Fatal("flag=1 should enable RequireEmailVerification")
+	}
+	t.Setenv("REQUIRE_EMAIL_VERIFICATION", "")
+	if Load().RequireEmailVerification {
+		t.Fatal("unset flag should disable RequireEmailVerification")
+	}
+}
+
+func TestValidateRejectsVerificationWithoutSMTP(t *testing.T) {
+	t.Setenv("PORTAL_ENV", "dev") // even dev must fail-fast on this combination
+	t.Setenv("REQUIRE_EMAIL_VERIFICATION", "1")
+	t.Setenv("SMTP_HOST", "")
+	t.Setenv("SMTP_FROM", "")
+	if err := Load().Validate(); err == nil {
+		t.Fatal("Validate() must error when verification is on without SMTP")
+	}
+	t.Setenv("SMTP_HOST", "mail.example.com")
+	t.Setenv("SMTP_FROM", "portal@example.com")
+	if err := Load().Validate(); err != nil {
+		t.Fatalf("Validate() with SMTP configured: %v", err)
+	}
+}
