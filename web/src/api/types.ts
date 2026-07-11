@@ -104,6 +104,13 @@ export interface SubscriptionView {
   sandboxAvailable?: boolean
 }
 
+// Deployment capabilities reported by GET /api/admin/meta, so the admin UI
+// can hide features the server has no gateway/IdP wired up for.
+export interface AdminMeta {
+  sandboxConfigured: boolean
+  oidcConfigured: boolean
+}
+
 export interface AdminProduct {
   id?: number
   name: string

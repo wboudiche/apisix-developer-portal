@@ -32,14 +32,16 @@ type ProductService interface {
 }
 
 type Handler struct {
-	svc            ProductService
-	router         chi.Router
-	allowPrivate   bool
-	oidcConfigured bool
+	svc               ProductService
+	router            chi.Router
+	allowPrivate      bool
+	oidcConfigured    bool
+	sandboxConfigured bool
 }
 
-func NewHandler(svc ProductService, allowPrivate bool, oidcConfigured bool) *Handler {
-	h := &Handler{svc: svc, router: chi.NewRouter(), allowPrivate: allowPrivate, oidcConfigured: oidcConfigured}
+func NewHandler(svc ProductService, allowPrivate, oidcConfigured, sandboxConfigured bool) *Handler {
+	h := &Handler{svc: svc, router: chi.NewRouter(), allowPrivate: allowPrivate, oidcConfigured: oidcConfigured, sandboxConfigured: sandboxConfigured}
+	h.router.Get("/api/admin/meta", h.meta)
 	h.router.Get("/api/admin/products", h.list)
 	h.router.Post("/api/admin/products", h.create)
 	h.router.Post("/api/admin/products/import", h.importSpec)
@@ -55,6 +57,15 @@ func NewHandler(svc ProductService, allowPrivate bool, oidcConfigured bool) *Han
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.ServeHTTP(w, r) }
+
+// meta reports deployment capabilities so the admin UI can hide features that
+// are not wired up server-side (e.g. no sandbox gateway configured).
+func (h *Handler) meta(w http.ResponseWriter, _ *http.Request) {
+	httpx.JSON(w, http.StatusOK, map[string]bool{
+		"sandboxConfigured": h.sandboxConfigured,
+		"oidcConfigured":    h.oidcConfigured,
+	})
+}
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	p := paging.Parse(r.URL.Query())

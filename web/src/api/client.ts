@@ -1,6 +1,6 @@
 import type {
   Product, AuthResponse, ProductQuery, Plan, Application, Credential, AppDetail,
-  AdminProduct, AdminSubscription, Usage, UsageRange, Paginated, TryApp, Quota,
+  AdminMeta, AdminProduct, AdminSubscription, Usage, UsageRange, Paginated, TryApp, Quota,
   RatingsView, Team, TeamMember, ChangelogEntry, Invoice,
 } from './types'
 
@@ -255,6 +255,9 @@ export async function getTryContext(token: string, slug: string): Promise<{ apps
 }
 
 // --- Admin: products ---
+export async function adminGetMeta(token: string): Promise<AdminMeta> {
+  return parse<AdminMeta>(await fetch('/api/admin/meta', { headers: langHeaders(token) }), '/api/admin/meta')
+}
 export async function adminGetProducts(token: string, page?: PageOpts): Promise<Paginated<AdminProduct>> {
   const params = new URLSearchParams()
   appendPage(params, page)

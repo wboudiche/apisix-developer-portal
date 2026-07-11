@@ -263,4 +263,20 @@ describe('ProductsPage', () => {
     expect((screen.getByTestId('icon-upload') as HTMLInputElement).disabled).toBe(true)
     expect(screen.getByTestId('icon-upload-hint')).toBeTruthy()
   })
+
+  it('hides the sandbox upstream field when no sandbox gateway is configured', async () => {
+    vi.spyOn(api, 'adminGetMeta').mockResolvedValue({ sandboxConfigured: false, oidcConfigured: false })
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getByRole('button', { name: /Nouveau produit/ }))
+    expect(screen.getByLabelText('Nom')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Sandbox/)).not.toBeInTheDocument()
+  })
+
+  it('shows the sandbox upstream field when the sandbox gateway is configured', async () => {
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getByRole('button', { name: /Nouveau produit/ }))
+    expect(screen.getByLabelText(/Sandbox/)).toBeInTheDocument()
+  })
 })

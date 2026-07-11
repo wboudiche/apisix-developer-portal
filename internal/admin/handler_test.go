@@ -81,7 +81,7 @@ func (f *fakeService) GetIcon(_ context.Context, _ int64) ([]byte, time.Time, er
 	return nil, time.Time{}, ErrNotFound
 }
 
-func newTestHandler(svc ProductService) *Handler { return NewHandler(svc, true, false) }
+func newTestHandler(svc ProductService) *Handler { return NewHandler(svc, true, false, true) }
 
 func do(h *Handler, method, target string, body any) *httptest.ResponseRecorder {
 	var rdr *bytes.Reader
@@ -191,7 +191,7 @@ func TestUpdateContextPathTakenReturns409(t *testing.T) {
 
 func TestCreateProductStoresSpec(t *testing.T) {
 	svc := &fakeService{products: map[int64]Product{}}
-	h := NewHandler(svc, true, false)
+	h := NewHandler(svc, true, false, true)
 	spec := `{"openapi":"3.0.0","info":{"title":"X","version":"1.0.0"}}`
 	body, _ := json.Marshal(Product{
 		Name: "X", Slug: "x", Category: "C", ContextPath: "/x", OpenAPISpec: spec,
@@ -211,7 +211,7 @@ func TestCreateProductStoresSpec(t *testing.T) {
 
 func TestCreateProductRejectsBrokenSpec(t *testing.T) {
 	svc := &fakeService{products: map[int64]Product{}}
-	h := NewHandler(svc, true, false)
+	h := NewHandler(svc, true, false, true)
 	body, _ := json.Marshal(Product{
 		Name: "X", Slug: "x", Category: "C", ContextPath: "/x", OpenAPISpec: "this is not a spec",
 	})
@@ -225,7 +225,7 @@ func TestCreateProductRejectsBrokenSpec(t *testing.T) {
 
 func TestCreateOAuth2ProductReturns400WhenOIDCUnconfigured(t *testing.T) {
 	svc := &fakeService{products: map[int64]Product{}}
-	h := NewHandler(svc, true, false) // oidcConfigured=false
+	h := NewHandler(svc, true, false, true) // oidcConfigured=false
 	rec := do(h, http.MethodPost, "/api/admin/products",
 		Product{Name: "Orders", Slug: "orders", Category: "Commerce", ContextPath: "/orders", AuthType: "oauth2"})
 	if rec.Code != http.StatusBadRequest {
@@ -235,7 +235,7 @@ func TestCreateOAuth2ProductReturns400WhenOIDCUnconfigured(t *testing.T) {
 
 func TestUpdateOAuth2ProductReturns400WhenOIDCUnconfigured(t *testing.T) {
 	svc := &fakeService{products: map[int64]Product{1: {ID: 1}}}
-	h := NewHandler(svc, true, false) // oidcConfigured=false
+	h := NewHandler(svc, true, false, true) // oidcConfigured=false
 	rec := do(h, http.MethodPut, "/api/admin/products/1",
 		Product{Name: "Orders", Slug: "orders", Category: "Commerce", ContextPath: "/orders", AuthType: "oauth2"})
 	if rec.Code != http.StatusBadRequest {
@@ -367,5 +367,24 @@ func TestDeleteChangelogNotFoundReturns404(t *testing.T) {
 	rec := do(h, http.MethodDelete, "/api/admin/products/1/changelog/5", nil)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+func TestMetaReportsSandboxConfigured(t *testing.T) {
+	for _, sandbox := range []bool{true, false} {
+		h := NewHandler(&fakeService{products: map[int64]Product{}}, true, false, sandbox)
+		rec := do(h, http.MethodGet, "/api/admin/meta", nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("sandbox=%v: status = %d, want 200 (body: %s)", sandbox, rec.Code, rec.Body.String())
+		}
+		var body struct {
+			SandboxConfigured *bool `json:"sandboxConfigured"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("sandbox=%v: unmarshal: %v (body: %s)", sandbox, err, rec.Body.String())
+		}
+		if body.SandboxConfigured == nil || *body.SandboxConfigured != sandbox {
+			t.Fatalf("sandbox=%v: sandboxConfigured = %v, want %v", sandbox, body.SandboxConfigured, sandbox)
+		}
 	}
 }

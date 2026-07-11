@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AdminProduct, ChangelogEntry } from '../../api/types'
-import { adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminGetChangelog, addChangelogEntry, deleteChangelogEntry, adminUploadProductIcon, adminFetchProductIcon, ApiError } from '../../api/client'
+import { adminGetMeta, adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminGetChangelog, addChangelogEntry, deleteChangelogEntry, adminUploadProductIcon, adminFetchProductIcon, ApiError } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { AdminShell } from './AdminShell'
 import { Composer } from './Composer'
@@ -131,6 +131,14 @@ export function ProductsPage() {
   const [iconErr, setIconErr] = useState<string>('')
   const [iconBusy, setIconBusy] = useState(false)
   const [iconPreview, setIconPreview] = useState<string>('')
+  // Optimistic default: show the sandbox field until the server says the
+  // sandbox gateway isn't wired up (a failed meta fetch must not hide it).
+  const [sandboxConfigured, setSandboxConfigured] = useState(true)
+
+  useEffect(() => {
+    if (!token) return
+    adminGetMeta(token).then(m => setSandboxConfigured(m.sandboxConfigured)).catch(() => {})
+  }, [token])
 
   // Load the Composer's draft-icon preview via an authenticated fetch (a
   // plain <img src> can't send the bearer token, and the public icon
@@ -314,11 +322,13 @@ export function ProductsPage() {
             <input id="f-up" className="ipt mono" placeholder={t('admin.upstreamPlaceholderEx')} autoComplete="off"
               value={form.upstreamUrl} onChange={e => set('upstreamUrl', e.target.value)} />
           </div>
-          <div className="field">
-            <label htmlFor="f-sbup">{t('admin.sandboxLabel')} <span className="opt">{t('admin.hostPortOptionalHint')}</span></label>
-            <input id="f-sbup" className="ipt mono" placeholder={t('admin.sandboxPlaceholderEx')}
-              value={form.sandboxUpstreamUrl} onChange={e => set('sandboxUpstreamUrl', e.target.value)} />
-          </div>
+          {sandboxConfigured && (
+            <div className="field">
+              <label htmlFor="f-sbup">{t('admin.sandboxLabel')} <span className="opt">{t('admin.hostPortOptionalHint')}</span></label>
+              <input id="f-sbup" className="ipt mono" placeholder={t('admin.sandboxPlaceholderEx')}
+                value={form.sandboxUpstreamUrl} onChange={e => set('sandboxUpstreamUrl', e.target.value)} />
+            </div>
+          )}
           <div className="field">
             <label htmlFor="f-auth">{t('admin.authMethodLabel')}</label>
             <select id="f-auth" className="ipt" value={form.authType} onChange={e => set('authType', e.target.value)}>
