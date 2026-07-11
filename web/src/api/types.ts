@@ -31,6 +31,13 @@ export interface AuthResponse {
   token: string
 }
 
+// Register may withhold the token when the server requires email verification.
+export interface RegisterResponse {
+  user: User
+  token?: string
+  verificationRequired?: boolean
+}
+
 export interface ProductQuery {
   search?: string
   category?: string

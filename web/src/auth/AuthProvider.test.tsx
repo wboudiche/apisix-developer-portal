@@ -33,4 +33,36 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(screen.getByTestId('who').textContent).toBe('anon'))
     expect(localStorage.getItem('token')).toBeNull()
   })
+
+  it('register returns true and stores no token when verification is required', async () => {
+    vi.spyOn(client, 'register').mockResolvedValue({
+      user: { id: 1, email: 'd@x.io', name: 'D', role: 'developer', language: 'fr' },
+      verificationRequired: true,
+    })
+    let result: boolean | undefined
+    function RegisterProbe() {
+      const { register } = useAuth()
+      return <button onClick={async () => { result = await register('d@x.io', 'longenough', 'D') }}>register</button>
+    }
+    render(<AuthProvider><RegisterProbe /></AuthProvider>)
+    await userEvent.click(screen.getByText('register'))
+    await waitFor(() => expect(result).toBe(true))
+    expect(localStorage.getItem('token')).toBeNull()
+  })
+
+  it('register returns false and logs in when no verification is required', async () => {
+    vi.spyOn(client, 'register').mockResolvedValue({
+      user: { id: 1, email: 'd@x.io', name: 'D', role: 'developer', language: 'fr' },
+      token: 'jwt-token',
+    })
+    let result: boolean | undefined
+    function RegisterProbe() {
+      const { register } = useAuth()
+      return <button onClick={async () => { result = await register('d@x.io', 'longenough', 'D') }}>register</button>
+    }
+    render(<AuthProvider><RegisterProbe /></AuthProvider>)
+    await userEvent.click(screen.getByText('register'))
+    await waitFor(() => expect(result).toBe(false))
+    expect(localStorage.getItem('token')).toBe('jwt-token')
+  })
 })
