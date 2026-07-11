@@ -58,6 +58,8 @@ export function LoginPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setErr('')
+    setUnverified(false)
+    setResent(false)
     setLoading(true)
     try {
       await login(email, password)

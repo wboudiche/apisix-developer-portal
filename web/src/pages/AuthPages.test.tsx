@@ -89,6 +89,23 @@ describe('LoginPage', () => {
     expect(await screen.findByText(/envoyé/i)).toBeInTheDocument()
   })
 
+  it('clears the resend/sent notice when a new submit fails with a different error', async () => {
+    const login = vi.spyOn(api, 'login').mockRejectedValue(new ApiError('email address not verified — check your inbox', 403))
+    vi.spyOn(api, 'resendVerification').mockResolvedValue(undefined)
+    renderLogin()
+    await userEvent.type(screen.getByLabelText('Email'), 'a@x.io')
+    await userEvent.type(screen.getByLabelText('Mot de passe'), 'longenough')
+    await userEvent.click(screen.getByRole('button', { name: 'Se connecter' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Renvoyer/i }))
+    expect(await screen.findByText(/envoyé/i)).toBeInTheDocument()
+    // second attempt (e.g. another account) fails with bad credentials
+    login.mockRejectedValue(new ApiError('invalid credentials', 401))
+    await userEvent.click(screen.getByRole('button', { name: 'Se connecter' }))
+    await waitFor(() => expect(screen.getByText('invalid credentials')).toBeInTheDocument())
+    expect(screen.queryByText(/envoyé/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Renvoyer/i })).not.toBeInTheDocument()
+  })
+
   it('renders the blueprint placeholder controls', () => {
     renderLogin()
     expect(screen.getByText('Rester connecté')).toBeInTheDocument()
