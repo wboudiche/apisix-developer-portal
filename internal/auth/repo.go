@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -15,25 +16,54 @@ var ErrEmailTaken = errors.New("email already registered")
 // ErrUserNotFound is returned by GetRole when the user no longer exists.
 var ErrUserNotFound = errors.New("auth: user not found")
 
+// ErrTokenInvalid is returned by VerifyByTokenHash when no user carries the
+// hash or the token has expired.
+var ErrTokenInvalid = errors.New("auth: verification token invalid or expired")
+
+// ErrAlreadyVerified is returned by ResetVerifyToken for accounts that no
+// longer need verification.
+var ErrAlreadyVerified = errors.New("auth: email already verified")
+
 type Repo struct{ pool *pgxpool.Pool }
 
 func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
 // Create inserts a developer user AND their personal team (a team of one) in a
-// single transaction, returning the user.
+// single transaction, returning the user. The user is email-verified (the
+// column default) — used when REQUIRE_EMAIL_VERIFICATION is off.
 func (r *Repo) Create(ctx context.Context, email, passwordHash, name, lang string) (User, error) {
+	return r.create(ctx, email, passwordHash, name, lang, "", nil)
+}
+
+// CreateUnverified is Create with email_verified=FALSE plus a pending
+// verification token (hash + expiry) — used when REQUIRE_EMAIL_VERIFICATION
+// is on.
+func (r *Repo) CreateUnverified(ctx context.Context, email, passwordHash, name, lang, verifyTokenHash string, expiresAt time.Time) (User, error) {
+	return r.create(ctx, email, passwordHash, name, lang, verifyTokenHash, &expiresAt)
+}
+
+func (r *Repo) create(ctx context.Context, email, passwordHash, name, lang, tokenHash string, expiresAt *time.Time) (User, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return User{}, err
 	}
 	defer tx.Rollback(ctx)
 	var u User
-	err = tx.QueryRow(ctx,
-		`INSERT INTO users (email, password_hash, name, role, language)
-		 VALUES ($1,$2,$3,'developer',$4)
-		 RETURNING id, email, name, role, language`,
-		email, passwordHash, name, lang,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Language)
+	if expiresAt == nil {
+		err = tx.QueryRow(ctx,
+			`INSERT INTO users (email, password_hash, name, role, language)
+			 VALUES ($1,$2,$3,'developer',$4)
+			 RETURNING id, email, name, role, language, email_verified`,
+			email, passwordHash, name, lang,
+		).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Language, &u.Verified)
+	} else {
+		err = tx.QueryRow(ctx,
+			`INSERT INTO users (email, password_hash, name, role, language, email_verified, verify_token_hash, verify_token_expires_at)
+			 VALUES ($1,$2,$3,'developer',$4, FALSE, $5, $6)
+			 RETURNING id, email, name, role, language, email_verified`,
+			email, passwordHash, name, lang, tokenHash, *expiresAt,
+		).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Language, &u.Verified)
+	}
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -65,9 +95,49 @@ func (r *Repo) GetByEmail(ctx context.Context, email string) (User, string, erro
 	var u User
 	var hash string
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, name, role, language, password_hash FROM users WHERE email=$1`, email,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Language, &hash)
+		`SELECT id, email, name, role, language, email_verified, password_hash FROM users WHERE email=$1`, email,
+	).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Language, &u.Verified, &hash)
 	return u, hash, err
+}
+
+// VerifyByTokenHash marks the user carrying this token hash as verified and
+// burns the token. ErrTokenInvalid covers unknown, already-used and expired
+// tokens alike (they are indistinguishable to the caller by design).
+func (r *Repo) VerifyByTokenHash(ctx context.Context, tokenHash string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE users
+		 SET email_verified = TRUE, verify_token_hash = NULL, verify_token_expires_at = NULL
+		 WHERE verify_token_hash = $1 AND verify_token_expires_at > now()`, tokenHash)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrTokenInvalid
+	}
+	return nil
+}
+
+// ResetVerifyToken stores a fresh token hash/expiry for an unverified account
+// (invalidating any previous link) and returns the user for email rendering.
+func (r *Repo) ResetVerifyToken(ctx context.Context, email, tokenHash string, expiresAt time.Time) (User, error) {
+	var u User
+	var verified bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, email, name, role, language, email_verified FROM users WHERE email=$1`, email,
+	).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.Language, &verified)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return User{}, ErrUserNotFound
+	}
+	if err != nil {
+		return User{}, err
+	}
+	if verified {
+		return User{}, ErrAlreadyVerified
+	}
+	_, err = r.pool.Exec(ctx,
+		`UPDATE users SET verify_token_hash=$2, verify_token_expires_at=$3 WHERE id=$1`,
+		u.ID, tokenHash, expiresAt)
+	return u, err
 }
 
 // SetLanguage updates the user's stored UI language ('fr'|'en').
