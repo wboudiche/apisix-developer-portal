@@ -137,6 +137,8 @@ export const fr = {
     alreadyRegisteredPrefix: 'Déjà inscrit ? ',
     createAccount: 'Créer le compte',
     creatingAccount: 'Création…',
+    checkInboxTitle: 'Vérifiez votre boîte de réception',
+    checkInboxBody: 'Nous venons de vous envoyer un lien de vérification. Cliquez-le pour activer votre compte (valable 24 h).',
   },
   app: {
     // ApplicationsIndex

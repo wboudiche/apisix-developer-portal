@@ -138,6 +138,8 @@ export const en: Messages = {
     alreadyRegisteredPrefix: 'Already registered? ',
     createAccount: 'Create account',
     creatingAccount: 'Creating…',
+    checkInboxTitle: 'Check your inbox',
+    checkInboxBody: 'We just sent you a verification link. Click it to activate your account (valid for 24 h).',
   },
   app: {
     // ApplicationsIndex
