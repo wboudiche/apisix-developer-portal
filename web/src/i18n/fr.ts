@@ -141,6 +141,11 @@ export const fr = {
     checkInboxBody: 'Nous venons de vous envoyer un lien de vérification. Cliquez-le pour activer votre compte (valable 24 h).',
     resendVerification: 'Renvoyer l’e-mail de vérification',
     resendSent: 'E-mail envoyé si un compte existe — pensez aussi aux indésirables.',
+    verifying: 'Vérification en cours…',
+    verifySuccessTitle: 'Adresse vérifiée',
+    verifySuccessBody: 'Votre adresse e-mail est confirmée. Vous pouvez maintenant vous connecter.',
+    verifyFailedTitle: 'Lien invalide ou expiré',
+    verifyFailedBody: 'Ce lien de vérification est invalide ou expiré. Déjà vérifié ? Connectez-vous simplement. Sinon, demandez un nouveau lien :',
   },
   app: {
     // ApplicationsIndex

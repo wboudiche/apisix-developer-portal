@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { CatalogPage } from './pages/CatalogPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { VerifyEmailPage } from './pages/VerifyEmailPage'
 import { ApplicationsIndex } from './pages/application/ApplicationsIndex'
 import { AppDetailPage } from './pages/application/AppDetailPage'
 import { AdminGuard } from './admin/AdminGuard'
@@ -20,6 +21,7 @@ export default function App() {
       <Route path="/catalog/:slug" element={<ProductDetailPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/applications" element={<ApplicationsIndex />} />
       <Route path="/applications/:id" element={<AppDetailPage />} />
       <Route path="/teams" element={<TeamsPage />} />

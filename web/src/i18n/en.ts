@@ -142,6 +142,11 @@ export const en: Messages = {
     checkInboxBody: 'We just sent you a verification link. Click it to activate your account (valid for 24 h).',
     resendVerification: 'Resend the verification email',
     resendSent: 'Email sent if an account exists — also check your spam folder.',
+    verifying: 'Verifying…',
+    verifySuccessTitle: 'Email verified',
+    verifySuccessBody: 'Your email address is confirmed. You can now log in.',
+    verifyFailedTitle: 'Link invalid or expired',
+    verifyFailedBody: 'This verification link is invalid or expired. Already verified? Just log in. Otherwise, request a new link:',
   },
   app: {
     // ApplicationsIndex
