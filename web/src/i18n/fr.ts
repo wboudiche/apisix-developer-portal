@@ -139,6 +139,8 @@ export const fr = {
     creatingAccount: 'Création…',
     checkInboxTitle: 'Vérifiez votre boîte de réception',
     checkInboxBody: 'Nous venons de vous envoyer un lien de vérification. Cliquez-le pour activer votre compte (valable 24 h).',
+    resendVerification: 'Renvoyer l’e-mail de vérification',
+    resendSent: 'E-mail envoyé si un compte existe — pensez aussi aux indésirables.',
   },
   app: {
     // ApplicationsIndex

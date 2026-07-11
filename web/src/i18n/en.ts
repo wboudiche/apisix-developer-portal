@@ -140,6 +140,8 @@ export const en: Messages = {
     creatingAccount: 'Creating…',
     checkInboxTitle: 'Check your inbox',
     checkInboxBody: 'We just sent you a verification link. Click it to activate your account (valid for 24 h).',
+    resendVerification: 'Resend the verification email',
+    resendSent: 'Email sent if an account exists — also check your spam folder.',
   },
   app: {
     // ApplicationsIndex

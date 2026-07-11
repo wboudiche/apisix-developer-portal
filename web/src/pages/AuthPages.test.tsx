@@ -7,6 +7,7 @@ import { RegisterPage } from './RegisterPage'
 import { AuthProvider } from '../auth/AuthProvider'
 import { LanguageProvider } from '../i18n/LanguageProvider'
 import * as api from '../api/client'
+import { ApiError } from '../api/client'
 
 beforeEach(() => {
   localStorage.clear()
@@ -73,6 +74,19 @@ describe('LoginPage', () => {
     expect(pending).toBeDisabled()
     resolveLogin({ user: { id: 1, email: 'a@b.c', name: '', role: 'developer' }, token: 'jwt' })
     await waitFor(() => expect(screen.getByText('CATALOG HOME')).toBeInTheDocument())
+  })
+
+  it('offers resend when login fails with 403 (unverified email)', async () => {
+    vi.spyOn(api, 'login').mockRejectedValue(new ApiError('email address not verified — check your inbox', 403))
+    const resend = vi.spyOn(api, 'resendVerification').mockResolvedValue(undefined)
+    renderLogin()
+    await userEvent.type(screen.getByLabelText('Email'), 'd@x.io')
+    await userEvent.type(screen.getByLabelText('Mot de passe'), 'longenough')
+    await userEvent.click(screen.getByRole('button', { name: 'Se connecter' }))
+    const resendBtn = await screen.findByRole('button', { name: /Renvoyer/i })
+    await userEvent.click(resendBtn)
+    await waitFor(() => expect(resend).toHaveBeenCalledWith('d@x.io'))
+    expect(await screen.findByText(/envoyé/i)).toBeInTheDocument()
   })
 
   it('renders the blueprint placeholder controls', () => {
