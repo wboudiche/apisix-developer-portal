@@ -504,6 +504,35 @@ func TestResendAlways204AndOnlyMailsUnverified(t *testing.T) {
 	}
 }
 
+// TestResendVerificationRateLimited verifies that repeated resend requests for
+// the same email are throttled by VerificationConfig.Limiter: the first
+// request goes through (204) and the second is blocked (429), mirroring the
+// per-account login limiter test above.
+func TestResendVerificationRateLimited(t *testing.T) {
+	sender := &fakeVerifSender{}
+	store := newMemRepo()
+	h := NewHandler(store, NewTokenizer("test-secret"), nil)
+	h.EnableEmailVerification(VerificationConfig{
+		Sender:  sender,
+		BaseURL: "http://localhost:8088",
+		Limiter: httpx.NewRateLimiter(1, 0), // burst 1, no refill
+		GenToken: func() (string, string) {
+			return "fixedtoken", HashVerifyToken("fixedtoken")
+		},
+	})
+	postAuth(h, "/api/auth/register", credentials{Email: "d@x.io", Password: "longenough"})
+	sender.waitFor(t, 1) // register's async send must land before counting
+
+	rec := postAuth(h, "/api/auth/resend-verification", map[string]string{"email": "d@x.io"})
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("first resend: code=%d, want 204 (body %s)", rec.Code, rec.Body.String())
+	}
+	rec = postAuth(h, "/api/auth/resend-verification", map[string]string{"email": "d@x.io"})
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("second resend: code=%d, want 429 (body %s)", rec.Code, rec.Body.String())
+	}
+}
+
 func TestVerifyRoutesAbsentWhenDisabled(t *testing.T) {
 	h := NewHandler(newMemRepo(), NewTokenizer("test-secret"), nil)
 	rec := postAuth(h, "/api/auth/verify", map[string]string{"token": "x"})

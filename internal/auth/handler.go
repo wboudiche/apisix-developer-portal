@@ -143,7 +143,7 @@ func (h *Handler) sendVerification(u User, lang, plainToken string) {
 		defer cancel()
 		link := h.verify.BaseURL + "/verify-email?token=" + plainToken
 		if err := notify.SendVerificationEmail(ctx, h.verify.Sender, lang, u.Email, u.Name, link); err != nil {
-			log.Printf("auth: verification email to %s: %v", u.Email, err)
+			log.Printf("auth: verification email to %q: %v", u.Email, err)
 		}
 	}()
 }
@@ -254,7 +254,7 @@ func (h *Handler) resendVerification(w http.ResponseWriter, r *http.Request) {
 		}
 		h.sendVerification(u, lang, plain)
 	} else if !errors.Is(err, ErrUserNotFound) && !errors.Is(err, ErrAlreadyVerified) {
-		log.Printf("auth: resend verification for %s: %v", body.Email, err)
+		log.Printf("auth: resend verification for %q: %v", body.Email, err)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
