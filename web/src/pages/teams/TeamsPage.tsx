@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
+import { TopBar } from '../../components/TopBar'
 import { useAuth } from '../../auth/AuthProvider'
 import {
   getTeams, createTeam, getTeamMembers, addTeamMember, removeTeamMember, deleteTeam,
@@ -36,6 +37,8 @@ export default function TeamsPage() {
   }
 
   return (
+    <>
+    <TopBar search="" onSearch={() => {}} />
     <div className="teams-page">
       <h1>{t('nav.teams')}</h1>
       {err && <p className="err">{err}</p>}
@@ -66,6 +69,7 @@ export default function TeamsPage() {
         />
       )}
     </div>
+    </>
   )
 }
 
