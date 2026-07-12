@@ -199,11 +199,13 @@
 .crow1{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .stars{display:flex;gap:1.5px;flex:none;margin-top:3px}
 .stars svg{width:14px;height:14px}
-.ratewrap{display:inline-flex;align-items:center;gap:5px}
+.ratewrap{display:inline-flex;align-items:center;gap:5px;flex:none}
 .ratecount{font-size:12px;color:var(--muted)}
-.ratecount.norate{font-style:italic}
+.ratecount.norate{font-style:italic;flex:none;white-space:nowrap;margin-top:3px}
 .star-f{color:var(--warn)} .star-e{color:var(--border-2)}
-.cname{font-family:var(--font-display);font-size:17.5px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
+/* flex:1 + min-width:0 lets the title shrink below its intrinsic width so the
+   rating keeps its footprint; overflow-wrap breaks unbroken slugs/IDs. */
+.cname{font-family:var(--font-display);font-size:17.5px;font-weight:600;letter-spacing:-.01em;line-height:1.2;flex:1;min-width:0;overflow-wrap:anywhere}
 .cdesc{font-size:13.5px;color:var(--muted);line-height:1.5;text-wrap:pretty;flex:1}
 .cmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--font-mono);font-size:12px}
 .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:7px;background:var(--surface);border:1px solid var(--border);color:var(--muted)}
