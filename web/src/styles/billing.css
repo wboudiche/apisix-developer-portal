@@ -1,0 +1,51 @@
+/* Billing surfaces — shared by the admin Factures tab (inside .adminpage) and
+   the user /billing page (.billing-page). Scoped under .billing; mirrors the
+   Atlas look of admin.css/appdetail.css: same card, table and pill treatment. */
+
+.billing-page{max-width:880px;margin:0 auto;padding:26px 28px 80px}
+.billing-page h1{font-family:var(--font-display);font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:6px}
+.billing-page .hint{font-size:14px;color:var(--muted);margin-bottom:20px}
+.billing-page .err{font-size:13px;color:var(--danger);background:var(--danger-soft);border-radius:9px;padding:9px 13px;margin-bottom:14px}
+
+/* status filter chips (admin) */
+.billing .filters{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 16px}
+.billing .chip{
+  height:32px;padding:0 14px;border-radius:999px;border:1px solid var(--border-2);
+  background:var(--surface);font-size:13px;font-weight:500;color:var(--muted);
+  cursor:pointer;transition:.15s;font-family:inherit;
+}
+.billing .chip:hover{color:var(--fg);background:color-mix(in oklab, var(--fg) 4%, transparent)}
+.billing .chip.active{background:var(--accent-soft);color:var(--accent);border-color:transparent;font-weight:600}
+
+/* invoice table — card-wrapped, scrolls horizontally on narrow screens */
+.billing .invoices-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow-x:auto}
+.billing table.invoices{width:100%;border-collapse:collapse;font-size:14px}
+.billing .invoices th{
+  text-align:left;font-size:12px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--muted);padding:14px 18px 11px;
+  border-bottom:1px solid var(--border);white-space:nowrap;
+}
+.billing .invoices td{padding:15px 18px;border-bottom:1px solid var(--border);vertical-align:middle}
+.billing .invoices tr:last-child td{border-bottom:0}
+.billing .invoices tbody tr{transition:background .12s}
+.billing .invoices tbody tr:hover{background:color-mix(in oklab, var(--fg) 3%, transparent)}
+.billing .invoices td.amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.billing .invoices td.tid{font-family:var(--font-mono);font-size:13px;color:var(--muted)}
+.billing .invoices td.acts{text-align:right;white-space:nowrap}
+.billing .invoices td.acts .btn + .btn{margin-left:8px}
+
+/* status pills — same dot vocabulary as the admin .apill states */
+.billing .invoices .pill{
+  display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;
+  padding:3px 10px;border-radius:20px;letter-spacing:.01em;border:0;background:none;
+}
+.billing .invoices .pill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.billing .invoices .pill.paid{color:var(--success);background:var(--success-soft)}
+.billing .invoices .pill.pending{color:var(--warn);background:var(--warn-soft)}
+.billing .invoices .pill.void{color:var(--muted);background:color-mix(in oklab, var(--fg) 6%, transparent)}
+
+.billing .empty{
+  display:block; /* catalog.css hides bare .empty globally (display:none until .show) */
+  padding:44px 20px;text-align:center;font-size:14px;color:var(--muted);
+  background:var(--surface);border:1px dashed var(--border-2);border-radius:var(--r);
+}

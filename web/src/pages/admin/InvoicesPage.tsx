@@ -6,6 +6,7 @@ import { formatDate } from '../application/helpers'
 import { adminGetInvoices, adminPayInvoice, adminVoidInvoice, ApiError } from '../../api/client'
 import type { Invoice } from '../../api/types'
 import { AdminShell } from './AdminShell'
+import '../../styles/billing.css'
 
 const STATUSES = ['', 'pending', 'paid', 'void'] as const
 
@@ -35,41 +36,45 @@ export function InvoicesPage() {
   return (
     <AdminShell active="invoices" title={t('billing.admin.title')} description={t('billing.admin.desc')}>
       {error && <p className="err" role="alert">{error}</p>}
-      <div className="filters">
-        {STATUSES.map(s => (
-          <button key={s || 'all'} className={status === s ? 'chip active' : 'chip'} onClick={() => setStatus(s)}>
-            {s ? label(s) : t('billing.filterAll')}
-          </button>
-        ))}
+      <div className="billing">
+        <div className="filters">
+          {STATUSES.map(s => (
+            <button key={s || 'all'} className={status === s ? 'chip active' : 'chip'} onClick={() => setStatus(s)}>
+              {s ? label(s) : t('billing.filterAll')}
+            </button>
+          ))}
+        </div>
+        {invoices.length === 0 ? <p className="empty">{t('billing.admin.none')}</p> : (
+          <div className="invoices-wrap">
+            <table className="invoices">
+              <thead><tr>
+                <th>{t('billing.col.plan')}</th><th>{t('billing.col.amount')}</th>
+                <th>{t('billing.col.team')}</th><th>{t('billing.col.status')}</th>
+                <th>{t('billing.col.created')}</th><th></th>
+              </tr></thead>
+              <tbody>
+                {invoices.map(inv => (
+                  <tr key={inv.id}>
+                    <td>{inv.planName}</td>
+                    <td className="amt">{money(inv.priceCents, inv.currency)}</td>
+                    <td className="tid">{inv.teamId}</td>
+                    <td><span className={`pill ${inv.status}`}>{label(inv.status)}</span></td>
+                    <td>{formatDate(inv.createdAt, lang)}</td>
+                    <td className="acts">
+                      {inv.status === 'pending' && (
+                        <>
+                          <button className="btn btn-primary btn-sm" onClick={() => act(adminPayInvoice, inv.id)}>{t('billing.admin.pay')}</button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => act(adminVoidInvoice, inv.id)}>{t('billing.admin.void')}</button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
-      {invoices.length === 0 ? <p className="empty">{t('billing.admin.none')}</p> : (
-        <table className="invoices">
-          <thead><tr>
-            <th>{t('billing.col.plan')}</th><th>{t('billing.col.amount')}</th>
-            <th>{t('billing.col.team')}</th><th>{t('billing.col.status')}</th>
-            <th>{t('billing.col.created')}</th><th></th>
-          </tr></thead>
-          <tbody>
-            {invoices.map(inv => (
-              <tr key={inv.id}>
-                <td>{inv.planName}</td>
-                <td>{money(inv.priceCents, inv.currency)}</td>
-                <td>{inv.teamId}</td>
-                <td><span className={`pill ${inv.status}`}>{label(inv.status)}</span></td>
-                <td>{formatDate(inv.createdAt, lang)}</td>
-                <td>
-                  {inv.status === 'pending' && (
-                    <>
-                      <button className="btn-sm" onClick={() => act(adminPayInvoice, inv.id)}>{t('billing.admin.pay')}</button>
-                      <button className="btn-sm ghost" onClick={() => act(adminVoidInvoice, inv.id)}>{t('billing.admin.void')}</button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
     </AdminShell>
   )
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import BillingPage from './BillingPage'
 import { AuthProvider } from '../../auth/AuthProvider'
 import { LanguageProvider } from '../../i18n/LanguageProvider'
@@ -20,7 +21,7 @@ beforeEach(() => {
 })
 
 const renderPage = () => render(
-  <LanguageProvider><AuthProvider><BillingPage /></AuthProvider></LanguageProvider>
+  <MemoryRouter><LanguageProvider><AuthProvider><BillingPage /></AuthProvider></LanguageProvider></MemoryRouter>
 )
 
 describe('BillingPage', () => {
