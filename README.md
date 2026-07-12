@@ -62,6 +62,7 @@ make full-down                  # ... down -v
 | **Prometheus** | <http://localhost:9099> | Scrapes APISIX; backs the usage/quota views. |
 
 Setting `REQUIRE_EMAIL_VERIFICATION=1` (with SMTP configured, otherwise the portal refuses to start) forces new registrations to confirm their email via the link before they can log in; in the dev stack the email lands in Mailpit (http://localhost:8025).
+Ops note for internet-facing deploys: verification/resend mail is rate-limited per email address and per client IP, but one IP can still trigger mail to many *distinct* addresses within the shared IP budget — monitor outbound-mail volume at the relay if abuse matters to you.
 
 ### LemonLDAP::NG client-credentials apps (pre-seeded)
 

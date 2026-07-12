@@ -83,6 +83,11 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 				Limiter: httpx.NewRateLimiter(3, 1.0/60),
 			})
 		}
+	} else if cfg.RequireEmailVerification {
+		// Unreachable from main (Config.Validate fatals on this combination);
+		// guards embedders/tests that skip Validate, where the gate would
+		// otherwise be silently inert while the operator believes it is on.
+		log.Printf("WARNING: REQUIRE_EMAIL_VERIFICATION is set but SMTP is not configured; the email-verification gate is DISABLED")
 	}
 	owns := func(ctx context.Context, appID, userID int64) (bool, error) {
 		return teamsRepo.IsMemberOfApp(ctx, userID, appID)
