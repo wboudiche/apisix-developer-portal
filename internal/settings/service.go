@@ -158,6 +158,15 @@ func (s *Service) loadOverrides(ctx context.Context) (map[string]string, error) 
 			}
 			v = plain
 		}
+		// A row may have been persisted before this key gained stricter
+		// validation (e.g. a free-form TRUSTED_PROXIES value saved before CIDR
+		// validation was added). Keep it anyway: dropping a previously-accepted
+		// value here would silently change runtime behavior on the next boot,
+		// which is worse than booting with a legacy value. Just log it so an
+		// admin notices and can fix it via the settings UI.
+		if err := Validate(d, v); err != nil {
+			log.Printf("settings: override %q fails current validation (%v); keeping it, fix via the settings UI", k, err)
+		}
 		out[k] = v
 	}
 	return out, rows.Err()
@@ -210,6 +219,12 @@ func (s *Service) candidate(values map[string]string) *Effective {
 // checkKeys validates that every key is known and editable, and that its
 // value passes type validation. Unknown/read-only short-circuit immediately
 // (400-class errors); type failures accumulate into FieldErrors (422).
+//
+// values is a map, so with multiple invalid keys the specific error returned
+// (unknown vs read-only vs which field(s) failed type validation) is
+// nondeterministic across runs. That's acceptable: every error class here
+// surfaces to the caller as the same 4xx response, and the ordering of
+// which invalid key is reported first carries no meaning.
 func checkKeys(values map[string]string) error {
 	fe := FieldErrors{}
 	for k, v := range values {
@@ -292,8 +307,8 @@ func (s *Service) Set(ctx context.Context, values map[string]string, adminID int
 			oldV, newV = "(secret)", "(secret)"
 		}
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO portal_settings_audit(key, old_value, new_value, admin_id) VALUES($1,$2,$3,$4)`,
-			k, oldV, newV, adminID); err != nil {
+			`INSERT INTO portal_settings_audit(key, old_value, new_value, admin_id, forced) VALUES($1,$2,$3,$4,$5)`,
+			k, oldV, newV, adminID, force); err != nil {
 			return err
 		}
 	}
@@ -352,8 +367,11 @@ func (s *Service) Reset(ctx context.Context, key string, adminID int64) error {
 	if d.Secret {
 		oldV, newV = "(secret)", "(secret)"
 	}
+	// Reset always reverts to the env default, never a forced override, so
+	// forced is unconditionally FALSE here (unlike Set, which records the
+	// caller's actual force flag).
 	if _, err := tx.Exec(ctx,
-		`INSERT INTO portal_settings_audit(key, old_value, new_value, admin_id) VALUES($1,$2,$3,$4)`,
+		`INSERT INTO portal_settings_audit(key, old_value, new_value, admin_id, forced) VALUES($1,$2,$3,$4,FALSE)`,
 		key, oldV, newV, adminID); err != nil {
 		return err
 	}
@@ -385,9 +403,24 @@ func (s *Service) Test(ctx context.Context, values map[string]string, adminID in
 		touched[k] = true
 		keys = append(keys, k)
 	}
-	log.Printf("settings: probe test by admin=%d touched=%v", adminID, keys)
+	cand := s.candidate(values)
+	// Forensic detail: name the candidate endpoint(s) actually being probed —
+	// URLs/hosts only, NEVER secret values (e.g. APISIX_ADMIN_KEY) — so a log
+	// review can tell which target an admin's probe hit, not just which keys
+	// were touched.
+	var targets []string
+	if groupTouched(touched, "apisix") {
+		targets = append(targets, "apisix="+cand.Get("APISIX_ADMIN_URL"))
+	}
+	if groupTouched(touched, "sandbox") {
+		targets = append(targets, "sandbox="+cand.Get("APISIX_SANDBOX_ADMIN_URL"))
+	}
+	if groupTouched(touched, "smtp") {
+		targets = append(targets, "smtp="+cand.Get("SMTP_HOST")+":"+cand.Get("SMTP_PORT"))
+	}
+	log.Printf("settings: probe test by admin=%d touched=%v targets=%v", adminID, keys, targets)
 	if s.prober == nil {
 		return nil
 	}
-	return s.prober.Probe(ctx, s.candidate(values), touched)
+	return s.prober.Probe(ctx, cand, touched)
 }

@@ -273,6 +273,49 @@ func TestConcurrentReadersDuringSwap(t *testing.T) {
 	<-done
 }
 
+func TestAuditRecordsForced(t *testing.T) {
+	p := &StubProber{Results: []ProbeResult{{Name: "smtp", OK: false, Detail: "connection refused"}}}
+	svc := NewTestService(t, p)
+	ctx := context.Background()
+	adminID := NewTestAdminID(t)
+	pool := testPool(t)
+
+	forcedOf := func(key string) bool {
+		t.Helper()
+		var forced bool
+		if err := pool.QueryRow(ctx,
+			`SELECT forced FROM portal_settings_audit WHERE key=$1 ORDER BY id DESC LIMIT 1`, key).Scan(&forced); err != nil {
+			t.Fatalf("audit query for %q: %v", key, err)
+		}
+		return forced
+	}
+
+	// Forced Set (probe fails, force=true): audit row must say forced=true.
+	if err := svc.Set(ctx, map[string]string{"SMTP_HOST": "bogus"}, adminID, true); err != nil {
+		t.Fatalf("forced Set: %v", err)
+	}
+	if !forcedOf("SMTP_HOST") {
+		t.Fatal("forced Set must audit forced=true")
+	}
+
+	// Normal Set (probe passing, force=false): audit row must say forced=false.
+	p.Results = []ProbeResult{{Name: "smtp", OK: true, Detail: "ok"}}
+	if err := svc.Set(ctx, map[string]string{"SMTP_HOST": "clean"}, adminID, false); err != nil {
+		t.Fatalf("normal Set: %v", err)
+	}
+	if forcedOf("SMTP_HOST") {
+		t.Fatal("normal Set must audit forced=false")
+	}
+
+	// Reset always writes forced=false, regardless of how the override got there.
+	if err := svc.Reset(ctx, "SMTP_HOST", adminID); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+	if forcedOf("SMTP_HOST") {
+		t.Fatal("Reset must always audit forced=false")
+	}
+}
+
 func TestResetCannotBreakInvariant(t *testing.T) {
 	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
