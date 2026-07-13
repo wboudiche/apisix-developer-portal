@@ -17,7 +17,9 @@ const probeTimeout = 5 * time.Second
 type LiveProber struct{ client *http.Client }
 
 func NewProber() *LiveProber {
-	return &LiveProber{client: &http.Client{Timeout: probeTimeout}}
+	// No client-level Timeout: each probe bounds its whole request with a
+	// per-request context timeout, the single timeout mechanism.
+	return &LiveProber{client: &http.Client{}}
 }
 
 func groupTouched(touched map[string]bool, group string) bool {
@@ -42,6 +44,10 @@ func (p *LiveProber) Probe(ctx context.Context, c *Effective, touched map[string
 		}
 	}
 	if groupTouched(touched, "smtp") {
+		// Deliberately checks only SMTP_HOST (not Effective.SMTPConfigured, which
+		// also requires SMTP_FROM): the probe tests reachability of the host, and
+		// FROM has no bearing on connectivity — probing a half-filled group is
+		// useful feedback while the admin is still typing the rest.
 		if c.Get("SMTP_HOST") == "" {
 			out = append(out, ProbeResult{Name: "smtp", OK: true, Detail: "SMTP not configured — skipped"})
 		} else {
@@ -75,13 +81,23 @@ func (p *LiveProber) smtp(ctx context.Context, host, port string) ProbeResult {
 	if port == "" {
 		port = "587"
 	}
-	d := net.Dialer{Timeout: probeTimeout}
+	// One bound for the whole probe: dial + greeting + EHLO share a single
+	// 5s budget (or the parent's shorter deadline).
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(host, port))
 	if err != nil {
 		return ProbeResult{Name: "smtp", Detail: err.Error()}
 	}
 	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(probeTimeout))
+	if dl, ok := ctx.Deadline(); ok {
+		_ = conn.SetDeadline(dl)
+	}
+	// Parent-ctx cancellation interrupts in-flight reads/writes immediately
+	// by expiring the conn deadline.
+	stop := context.AfterFunc(ctx, func() { _ = conn.SetDeadline(time.Now()) })
+	defer stop()
 	r := bufio.NewReader(conn)
 	greet, err := r.ReadString('\n')
 	if err != nil || !strings.HasPrefix(greet, "220") {
