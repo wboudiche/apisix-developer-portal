@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -69,15 +70,40 @@ func NewTestService(t *testing.T, prober Prober) *Service {
 	return svc
 }
 
+// NewTestAdminID is exported (unusually, for a _test.go helper) so the
+// external settings_test package (handler_test.go) can build one too — see
+// NewTestService's doc comment for why. It seeds a throwaway users row and
+// returns its id so tests can pass a real value into Set/Reset's adminID
+// parameter: portal_settings.updated_by and portal_settings_audit.admin_id
+// both carry a FK to users(id), so hardcoding an id like 1/7/42 only works
+// on a database that happens to already have that user (e.g. a dev DB) and
+// fails FK validation elsewhere, including CI. The row is removed via
+// t.Cleanup.
+func NewTestAdminID(t *testing.T) int64 {
+	t.Helper()
+	pool := testPool(t)
+	ctx := context.Background()
+	var id int64
+	email := "settingsadmin+" + time.Now().Format("150405.000000000") + "@example.com"
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO users(email,password_hash,name) VALUES($1,'x','Settings Admin') RETURNING id`,
+		email).Scan(&id); err != nil {
+		t.Fatalf("seed admin user: %v", err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), `DELETE FROM users WHERE id=$1`, id) })
+	return id
+}
+
 func TestPrecedenceAndReset(t *testing.T) {
 	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
+	adminID := NewTestAdminID(t)
 
 	snap := svc.Snapshot()
 	if snap.Get("SMTP_HOST") != "envhost" || snap.Source["SMTP_HOST"] != "env" {
 		t.Fatalf("env default: got %q/%q", snap.Get("SMTP_HOST"), snap.Source["SMTP_HOST"])
 	}
-	if err := svc.Set(ctx, map[string]string{"SMTP_HOST": "dbhost"}, 1, false); err != nil {
+	if err := svc.Set(ctx, map[string]string{"SMTP_HOST": "dbhost"}, adminID, false); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 	snap = svc.Snapshot()
@@ -87,7 +113,7 @@ func TestPrecedenceAndReset(t *testing.T) {
 	if svc.EnvDefault("SMTP_HOST") != "envhost" {
 		t.Fatalf("EnvDefault = %q", svc.EnvDefault("SMTP_HOST"))
 	}
-	if err := svc.Reset(ctx, "SMTP_HOST", 1); err != nil {
+	if err := svc.Reset(ctx, "SMTP_HOST", adminID); err != nil {
 		t.Fatalf("Reset: %v", err)
 	}
 	if snap = svc.Snapshot(); snap.Get("SMTP_HOST") != "envhost" || snap.Source["SMTP_HOST"] != "env" {
@@ -98,7 +124,8 @@ func TestPrecedenceAndReset(t *testing.T) {
 func TestSecretsEncryptedAtRest(t *testing.T) {
 	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
-	if err := svc.Set(ctx, map[string]string{"SMTP_PASSWORD": "hunter2"}, 1, false); err != nil {
+	adminID := NewTestAdminID(t)
+	if err := svc.Set(ctx, map[string]string{"SMTP_PASSWORD": "hunter2"}, adminID, false); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 	var raw string
@@ -117,14 +144,15 @@ func TestSecretsEncryptedAtRest(t *testing.T) {
 func TestRejectUnknownReadOnlyAndInvalid(t *testing.T) {
 	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
-	if err := svc.Set(ctx, map[string]string{"NOPE": "x"}, 1, false); !errors.Is(err, ErrUnknownKey) {
+	adminID := NewTestAdminID(t)
+	if err := svc.Set(ctx, map[string]string{"NOPE": "x"}, adminID, false); !errors.Is(err, ErrUnknownKey) {
 		t.Fatalf("unknown: %v", err)
 	}
-	if err := svc.Set(ctx, map[string]string{"JWT_SECRET": "x"}, 1, false); !errors.Is(err, ErrReadOnlyKey) {
+	if err := svc.Set(ctx, map[string]string{"JWT_SECRET": "x"}, adminID, false); !errors.Is(err, ErrReadOnlyKey) {
 		t.Fatalf("read-only: %v", err)
 	}
 	var fe FieldErrors
-	if err := svc.Set(ctx, map[string]string{"SMTP_PORT": "not-a-port"}, 1, false); !errors.As(err, &fe) {
+	if err := svc.Set(ctx, map[string]string{"SMTP_PORT": "not-a-port"}, adminID, false); !errors.As(err, &fe) {
 		t.Fatalf("invalid type: %v", err)
 	}
 }
@@ -132,12 +160,13 @@ func TestRejectUnknownReadOnlyAndInvalid(t *testing.T) {
 func TestVerificationInvariantNotForceable(t *testing.T) {
 	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
+	adminID := NewTestAdminID(t)
 	// Turn SMTP off and verification on in ONE call: candidate evaluation.
 	var fe FieldErrors
 	err := svc.Set(ctx, map[string]string{
 		"SMTP_HOST":                  "",
 		"REQUIRE_EMAIL_VERIFICATION": "1",
-	}, 1, true) // force=true must NOT bypass the invariant
+	}, adminID, true) // force=true must NOT bypass the invariant
 	if !errors.As(err, &fe) {
 		t.Fatalf("want FieldErrors, got %v", err)
 	}
@@ -150,11 +179,12 @@ func TestProbeFailureForceable(t *testing.T) {
 	p := &StubProber{Results: []ProbeResult{{Name: "smtp", OK: false, Detail: "connection refused"}}}
 	svc := NewTestService(t, p)
 	ctx := context.Background()
+	adminID := NewTestAdminID(t)
 	var pe *ProbeError
-	if err := svc.Set(ctx, map[string]string{"SMTP_HOST": "bogus"}, 1, false); !errors.As(err, &pe) {
+	if err := svc.Set(ctx, map[string]string{"SMTP_HOST": "bogus"}, adminID, false); !errors.As(err, &pe) {
 		t.Fatalf("want ProbeError, got %v", err)
 	}
-	if err := svc.Set(ctx, map[string]string{"SMTP_HOST": "bogus"}, 1, true); err != nil {
+	if err := svc.Set(ctx, map[string]string{"SMTP_HOST": "bogus"}, adminID, true); err != nil {
 		t.Fatalf("force must bypass probe failure: %v", err)
 	}
 	if svc.Snapshot().Get("SMTP_HOST") != "bogus" {
@@ -165,10 +195,11 @@ func TestProbeFailureForceable(t *testing.T) {
 func TestHooksAndAudit(t *testing.T) {
 	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
+	adminID := NewTestAdminID(t)
 	var mu sync.Mutex
 	var hookSeen string
 	svc.OnChange(func(e *Effective) { mu.Lock(); hookSeen = e.Get("SMTP_HOST"); mu.Unlock() })
-	if err := svc.Set(ctx, map[string]string{"SMTP_HOST": "h2", "SMTP_PASSWORD": "s3cret"}, 42, false); err != nil {
+	if err := svc.Set(ctx, map[string]string{"SMTP_HOST": "h2", "SMTP_PASSWORD": "s3cret"}, adminID, false); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 	mu.Lock()
@@ -221,6 +252,7 @@ func TestUndecryptableRowFallsBackToEnv(t *testing.T) {
 func TestConcurrentReadersDuringSwap(t *testing.T) {
 	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
+	adminID := NewTestAdminID(t)
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -234,7 +266,7 @@ func TestConcurrentReadersDuringSwap(t *testing.T) {
 		if i%2 == 0 {
 			v = "envhost"
 		}
-		if err := svc.Set(ctx, map[string]string{"SMTP_HOST": v}, 1, false); err != nil {
+		if err := svc.Set(ctx, map[string]string{"SMTP_HOST": v}, adminID, false); err != nil {
 			t.Fatalf("Set #%d: %v", i, err)
 		}
 	}
@@ -244,6 +276,7 @@ func TestConcurrentReadersDuringSwap(t *testing.T) {
 func TestResetCannotBreakInvariant(t *testing.T) {
 	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
+	adminID := NewTestAdminID(t)
 	// env has SMTP (from NewTestService Setenv); enable verification, then
 	// override SMTP_HOST in DB, then try to reset SMTP_FROM's env... simpler:
 	// clear env SMTP_FROM so the DB override is the only thing keeping SMTP on.
@@ -257,11 +290,11 @@ func TestResetCannotBreakInvariant(t *testing.T) {
 		}
 		return s
 	}()
-	if err := svc2.Set(ctx, map[string]string{"SMTP_FROM": "db@x.io", "REQUIRE_EMAIL_VERIFICATION": "1"}, 1, false); err != nil {
+	if err := svc2.Set(ctx, map[string]string{"SMTP_FROM": "db@x.io", "REQUIRE_EMAIL_VERIFICATION": "1"}, adminID, false); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 	var fe FieldErrors
-	if err := svc2.Reset(ctx, "SMTP_FROM", 1); !errors.As(err, &fe) {
+	if err := svc2.Reset(ctx, "SMTP_FROM", adminID); !errors.As(err, &fe) {
 		t.Fatalf("reset breaking the invariant must fail, got %v", err)
 	}
 	if !svc2.Snapshot().SMTPConfigured() {
