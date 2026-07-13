@@ -37,6 +37,7 @@ type Config struct {
 	SMTPFrom                 string
 	PortalBaseURL            string
 	RequireEmailVerification bool
+	UpstreamAllowPrivate     bool
 }
 
 func get(key, def string) string {
@@ -72,6 +73,7 @@ func Load() Config {
 		SMTPFrom:                 get("SMTP_FROM", ""),
 		PortalBaseURL:            get("PORTAL_BASE_URL", "http://localhost:5173"),
 		RequireEmailVerification: get("REQUIRE_EMAIL_VERIFICATION", "") == "1",
+		UpstreamAllowPrivate:     get("UPSTREAM_ALLOW_PRIVATE", "") == "1",
 	}
 }
 

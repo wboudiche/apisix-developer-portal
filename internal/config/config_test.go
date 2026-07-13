@@ -254,3 +254,14 @@ func TestValidateRejectsVerificationWithoutSMTP(t *testing.T) {
 		t.Fatalf("Validate() with SMTP configured: %v", err)
 	}
 }
+
+func TestUpstreamAllowPrivateFlag(t *testing.T) {
+	t.Setenv("UPSTREAM_ALLOW_PRIVATE", "1")
+	if !Load().UpstreamAllowPrivate {
+		t.Fatal("flag=1 should enable UpstreamAllowPrivate")
+	}
+	t.Setenv("UPSTREAM_ALLOW_PRIVATE", "")
+	if Load().UpstreamAllowPrivate {
+		t.Fatal("unset flag should disable UpstreamAllowPrivate")
+	}
+}

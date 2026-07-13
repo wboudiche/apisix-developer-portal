@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -99,7 +98,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	if cfg.PrometheusURL != "" {
 		subH.SetUsageReader(metrics.NewService(metrics.NewClient(cfg.PrometheusURL)))
 	}
-	allowPrivate := os.Getenv("UPSTREAM_ALLOW_PRIVATE") == "1"
+	allowPrivate := cfg.UpstreamAllowPrivate
 	adminSvc := admin.NewService(admin.NewRepo(pool), subSvc)
 	adminH := admin.NewHandler(adminSvc, allowPrivate, cfg.OIDCConfigured(), cfg.SandboxConfigured())
 	planAdminSvc := admin.NewPlanService(admin.NewPlanRepo(pool), subSvc)
