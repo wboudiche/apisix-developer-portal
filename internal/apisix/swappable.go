@@ -13,12 +13,20 @@ var ErrGatewayDisabled = errors.New("apisix: gateway not configured")
 // SwappableGateway lets runtime settings replace the underlying Admin API
 // client without rewiring consumers: it implements Gateway and delegates to
 // the current inner, which Swap replaces atomically.
+//
+// The zero value is NOT valid: inner is a nil atomic.Pointer until Store is
+// called, and every method here (and Enabled) dereferences it via Load().
+// Always construct through NewSwappable, which calls Swap once to install the
+// initial box before the value is used.
 type SwappableGateway struct {
 	inner atomic.Pointer[gatewayBox]
 }
 
 type gatewayBox struct{ gw Gateway } // box so a nil Gateway is representable
 
+// NewSwappable constructs a SwappableGateway wrapping inner (which may itself
+// be nil, meaning "disabled"). Do not construct SwappableGateway{} directly —
+// see the type's doc comment.
 func NewSwappable(inner Gateway) *SwappableGateway {
 	s := &SwappableGateway{}
 	s.Swap(inner)
