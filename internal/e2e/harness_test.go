@@ -64,7 +64,7 @@ func newHarness(t *testing.T) *harness {
 	cfg.APISIXAdminURL = envOr("APISIX_ADMIN_URL", "http://localhost:19180")
 	cfg.APISIXAdminKey = envOr("APISIX_ADMIN_KEY", "edd1c9f034335f136f87ad84b625c8f1")
 	gw := apisix.NewClient(cfg.APISIXAdminURL, cfg.APISIXAdminKey)
-	srv := httptest.NewServer(server.New(ctx, pool, cfg, gw))
+	srv := httptest.NewServer(server.New(ctx, pool, cfg))
 	h := &harness{t: t, srv: srv, gw: gw, pool: pool}
 	t.Cleanup(func() { srv.Close(); pool.Close() })
 	return h

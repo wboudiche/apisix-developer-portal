@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -32,13 +33,7 @@ import (
 // database pool and config. It also seeds the admin role for cfg.AdminEmail
 // (best-effort). Extracted from main so tests can mount the real app
 // in-process via httptest.
-//
-// gw is accepted for backward compatibility with existing callers (main,
-// the e2e harness) but is no longer used to provision the gateway: every
-// APISIX-talking consumer instead goes through a SwappableGateway seeded from
-// the runtime settings snapshot (see settingsSvc below), so admin-edited
-// settings take effect without a process restart.
-func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.Gateway) http.Handler {
+func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config) http.Handler {
 	tok := auth.NewTokenizer(cfg.JWTSecret)
 
 	catRepo := catalog.NewRepo(pool)
@@ -97,6 +92,13 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		return apisix.NewClient(e.Get("APISIX_SANDBOX_ADMIN_URL"), e.Get("APISIX_SANDBOX_ADMIN_KEY"))
 	}
 	prodGW := apisix.NewSwappable(newProd(snap))
+	// Best-effort: enable gateway request metrics for the KPI cards. A failure
+	// here only means the metrics endpoint stays empty; the portal still runs.
+	// Uses the snapshot (not cfg) so a DB-overridden APISIX_ADMIN_URL/KEY is
+	// honored at boot, not just after the first settings change.
+	if err := apisix.NewClient(snap.Get("APISIX_ADMIN_URL"), snap.Get("APISIX_ADMIN_KEY")).EnsureGlobalPrometheus(ctx); err != nil {
+		log.Printf("enable gateway prometheus metrics: %v", err)
+	}
 	sandboxGW := apisix.NewSwappable(newSandbox(snap))
 	// sandboxGatewayURL is "" whenever the sandbox is not configured (mirrors
 	// Effective.SandboxConfigured, which requires both the admin AND gateway
@@ -182,7 +184,12 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		}
 		if ae := e.Get("ADMIN_EMAIL"); ae != prevAdminEmail {
 			prevAdminEmail = ae
-			if err := authRepo.EnsureAdminRole(context.Background(), ae); err != nil {
+			// Bounded: this runs under the settings writer lock (Task 4), so an
+			// unbounded DB call here would block all future Set/Reset.
+			promoteCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			err := authRepo.EnsureAdminRole(promoteCtx, ae)
+			cancel()
+			if err != nil {
 				log.Printf("settings: promote %q: %v", ae, err)
 			}
 		}
