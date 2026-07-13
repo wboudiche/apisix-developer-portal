@@ -17,6 +17,9 @@ const groups: SettingsGroup[] = [
     { key: 'SMTP_HOST', type: 'string', editable: true, secret: false, value: 'mailpit', set: true, source: 'db', envDefault: 'envhost' },
     { key: 'SMTP_PASSWORD', type: 'string', editable: true, secret: true, value: null, set: false, source: 'env', envDefault: null },
   ]},
+  { group: 'policy', items: [
+    { key: 'REQUIRE_EMAIL_VERIFICATION', type: 'bool', editable: true, secret: false, value: '', set: true, source: 'env', envDefault: '' },
+  ]},
 ]
 
 beforeEach(() => {
@@ -67,6 +70,33 @@ describe('SettingsPage', () => {
     expect(await screen.findByText(/refused/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer quand même' }))
     await waitFor(() => expect(put).toHaveBeenLastCalledWith('jwt', { SMTP_HOST: 'bogus' }, true))
+  })
+
+  it('checking a bool setting saves it as "1"', async () => {
+    const put = vi.spyOn(api, 'adminPutSettings').mockResolvedValue(undefined)
+    renderPage()
+    const box = await screen.findByLabelText('REQUIRE_EMAIL_VERIFICATION')
+    expect((box as HTMLInputElement).checked).toBe(false)
+    await userEvent.click(box)
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+    await waitFor(() => expect(put).toHaveBeenCalledWith('jwt', { REQUIRE_EMAIL_VERIFICATION: '1' }, false))
+  })
+
+  it('unchecking a bool setting saves it as "" (the wire encoding for off)', async () => {
+    // Start from an ON value: the backend's Validate accepts only "1" (on)
+    // or "" (off) for bools — '0' is rejected 422.
+    vi.spyOn(api, 'adminGetSettings').mockResolvedValue([
+      { group: 'policy', items: [
+        { key: 'REQUIRE_EMAIL_VERIFICATION', type: 'bool', editable: true, secret: false, value: '1', set: true, source: 'db', envDefault: '' },
+      ]},
+    ])
+    const put = vi.spyOn(api, 'adminPutSettings').mockResolvedValue(undefined)
+    renderPage()
+    const box = await screen.findByLabelText('REQUIRE_EMAIL_VERIFICATION')
+    expect((box as HTMLInputElement).checked).toBe(true)
+    await userEvent.click(box)
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+    await waitFor(() => expect(put).toHaveBeenCalledWith('jwt', { REQUIRE_EMAIL_VERIFICATION: '' }, false))
   })
 
   it('resets an overridden key after confirmation', async () => {

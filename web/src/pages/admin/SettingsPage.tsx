@@ -34,14 +34,16 @@ function SettingRow({ item, group, draft, onChange, error, onReset, t }: {
 
   let control
   if (isBool) {
-    const checked = (draftValue ?? (item.value === '1' ? '1' : '0')) === '1'
+    // Wire contract: a bool is "1" (on) or "" (off) — the backend's Validate
+    // rejects any other encoding (sending "0" would 422).
+    const checked = (draftValue ?? (item.value === '1' ? '1' : '')) === '1'
     control = (
       <input
         type="checkbox"
         aria-label={item.key}
         checked={checked}
         disabled={readOnly}
-        onChange={e => onChange(item, e.target.checked ? '1' : '0')}
+        onChange={e => onChange(item, e.target.checked ? '1' : '')}
       />
     )
   } else {
@@ -147,7 +149,9 @@ export function SettingsPage() {
         if (value === '') delete next[item.key]
         else next[item.key] = value
       } else {
-        const original = item.type === 'bool' ? (item.value === '1' ? '1' : '0') : (item.value ?? '')
+        // Bools normalize to the wire encoding ("1" on / "" off) so an
+        // edit-back-to-original correctly drops out of the draft.
+        const original = item.type === 'bool' ? (item.value === '1' ? '1' : '') : (item.value ?? '')
         if (value === original) delete next[item.key]
         else next[item.key] = value
       }
