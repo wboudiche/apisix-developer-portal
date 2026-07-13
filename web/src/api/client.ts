@@ -1,7 +1,7 @@
 import type {
   Product, AuthResponse, RegisterResponse, ProductQuery, Plan, Application, Credential, AppDetail,
   AdminMeta, AdminProduct, AdminSubscription, Usage, UsageRange, Paginated, TryApp, Quota,
-  RatingsView, Team, TeamMember, ChangelogEntry, Invoice, SettingItem, SettingsGroup, ProbeResult,
+  RatingsView, Team, TeamMember, ChangelogEntry, Invoice, SettingsGroup, ProbeResult,
 } from './types'
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. 409 when
