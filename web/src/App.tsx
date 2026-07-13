@@ -10,6 +10,7 @@ import { ProductsPage } from './pages/admin/ProductsPage'
 import { PlansPage } from './pages/admin/PlansPage'
 import { ApprovalsPage } from './pages/admin/ApprovalsPage'
 import { InvoicesPage } from './pages/admin/InvoicesPage'
+import { SettingsPage } from './pages/admin/SettingsPage'
 import { ProductDetailPage } from './pages/ProductDetailPage'
 import TeamsPage from './pages/teams/TeamsPage'
 import BillingPage from './pages/billing/BillingPage'
@@ -31,6 +32,7 @@ export default function App() {
       <Route path="/admin/plans" element={<AdminGuard><PlansPage /></AdminGuard>} />
       <Route path="/admin/approvals" element={<AdminGuard><ApprovalsPage /></AdminGuard>} />
       <Route path="/admin/invoices" element={<AdminGuard><InvoicesPage /></AdminGuard>} />
+      <Route path="/admin/settings" element={<AdminGuard><SettingsPage /></AdminGuard>} />
     </Routes>
   )
 }
