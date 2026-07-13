@@ -37,6 +37,7 @@ var en = map[string]string{
 	// common
 	"common.invalidBody":  "invalid body",
 	"common.nameRequired": "name is required",
+	"common.notFound":     "not found",
 
 	// teams
 	"teams.listFailed":              "could not list teams",

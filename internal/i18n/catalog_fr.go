@@ -38,6 +38,7 @@ var fr = map[string]string{
 	// common
 	"common.invalidBody":  "corps de requête invalide",
 	"common.nameRequired": "le nom est requis",
+	"common.notFound":     "introuvable",
 
 	// teams
 	"teams.listFailed":              "impossible de lister les équipes",

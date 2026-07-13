@@ -540,3 +540,51 @@ func TestVerifyRoutesAbsentWhenDisabled(t *testing.T) {
 		t.Fatalf("feature off: verify route must not exist, got %d", rec.Code)
 	}
 }
+
+type toggleProvider struct {
+	on      bool
+	baseURL string
+}
+
+func (p *toggleProvider) VerificationEnabled() bool   { return p.on }
+func (p *toggleProvider) VerificationBaseURL() string { return p.baseURL }
+
+func TestDynamicVerificationToggles(t *testing.T) {
+	sender := &fakeVerifSender{}
+	prov := &toggleProvider{on: false, baseURL: "http://localhost:8088"}
+	h := NewHandler(newMemRepo(), NewTokenizer("test-secret"), nil)
+	h.EnableDynamicVerification(prov, sender, nil)
+
+	// OFF: routes answer 404; register auto-logins like the feature-off path.
+	rec := postAuth(h, "/api/auth/verify", map[string]string{"token": "x"})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("verify while off = %d, want 404", rec.Code)
+	}
+	rec = postAuth(h, "/api/auth/register", credentials{Email: "a@x.io", Password: "longenough"})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("register off = %d", rec.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["token"] == nil {
+		t.Fatal("off: register must return a token")
+	}
+
+	// ON: register withholds token, sends mail; verify works.
+	prov.on = true
+	rec = postAuth(h, "/api/auth/register", credentials{Email: "b@x.io", Password: "longenough"})
+	body = map[string]any{}
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if _, has := body["token"]; has {
+		t.Fatal("on: register must withhold the token")
+	}
+	sender.waitFor(t, 1)
+
+	// Back OFF mid-flight: an unverified user can now log in (gate consults
+	// the provider per request).
+	prov.on = false
+	rec = postAuth(h, "/api/auth/login", credentials{Email: "b@x.io", Password: "longenough"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("login with gate re-disabled = %d, want 200", rec.Code)
+	}
+}
