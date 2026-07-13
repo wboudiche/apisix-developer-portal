@@ -43,6 +43,14 @@ First-run **admin bootstrap** (the admin role is granted at portal startup for
 2. `docker compose -f docker-compose.yml -f docker-compose.full.yml restart portal`
 3. Log back in — the **Admin** menu now appears.
 
+Runtime settings: every parameter is visible — and almost every one editable —
+live at **Admin → Paramètres**, no restart needed. Env vars seed the defaults;
+values saved in the UI live in Postgres and win over env (each row shows its
+source and a reset-to-env action). Secrets are write-only, and APISIX/SMTP
+changes are health-probed before they apply. Only the boot-critical parameters
+(`DATABASE_URL`, `PORTAL_ADDR`, `PORTAL_ENV`, `JWT_SECRET`,
+`CREDENTIAL_ENC_KEY`) remain env-only.
+
 Tear down (removes volumes):
 
 ```bash

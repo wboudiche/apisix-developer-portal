@@ -38,6 +38,7 @@ var fr = map[string]string{
 	// common
 	"common.invalidBody":  "corps de requête invalide",
 	"common.nameRequired": "le nom est requis",
+	"common.notFound":     "introuvable",
 
 	// teams
 	"teams.listFailed":              "impossible de lister les équipes",
@@ -164,4 +165,8 @@ var fr = map[string]string{
 	"ratings.subscribeToRate": "abonnez-vous pour noter cette API",
 	"ratings.badStars":        "les étoiles doivent être comprises entre 1 et 5",
 	"ratings.saveFailed":      "impossible d'enregistrer la note",
+
+	// settings
+	"settings.badKey":     "paramètre inconnu ou en lecture seule",
+	"settings.saveFailed": "échec de l'enregistrement du paramètre",
 }

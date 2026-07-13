@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync/atomic"
 
 	"github.com/go-chi/chi/v5"
 
@@ -59,17 +60,23 @@ const feedLimit = 20
 const defaultUsageRange = "24h"
 
 type Handler struct {
-	svc               *Service
-	reader            Reader
-	events            EventReader
-	usage             UsageReader
+	svc    *Service
+	reader Reader
+	events EventReader
+	// usage is swapped by the settings-change hook (re-arming Prometheus)
+	// concurrently with requests reading it in quotaHandler/usageHandler; an
+	// atomic.Pointer keeps that race-free without a mutex.
+	usage             atomic.Pointer[UsageReader]
 	owns              OwnerCheck
 	router            chi.Router
-	sandboxGatewayURL string
-	oidcIssuer        string
+	sandboxGatewayURL func() string
+	// oidcIssuer is written by the settings-change hook (re-arming OIDC
+	// wiring) concurrently with requests reading it in detail; an
+	// atomic.Pointer keeps that race-free without a mutex.
+	oidcIssuer atomic.Pointer[string]
 }
 
-func NewHandler(svc *Service, reader Reader, eventReader EventReader, owns OwnerCheck, sandboxGatewayURL string) *Handler {
+func NewHandler(svc *Service, reader Reader, eventReader EventReader, owns OwnerCheck, sandboxGatewayURL func() string) *Handler {
 	h := &Handler{svc: svc, reader: reader, events: eventReader, owns: owns, router: chi.NewRouter(), sandboxGatewayURL: sandboxGatewayURL}
 	h.router.Get("/api/applications/{appID}", h.detail)
 	h.router.Get("/api/applications/{appID}/usage", h.usageHandler)
@@ -84,12 +91,32 @@ func NewHandler(svc *Service, reader Reader, eventReader EventReader, owns Owner
 }
 
 // SetUsageReader wires the metrics backend. Left unset (nil) when metrics are
-// not configured; the usage endpoint then reports unavailable.
-func (h *Handler) SetUsageReader(u UsageReader) { h.usage = u }
+// not configured; the usage endpoint then reports unavailable. Safe to call
+// concurrently with requests (e.g. re-armed from a settings-change hook).
+func (h *Handler) SetUsageReader(u UsageReader) { h.usage.Store(&u) }
+
+// usageReader returns the currently-wired usage backend, or nil if never set.
+func (h *Handler) usageReader() UsageReader {
+	p := h.usage.Load()
+	if p == nil {
+		return nil
+	}
+	return *p
+}
 
 // SetOIDCIssuer wires the OIDC issuer URL for the app detail endpoint.
-// Left unset when OIDC is not configured.
-func (h *Handler) SetOIDCIssuer(s string) { h.oidcIssuer = s }
+// Left unset when OIDC is not configured. Safe to call concurrently with
+// requests (e.g. re-armed from a settings-change hook).
+func (h *Handler) SetOIDCIssuer(s string) { h.oidcIssuer.Store(&s) }
+
+// oidcIssuerValue returns the currently-wired OIDC issuer, or "" if never set.
+func (h *Handler) oidcIssuerValue() string {
+	p := h.oidcIssuer.Load()
+	if p == nil {
+		return ""
+	}
+	return *p
+}
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.ServeHTTP(w, r) }
 
@@ -195,14 +222,14 @@ func (h *Handler) detail(w http.ResponseWriter, r *http.Request) {
 			out.Events = feed
 		}
 	}
-	if h.sandboxGatewayURL != "" {
-		out.SandboxGatewayUrl = h.sandboxGatewayURL
+	if sbURL := h.sandboxGatewayURL(); sbURL != "" {
+		out.SandboxGatewayUrl = sbURL
 		if sk, err := h.reader.GetSandboxKey(r.Context(), appID); err == nil && sk != "" {
 			out.SandboxEnabled = true
 		}
 	}
-	if h.oidcIssuer != "" {
-		out.OIDCIssuer = h.oidcIssuer
+	if issuer := h.oidcIssuerValue(); issuer != "" {
+		out.OIDCIssuer = issuer
 		out.OIDCClientID, _ = h.reader.GetAppOIDCClientID(r.Context(), appID)
 		if prods, err := h.reader.OAuthProductsForApp(r.Context(), appID); err == nil {
 			out.OAuthEligible = len(prods) > 0
@@ -258,8 +285,8 @@ func (h *Handler) quotaHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := Quota{HasQuota: true, Limit: plan.Count, WindowSeconds: plan.WindowSeconds}
-	if h.usage != nil {
-		used, err := h.usage.RequestsInWindow(r.Context(), cred.ConsumerUsername, plan.WindowSeconds)
+	if usage := h.usageReader(); usage != nil {
+		used, err := usage.RequestsInWindow(r.Context(), cred.ConsumerUsername, plan.WindowSeconds)
 		if err != nil {
 			log.Printf("quota used for app %d (consumer %s): %v", appID, cred.ConsumerUsername, err)
 		} else {
@@ -359,11 +386,12 @@ func (h *Handler) usageHandler(w http.ResponseWriter, r *http.Request) {
 		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.credentialLoadFailed")
 		return
 	}
-	if h.usage == nil {
+	usage := h.usageReader()
+	if usage == nil {
 		httpx.ErrorT(w, r, http.StatusServiceUnavailable, "subscribe.metricsUnavailable")
 		return
 	}
-	u, err := h.usage.Usage(r.Context(), cred.ConsumerUsername, rng)
+	u, err := usage.Usage(r.Context(), cred.ConsumerUsername, rng)
 	if err != nil {
 		// Surface the dependency outage explicitly; never fall back to demo data.
 		log.Printf("usage for app %d (consumer %s): %v", appID, cred.ConsumerUsername, err)

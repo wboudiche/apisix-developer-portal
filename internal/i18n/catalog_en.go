@@ -37,6 +37,7 @@ var en = map[string]string{
 	// common
 	"common.invalidBody":  "invalid body",
 	"common.nameRequired": "name is required",
+	"common.notFound":     "not found",
 
 	// teams
 	"teams.listFailed":              "could not list teams",
@@ -163,4 +164,8 @@ var en = map[string]string{
 	"ratings.subscribeToRate": "subscribe to rate this API",
 	"ratings.badStars":        "stars must be 1..5",
 	"ratings.saveFailed":      "failed to save rating",
+
+	// settings
+	"settings.badKey":     "unknown or read-only setting",
+	"settings.saveFailed": "failed to save setting",
 }

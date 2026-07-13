@@ -52,7 +52,7 @@ func defaultResolver() *fakeResolver {
 
 func TestDeliverApprovedToOwner(t *testing.T) {
 	fs := &fakeSender{}
-	n := NewNotifier(fs, defaultResolver(), "https://portal.example")
+	n := NewNotifier(fs, defaultResolver(), func() string { return "https://portal.example" })
 	n.deliver(kindApproved, 1, 2, 3)
 	if len(fs.sent) != 1 || len(fs.sent[0].to) != 1 || fs.sent[0].to[0] != "dev@example.com" {
 		t.Fatalf("sent=%+v", fs.sent)
@@ -66,7 +66,7 @@ func TestDeliverApprovedToOwner(t *testing.T) {
 
 func TestDeliverRequestedToAdmins(t *testing.T) {
 	fs := &fakeSender{}
-	n := NewNotifier(fs, defaultResolver(), "https://portal.example")
+	n := NewNotifier(fs, defaultResolver(), func() string { return "https://portal.example" })
 	n.deliver(kindRequested, 1, 2, 3)
 	if len(fs.sent) != 1 || len(fs.sent[0].to) != 1 || fs.sent[0].to[0] != "admin@example.com" {
 		t.Fatalf("sent=%+v", fs.sent)
@@ -78,7 +78,7 @@ func TestDeliverRequestedToAdmins(t *testing.T) {
 
 func TestDeliverSkipsEmptyRecipients(t *testing.T) {
 	fs := &fakeSender{}
-	n := NewNotifier(fs, &emptyResolver{}, "https://portal.example")
+	n := NewNotifier(fs, &emptyResolver{}, func() string { return "https://portal.example" })
 	n.deliver(kindApproved, 1, 2, 3) // no owners -> no send
 	if len(fs.sent) != 0 {
 		t.Fatalf("expected no send, got %d", len(fs.sent))
@@ -110,7 +110,7 @@ func TestDeliverLocalizesPerRecipient(t *testing.T) {
 		product: "Une API",
 		plan:    "Silver",
 	}
-	n := NewNotifier(sender, repo, "http://portal")
+	n := NewNotifier(sender, repo, func() string { return "http://portal" })
 	n.deliver(kindRequested, 1, 2, 3) // synchronous
 
 	if len(sender.sent) != 2 {
@@ -131,7 +131,7 @@ func TestDeliverLocalizesPerRecipient(t *testing.T) {
 func TestDeliverUnknownLangFallsBackToFrench(t *testing.T) {
 	sender := &fakeSender{}
 	repo := &fakeResolver{admins: []Recipient{{Email: "x@x.io", Lang: "de"}}, app: "A", product: "P", plan: "Pl"}
-	NewNotifier(sender, repo, "http://portal").deliver(kindRequested, 1, 2, 3)
+	NewNotifier(sender, repo, func() string { return "http://portal" }).deliver(kindRequested, 1, 2, 3)
 	if len(sender.sent) != 1 || !strings.Contains(sender.sent[0].subject, "Nouvelle demande") {
 		t.Fatalf("unknown lang should fall back to fr: %+v", sender.sent)
 	}

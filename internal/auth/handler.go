@@ -42,12 +42,34 @@ type VerificationConfig struct {
 	GenToken func() (plain, hash string)
 }
 
+// VerificationProvider reports, per request, whether the email-verification
+// gate is currently on and where the verification link should point.
+// Enabled and BaseURL are resolved at the same moment for consistency (a
+// single snapshot read), and Enabled is consulted fresh on every request so
+// a dynamic provider can flip the gate without re-registering routes.
+type VerificationProvider interface {
+	VerificationEnabled() bool
+	VerificationBaseURL() string
+}
+
+// staticProvider adapts the legacy VerificationConfig one-shot enablement:
+// always on, with a fixed BaseURL.
+type staticProvider struct{ baseURL string }
+
+func (p staticProvider) VerificationEnabled() bool   { return true }
+func (p staticProvider) VerificationBaseURL() string { return p.baseURL }
+
 type Handler struct {
 	store        UserStore
 	tk           *Tokenizer
 	loginLimiter *httpx.RateLimiter
 	router       chi.Router
-	verify       *VerificationConfig
+
+	verifyProv    VerificationProvider // nil = feature entirely absent
+	verifySender  notify.Sender
+	verifyLimiter *httpx.RateLimiter
+	verifyTTL     time.Duration
+	verifyGen     func() (plain, hash string)
 }
 
 // NewHandler creates an auth handler. loginLimiter is an optional per-account
@@ -69,9 +91,34 @@ func (h *Handler) EnableEmailVerification(vc VerificationConfig) {
 	if vc.GenToken == nil {
 		vc.GenToken = GenerateVerifyToken
 	}
-	h.verify = &vc
+	h.verifySender, h.verifyLimiter, h.verifyTTL, h.verifyGen = vc.Sender, vc.Limiter, vc.TokenTTL, vc.GenToken
+	h.verifyProv = staticProvider{baseURL: vc.BaseURL}
+	h.mountVerifyRoutes()
+}
+
+// EnableDynamicVerification switches the handler into verified-only mode
+// whose enablement is decided per request by p (spec: runtime settings can
+// flip REQUIRE_EMAIL_VERIFICATION without restarting the process). Unlike
+// EnableEmailVerification's fixed TTL/token generator, this path always uses
+// the 24h default TTL and GenerateVerifyToken.
+func (h *Handler) EnableDynamicVerification(p VerificationProvider, sender notify.Sender, limiter *httpx.RateLimiter) {
+	h.verifySender, h.verifyLimiter, h.verifyTTL, h.verifyGen = sender, limiter, 24*time.Hour, GenerateVerifyToken
+	h.verifyProv = p
+	h.mountVerifyRoutes()
+}
+
+// mountVerifyRoutes registers the verify/resend routes. Callers must invoke
+// only one of EnableEmailVerification/EnableDynamicVerification per handler —
+// chi panics on duplicate route registration.
+func (h *Handler) mountVerifyRoutes() {
 	h.router.Post("/api/auth/verify", h.verifyEmail)
 	h.router.Post("/api/auth/resend-verification", h.resendVerification)
+}
+
+// verificationOn reports whether the email-verification gate is active for
+// this request. nil provider means the feature was never enabled.
+func (h *Handler) verificationOn() bool {
+	return h.verifyProv != nil && h.verifyProv.VerificationEnabled()
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.ServeHTTP(w, r) }
@@ -98,9 +145,10 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lang := string(i18n.FromContext(r.Context()))
-	if h.verify != nil {
-		plain, tokenHash := h.verify.GenToken()
-		u, err := h.store.CreateUnverified(r.Context(), c.Email, hash, c.Name, lang, tokenHash, time.Now().Add(h.verify.TokenTTL))
+	if h.verificationOn() {
+		baseURL := h.verifyProv.VerificationBaseURL()
+		plain, tokenHash := h.verifyGen()
+		u, err := h.store.CreateUnverified(r.Context(), c.Email, hash, c.Name, lang, tokenHash, time.Now().Add(h.verifyTTL))
 		if errors.Is(err, ErrEmailTaken) {
 			httpx.ErrorT(w, r, http.StatusConflict, "auth.register.emailTaken")
 			return
@@ -109,7 +157,7 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 			httpx.ErrorT(w, r, http.StatusInternalServerError, "auth.register.createFailed")
 			return
 		}
-		h.sendVerification(u, lang, plain)
+		h.sendVerification(u, lang, plain, baseURL)
 		httpx.JSON(w, http.StatusCreated, map[string]any{"user": u, "verificationRequired": true})
 		return
 	}
@@ -136,13 +184,15 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 // failures are logged only — the resend endpoint is the recovery path (spec:
 // best-effort like notify). Async so resend answers 204 after DB work alone
 // whether or not a mail goes out (no account-existence timing oracle) and
-// register never blocks on SMTP.
-func (h *Handler) sendVerification(u User, lang, plainToken string) {
+// register never blocks on SMTP. baseURL is resolved by the caller BEFORE
+// spawning this goroutine, so a dynamic provider's value at request time is
+// what gets used, not whatever it might return later.
+func (h *Handler) sendVerification(u User, lang, plainToken, baseURL string) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		link := h.verify.BaseURL + "/verify-email?token=" + plainToken
-		if err := notify.SendVerificationEmail(ctx, h.verify.Sender, lang, u.Email, u.Name, link); err != nil {
+		link := baseURL + "/verify-email?token=" + plainToken
+		if err := notify.SendVerificationEmail(ctx, h.verifySender, lang, u.Email, u.Name, link); err != nil {
 			log.Printf("auth: verification email to %q: %v", u.Email, err)
 		}
 	}()
@@ -173,7 +223,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		httpx.ErrorT(w, r, http.StatusUnauthorized, "auth.login.invalidCredentials")
 		return
 	}
-	if h.verify != nil && !u.Verified {
+	if h.verificationOn() && !u.Verified {
 		httpx.ErrorT(w, r, http.StatusForbidden, "auth.login.emailNotVerified")
 		return
 	}
@@ -210,6 +260,10 @@ func (h *Handler) PutLanguage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) verifyEmail(w http.ResponseWriter, r *http.Request) {
+	if !h.verificationOn() {
+		httpx.ErrorT(w, r, http.StatusNotFound, "common.notFound")
+		return
+	}
 	var body struct {
 		Token string `json:"token"`
 	}
@@ -231,6 +285,10 @@ func (h *Handler) verifyEmail(w http.ResponseWriter, r *http.Request) {
 // an account exists or is verified (same discipline as the login timing
 // equalization, M3).
 func (h *Handler) resendVerification(w http.ResponseWriter, r *http.Request) {
+	if !h.verificationOn() {
+		httpx.ErrorT(w, r, http.StatusNotFound, "common.notFound")
+		return
+	}
 	var body struct {
 		Email string `json:"email"`
 	}
@@ -238,21 +296,22 @@ func (h *Handler) resendVerification(w http.ResponseWriter, r *http.Request) {
 		httpx.ErrorT(w, r, http.StatusBadRequest, "common.invalidBody")
 		return
 	}
-	if h.verify.Limiter != nil && !h.verify.Limiter.Allow(strings.ToLower(body.Email)) {
-		if ra := h.verify.Limiter.RetryAfter(); ra != "" {
+	if h.verifyLimiter != nil && !h.verifyLimiter.Allow(strings.ToLower(body.Email)) {
+		if ra := h.verifyLimiter.RetryAfter(); ra != "" {
 			w.Header().Set("Retry-After", ra)
 		}
 		httpx.ErrorT(w, r, http.StatusTooManyRequests, "auth.login.tooManyAttempts")
 		return
 	}
-	plain, tokenHash := h.verify.GenToken()
-	u, err := h.store.ResetVerifyToken(r.Context(), body.Email, tokenHash, time.Now().Add(h.verify.TokenTTL))
+	baseURL := h.verifyProv.VerificationBaseURL()
+	plain, tokenHash := h.verifyGen()
+	u, err := h.store.ResetVerifyToken(r.Context(), body.Email, tokenHash, time.Now().Add(h.verifyTTL))
 	if err == nil {
 		lang := u.Language
 		if lang == "" {
 			lang = string(i18n.FromContext(r.Context()))
 		}
-		h.sendVerification(u, lang, plain)
+		h.sendVerification(u, lang, plain, baseURL)
 	} else if !errors.Is(err, ErrUserNotFound) && !errors.Is(err, ErrAlreadyVerified) {
 		log.Printf("auth: resend verification for %q: %v", body.Email, err)
 	}

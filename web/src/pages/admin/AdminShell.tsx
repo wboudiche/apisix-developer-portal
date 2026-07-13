@@ -6,7 +6,7 @@ import { adminGetProducts, adminGetPlans, adminGetSubscriptions } from '../../ap
 import { useT } from '../../i18n/LanguageProvider'
 import '../../styles/admin.css'
 
-export type AdminTab = 'products' | 'plans' | 'approvals' | 'invoices'
+export type AdminTab = 'products' | 'plans' | 'approvals' | 'invoices' | 'settings'
 
 // Pill sub-nav with real count badges + blueprint page head. A page passes the
 // count it already knows (its own list length) via `counts`; the shell fetches
@@ -57,6 +57,7 @@ export function AdminShell({ active, title, description, action, counts, childre
           <Link className={active === 'plans' ? 'active' : ''} to="/admin/plans">{t('admin.plansNavLabel')} {badge(n.plans)}</Link>
           <Link className={active === 'approvals' ? 'active' : ''} to="/admin/approvals">{t('admin.approvalsNavLabel')} {badge(n.pending)}</Link>
           <Link className={active === 'invoices' ? 'active' : ''} to="/admin/invoices">{t('admin.invoicesNavLabel')}</Link>
+          <Link className={active === 'settings' ? 'active' : ''} to="/admin/settings">{t('admin.settingsNavLabel')}</Link>
         </nav>
         <div className="apanel">
           <div className="phead">

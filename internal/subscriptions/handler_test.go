@@ -83,7 +83,7 @@ func newTestHandler() (*Handler, *apisix.Fake) {
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "key-xyz", ConsumerUsername: "app_1"},
 		subs: []SubscriptionView{{ProductID: 3, ProductName: "PizzaShackAPI", PlanID: 2, PlanName: "Silver"}}}
-	return NewHandler(svc, reader, fakeEvents{}, owns, ""), gw
+	return NewHandler(svc, reader, fakeEvents{}, owns, func() string { return "" }), gw
 }
 
 func TestSubscribeEndpointReturnsKeyWithoutProvisioning(t *testing.T) {
@@ -161,7 +161,7 @@ func TestAppDetailIncludesActivityFeed(t *testing.T) {
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1}}
 	feed := fakeEvents{feed: []events.View{{Kind: events.KindSubscribed, ProductName: "Inventory API", PlanName: "Gold"}}}
-	h := NewHandler(svc, reader, feed, owns, "")
+	h := NewHandler(svc, reader, feed, owns, func() string { return "" })
 
 	req := httptest.NewRequest(http.MethodGet, "/api/applications/1", nil)
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -184,7 +184,7 @@ func TestAppDetailSurvivesFeedReadError(t *testing.T) {
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "key-xyz"}}
 	// Feed read fails — the page must still load (200) with an empty feed, not 500.
-	h := NewHandler(svc, reader, fakeEvents{err: errors.New("db down")}, owns, "")
+	h := NewHandler(svc, reader, fakeEvents{err: errors.New("db down")}, owns, func() string { return "" })
 
 	req := httptest.NewRequest(http.MethodGet, "/api/applications/1", nil)
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -220,7 +220,7 @@ func newSeededTestHandler() (*Handler, *apisix.Fake) {
 	svc := NewService(store, gw, nil, func() string { return "rotated-key" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "old-key", ConsumerUsername: "app_1"}}
-	return NewHandler(svc, reader, fakeEvents{}, owns, ""), gw
+	return NewHandler(svc, reader, fakeEvents{}, owns, func() string { return "" }), gw
 }
 
 func TestRotateKeyEndpoint(t *testing.T) {
@@ -268,7 +268,7 @@ func TestQuotaHappyPath(t *testing.T) {
 		subs: []SubscriptionView{{ProductID: 3, ProductName: "PizzaShackAPI", PlanID: 2, PlanName: "Silver"}},
 		plan: PlanInfo{Count: 1000, WindowSeconds: 60},
 	}
-	h := NewHandler(svc, reader, fakeEvents{}, owns, "")
+	h := NewHandler(svc, reader, fakeEvents{}, owns, func() string { return "" })
 	h.SetUsageReader(fakeUsageReader{used: 612})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/applications/1/quota", nil)
@@ -295,7 +295,7 @@ func TestQuotaNoActiveSubscription(t *testing.T) {
 		cred:    Credential{ApplicationID: 1, APIKey: "key-xyz", ConsumerUsername: "app_1"},
 		planErr: ErrNoActiveSubscription,
 	}
-	h := NewHandler(svc, reader, fakeEvents{}, owns, "")
+	h := NewHandler(svc, reader, fakeEvents{}, owns, func() string { return "" })
 
 	req := httptest.NewRequest(http.MethodGet, "/api/applications/1/quota", nil)
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -322,7 +322,7 @@ func TestQuotaMetricsUnavailable(t *testing.T) {
 		plan: PlanInfo{Count: 1000, WindowSeconds: 60},
 	}
 	// Do NOT set a usage reader — h.usage stays nil
-	h := NewHandler(svc, reader, fakeEvents{}, owns, "")
+	h := NewHandler(svc, reader, fakeEvents{}, owns, func() string { return "" })
 
 	req := httptest.NewRequest(http.MethodGet, "/api/applications/1/quota", nil)
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -361,7 +361,7 @@ func TestSandboxEnableEndpoint(t *testing.T) {
 	svc := NewService(store, apisix.NewFake(), sbGW, func() string { return "sbkey" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "prodkey", ConsumerUsername: "app_1"}}
-	h := NewHandler(svc, reader, fakeEvents{}, owns, "http://localhost:9081")
+	h := NewHandler(svc, reader, fakeEvents{}, owns, func() string { return "http://localhost:9081" })
 
 	req := httptest.NewRequest(http.MethodPost, "/api/applications/1/sandbox/enable", nil)
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -389,7 +389,7 @@ func TestSandboxEnable409WhenIneligible(t *testing.T) {
 	svc := NewService(store, apisix.NewFake(), apisix.NewFake(), func() string { return "sbkey" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "prodkey", ConsumerUsername: "app_1"}}
-	h := NewHandler(svc, reader, fakeEvents{}, owns, "http://localhost:9081")
+	h := NewHandler(svc, reader, fakeEvents{}, owns, func() string { return "http://localhost:9081" })
 
 	req := httptest.NewRequest(http.MethodPost, "/api/applications/1/sandbox/enable", nil)
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -411,7 +411,7 @@ func TestSandboxRotateEndpoint(t *testing.T) {
 	svc := NewService(store, apisix.NewFake(), sbGW, func() string { return "newsb" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "prodkey", ConsumerUsername: "app_1"}}
-	h := NewHandler(svc, reader, fakeEvents{}, owns, "http://localhost:9081")
+	h := NewHandler(svc, reader, fakeEvents{}, owns, func() string { return "http://localhost:9081" })
 
 	req := httptest.NewRequest(http.MethodPost, "/api/applications/1/sandbox/rotate", nil)
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -435,7 +435,7 @@ func TestSetOIDCClientEndpoint(t *testing.T) {
 	svc.ConfigureOIDC("https://idp.example", "azp")
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1}}
-	h := NewHandler(svc, reader, fakeEvents{}, owns, "")
+	h := NewHandler(svc, reader, fakeEvents{}, owns, func() string { return "" })
 
 	req := httptest.NewRequest(http.MethodPut, "/api/applications/1/oidc-client", strings.NewReader(`{"clientId":"client-a"}`))
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -455,7 +455,7 @@ func TestSetOIDCClient400OnBadCharset(t *testing.T) {
 	svc.ConfigureOIDC("https://idp.example", "azp")
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1}}
-	h := NewHandler(svc, reader, fakeEvents{}, owns, "")
+	h := NewHandler(svc, reader, fakeEvents{}, owns, func() string { return "" })
 
 	req := httptest.NewRequest(http.MethodPut, "/api/applications/1/oidc-client", strings.NewReader(`{"clientId":"a b\"]=true"}`))
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))
@@ -476,7 +476,7 @@ func TestSandboxRotate409WhenNoKey(t *testing.T) {
 	svc := NewService(store, apisix.NewFake(), apisix.NewFake(), func() string { return "newsb" }, nil)
 	owns := func(_ context.Context, appID, userID int64) (bool, error) { return appID == 1 && userID == 5, nil }
 	reader := fakeReader{has: true, cred: Credential{ApplicationID: 1, APIKey: "prodkey", ConsumerUsername: "app_1"}}
-	h := NewHandler(svc, reader, fakeEvents{}, owns, "http://localhost:9081")
+	h := NewHandler(svc, reader, fakeEvents{}, owns, func() string { return "http://localhost:9081" })
 
 	req := httptest.NewRequest(http.MethodPost, "/api/applications/1/sandbox/rotate", nil)
 	req = req.WithContext(auth.WithUserID(req.Context(), 5))

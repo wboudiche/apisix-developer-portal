@@ -34,12 +34,12 @@ type ProductService interface {
 type Handler struct {
 	svc               ProductService
 	router            chi.Router
-	allowPrivate      bool
-	oidcConfigured    bool
-	sandboxConfigured bool
+	allowPrivate      func() bool // dynamic: reads the live settings snapshot
+	oidcConfigured    func() bool
+	sandboxConfigured func() bool
 }
 
-func NewHandler(svc ProductService, allowPrivate, oidcConfigured, sandboxConfigured bool) *Handler {
+func NewHandler(svc ProductService, allowPrivate func() bool, oidcConfigured func() bool, sandboxConfigured func() bool) *Handler {
 	h := &Handler{svc: svc, router: chi.NewRouter(), allowPrivate: allowPrivate, oidcConfigured: oidcConfigured, sandboxConfigured: sandboxConfigured}
 	h.router.Get("/api/admin/meta", h.meta)
 	h.router.Get("/api/admin/products", h.list)
@@ -62,8 +62,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.S
 // are not wired up server-side (e.g. no sandbox gateway configured).
 func (h *Handler) meta(w http.ResponseWriter, _ *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]bool{
-		"sandboxConfigured": h.sandboxConfigured,
-		"oidcConfigured":    h.oidcConfigured,
+		"sandboxConfigured": h.sandboxConfigured(),
+		"oidcConfigured":    h.oidcConfigured(),
 	})
 }
 
@@ -139,7 +139,7 @@ func (h *Handler) importSpec(w http.ResponseWriter, r *http.Request) {
 
 	data := []byte(body.Spec)
 	if body.URL != "" {
-		fetched, err := fetchSpec(r.Context(), body.URL, h.allowPrivate)
+		fetched, err := fetchSpec(r.Context(), body.URL, h.allowPrivate())
 		if err != nil {
 			httpx.ErrorT(w, r, http.StatusUnprocessableEntity, "admin.import.fetchFailed")
 			return
@@ -378,11 +378,11 @@ func (h *Handler) decodeProduct(w http.ResponseWriter, r *http.Request) (Product
 	if p.Tags == nil {
 		p.Tags = []string{}
 	}
-	if msg := p.validate(h.allowPrivate); msg != "" {
+	if msg := p.validate(h.allowPrivate()); msg != "" {
 		httpx.ErrorT(w, r, http.StatusBadRequest, msg)
 		return Product{}, false
 	}
-	if p.AuthType == "oauth2" && !h.oidcConfigured {
+	if p.AuthType == "oauth2" && !h.oidcConfigured() {
 		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.product.oauthNotConfigured")
 		return Product{}, false
 	}

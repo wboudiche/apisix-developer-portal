@@ -54,7 +54,8 @@ func withUser(r *http.Request, id int64) *http.Request {
 
 func TestContextListsApprovedApps(t *testing.T) {
 	h := NewHandler(fakeProducts{id: 9, ctx: "/orders"},
-		fakeAccess{apps: []AppRef{{ID: 1, Name: "App A"}}}, "http://gw:9080", "")
+		fakeAccess{apps: []AppRef{{ID: 1, Name: "App A"}}},
+		func() string { return "http://gw:9080" }, func() string { return "" })
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withUser(httptest.NewRequest(http.MethodGet, "/api/try/orders/context", nil), 7))
 	if rec.Code != http.StatusOK {
@@ -77,7 +78,8 @@ func TestProxyForwardsWithKeyInjected(t *testing.T) {
 	defer gw.Close()
 
 	h := NewHandler(fakeProducts{id: 9, ctx: "/orders"},
-		fakeAccess{owns: true, status: "active", key: "ax_live_k1"}, gw.URL, "")
+		fakeAccess{owns: true, status: "active", key: "ax_live_k1"},
+		func() string { return gw.URL }, func() string { return "" })
 	req := withUser(httptest.NewRequest(http.MethodPost, "/api/try/orders/3/pet/5", strings.NewReader(`{"a":1}`)), 7)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -98,7 +100,8 @@ func TestProxyForwardsWithKeyInjected(t *testing.T) {
 
 func TestProxyRejectsNotOwner(t *testing.T) {
 	h := NewHandler(fakeProducts{id: 9, ctx: "/orders"},
-		fakeAccess{owns: false, status: "active", key: "k"}, "http://gw:9080", "")
+		fakeAccess{owns: false, status: "active", key: "k"},
+		func() string { return "http://gw:9080" }, func() string { return "" })
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withUser(httptest.NewRequest(http.MethodGet, "/api/try/orders/3/x", nil), 7))
 	if rec.Code != http.StatusForbidden {
@@ -108,7 +111,8 @@ func TestProxyRejectsNotOwner(t *testing.T) {
 
 func TestProxyRejectsUnapproved(t *testing.T) {
 	h := NewHandler(fakeProducts{id: 9, ctx: "/orders"},
-		fakeAccess{owns: true, status: "pending", key: "k"}, "http://gw:9080", "")
+		fakeAccess{owns: true, status: "pending", key: "k"},
+		func() string { return "http://gw:9080" }, func() string { return "" })
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withUser(httptest.NewRequest(http.MethodGet, "/api/try/orders/3/x", nil), 7))
 	if rec.Code != http.StatusForbidden {
@@ -118,7 +122,8 @@ func TestProxyRejectsUnapproved(t *testing.T) {
 
 func TestProxyUnknownProduct404(t *testing.T) {
 	h := NewHandler(fakeProducts{err: ErrNotFound},
-		fakeAccess{owns: true, status: "active", key: "k"}, "http://gw:9080", "")
+		fakeAccess{owns: true, status: "active", key: "k"},
+		func() string { return "http://gw:9080" }, func() string { return "" })
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withUser(httptest.NewRequest(http.MethodGet, "/api/try/nope/3/x", nil), 7))
 	if rec.Code != http.StatusNotFound {
@@ -137,7 +142,7 @@ func TestSandboxProxyInjectsSandboxKeyAndTargetsSandboxGateway(t *testing.T) {
 
 	h := NewHandler(fakeProducts{id: 9, ctx: "/echo", sandbox: true},
 		fakeAccess{owns: true, status: "active", sandboxKey: "SB"},
-		"http://prod.invalid", sandbox.URL)
+		func() string { return "http://prod.invalid" }, func() string { return sandbox.URL })
 	req := withUser(httptest.NewRequest(http.MethodGet, "/api/try/orders/42/sandbox/ping", nil), 7)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)

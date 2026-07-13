@@ -10,7 +10,7 @@ import (
 
 // newImportHandler builds a Handler with a nil service: import must not touch it.
 func newImportHandler(allowPrivate bool) *Handler {
-	return NewHandler(nil, allowPrivate, false, true)
+	return NewHandler(nil, func() bool { return allowPrivate }, func() bool { return false }, func() bool { return true })
 }
 
 func TestImport_SpecBody_OK(t *testing.T) {
