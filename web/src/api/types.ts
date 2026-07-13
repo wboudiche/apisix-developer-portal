@@ -224,3 +224,25 @@ export interface Quota {
   windowSeconds?: number
   available?: boolean
 }
+
+export interface SettingItem {
+  key: string
+  type: string
+  editable: boolean
+  secret: boolean
+  value: string | null
+  set: boolean
+  source: 'env' | 'db'
+  envDefault: string | null
+}
+
+export interface SettingsGroup {
+  group: string
+  items: SettingItem[]
+}
+
+export interface ProbeResult {
+  name: string
+  ok: boolean
+  detail: string
+}

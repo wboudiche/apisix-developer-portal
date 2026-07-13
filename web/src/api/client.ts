@@ -1,7 +1,7 @@
 import type {
   Product, AuthResponse, RegisterResponse, ProductQuery, Plan, Application, Credential, AppDetail,
   AdminMeta, AdminProduct, AdminSubscription, Usage, UsageRange, Paginated, TryApp, Quota,
-  RatingsView, Team, TeamMember, ChangelogEntry, Invoice,
+  RatingsView, Team, TeamMember, ChangelogEntry, Invoice, SettingItem, SettingsGroup, ProbeResult,
 } from './types'
 
 // ApiError carries the HTTP status so callers can branch on it (e.g. 409 when
@@ -11,6 +11,17 @@ export class ApiError extends Error {
   constructor(message: string, status: number) {
     super(message)
     this.status = status
+  }
+}
+
+// SettingsSaveError carries field validation errors or probe failures on 422.
+export class SettingsSaveError extends ApiError {
+  fields?: Record<string, string>
+  probe?: ProbeResult[]
+  constructor(msg: string, status: number, fields?: Record<string, string>, probe?: ProbeResult[]) {
+    super(msg, status)
+    this.fields = fields
+    this.probe = probe
   }
 }
 
@@ -375,4 +386,31 @@ export async function adminFetchProductIcon(token: string, id: number): Promise<
   const res = await fetch(`/api/admin/products/${id}/icon`, { headers: { Authorization: `Bearer ${token}` } })
   if (!res.ok) throw new ApiError(`HTTP ${res.status}`, res.status)
   return res.blob()
+}
+
+export async function adminGetSettings(token: string): Promise<SettingsGroup[]> {
+  return parse<SettingsGroup[]>(await fetch('/api/admin/settings', { headers: langHeaders(token) }), '/api/admin/settings')
+}
+
+export async function adminPutSettings(token: string, values: Record<string, string>, force = false): Promise<void> {
+  const res = await fetch('/api/admin/settings', {
+    method: 'PUT', headers: langHeaders(token), body: JSON.stringify({ values, force }),
+  })
+  if (res.status === 422) {
+    const body = await res.json().catch(() => ({}))
+    throw new SettingsSaveError('settings save failed', 422, body.fields, body.probe)
+  }
+  await parse<unknown>(res, '/api/admin/settings')
+}
+
+export async function adminResetSetting(token: string, key: string): Promise<void> {
+  await parse<unknown>(await fetch(`/api/admin/settings/${encodeURIComponent(key)}`, {
+    method: 'DELETE', headers: langHeaders(token),
+  }), '/api/admin/settings')
+}
+
+export async function adminTestSettings(token: string, values: Record<string, string>): Promise<ProbeResult[]> {
+  return parse<ProbeResult[]>(await fetch('/api/admin/settings/test', {
+    method: 'POST', headers: langHeaders(token), body: JSON.stringify({ values }),
+  }), '/api/admin/settings/test')
 }
