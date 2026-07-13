@@ -14,17 +14,20 @@ import (
 	"apisix-portal/internal/db"
 )
 
-type stubProber struct {
-	results []ProbeResult
+// StubProber is exported (unusually, for a _test.go helper) so the external
+// settings_test package (handler_test.go) can construct it too — see that
+// file's package comment for why handler tests live outside package settings.
+type StubProber struct {
+	Results []ProbeResult
 	calls   int
 	mu      sync.Mutex
 }
 
-func (p *stubProber) Probe(_ context.Context, _ *Effective, _ map[string]bool) []ProbeResult {
+func (p *StubProber) Probe(_ context.Context, _ *Effective, _ map[string]bool) []ProbeResult {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.calls++
-	return p.results
+	return p.Results
 }
 
 func testPool(t *testing.T) *pgxpool.Pool {
@@ -44,7 +47,9 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-func testService(t *testing.T, prober Prober) *Service {
+// NewTestService is exported (unusually, for a _test.go helper) so the external
+// settings_test package (handler_test.go) can build a DB-backed *Service too.
+func NewTestService(t *testing.T, prober Prober) *Service {
 	t.Helper()
 	pool := testPool(t)
 	t.Cleanup(func() {
@@ -65,7 +70,7 @@ func testService(t *testing.T, prober Prober) *Service {
 }
 
 func TestPrecedenceAndReset(t *testing.T) {
-	svc := testService(t, &stubProber{})
+	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
 
 	snap := svc.Snapshot()
@@ -91,7 +96,7 @@ func TestPrecedenceAndReset(t *testing.T) {
 }
 
 func TestSecretsEncryptedAtRest(t *testing.T) {
-	svc := testService(t, &stubProber{})
+	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
 	if err := svc.Set(ctx, map[string]string{"SMTP_PASSWORD": "hunter2"}, 1, false); err != nil {
 		t.Fatalf("Set: %v", err)
@@ -110,7 +115,7 @@ func TestSecretsEncryptedAtRest(t *testing.T) {
 }
 
 func TestRejectUnknownReadOnlyAndInvalid(t *testing.T) {
-	svc := testService(t, &stubProber{})
+	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
 	if err := svc.Set(ctx, map[string]string{"NOPE": "x"}, 1, false); !errors.Is(err, ErrUnknownKey) {
 		t.Fatalf("unknown: %v", err)
@@ -125,7 +130,7 @@ func TestRejectUnknownReadOnlyAndInvalid(t *testing.T) {
 }
 
 func TestVerificationInvariantNotForceable(t *testing.T) {
-	svc := testService(t, &stubProber{})
+	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
 	// Turn SMTP off and verification on in ONE call: candidate evaluation.
 	var fe FieldErrors
@@ -142,8 +147,8 @@ func TestVerificationInvariantNotForceable(t *testing.T) {
 }
 
 func TestProbeFailureForceable(t *testing.T) {
-	p := &stubProber{results: []ProbeResult{{Name: "smtp", OK: false, Detail: "connection refused"}}}
-	svc := testService(t, p)
+	p := &StubProber{Results: []ProbeResult{{Name: "smtp", OK: false, Detail: "connection refused"}}}
+	svc := NewTestService(t, p)
 	ctx := context.Background()
 	var pe *ProbeError
 	if err := svc.Set(ctx, map[string]string{"SMTP_HOST": "bogus"}, 1, false); !errors.As(err, &pe) {
@@ -158,7 +163,7 @@ func TestProbeFailureForceable(t *testing.T) {
 }
 
 func TestHooksAndAudit(t *testing.T) {
-	svc := testService(t, &stubProber{})
+	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
 	var mu sync.Mutex
 	var hookSeen string
@@ -203,7 +208,7 @@ func TestUndecryptableRowFallsBackToEnv(t *testing.T) {
 	t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM portal_settings WHERE key='SMTP_PASSWORD'`) })
 	t.Setenv("SMTP_PASSWORD", "envpw")
 	cipher, _ := crypto.New(config.DevCredentialEncKey)
-	svc, err := NewService(pool, cipher, config.Load(), &stubProber{})
+	svc, err := NewService(pool, cipher, config.Load(), &StubProber{})
 	if err != nil {
 		t.Fatalf("NewService must tolerate bad rows: %v", err)
 	}
@@ -214,7 +219,7 @@ func TestUndecryptableRowFallsBackToEnv(t *testing.T) {
 }
 
 func TestConcurrentReadersDuringSwap(t *testing.T) {
-	svc := testService(t, &stubProber{})
+	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
 	done := make(chan struct{})
 	go func() {
@@ -237,16 +242,16 @@ func TestConcurrentReadersDuringSwap(t *testing.T) {
 }
 
 func TestResetCannotBreakInvariant(t *testing.T) {
-	svc := testService(t, &stubProber{})
+	svc := NewTestService(t, &StubProber{})
 	ctx := context.Background()
-	// env has SMTP (from testService Setenv); enable verification, then
+	// env has SMTP (from NewTestService Setenv); enable verification, then
 	// override SMTP_HOST in DB, then try to reset SMTP_FROM's env... simpler:
 	// clear env SMTP_FROM so the DB override is the only thing keeping SMTP on.
 	t.Setenv("SMTP_FROM", "")
 	svc2 := func() *Service { // rebuild service with the new env
 		pool := testPool(t)
 		cipher, _ := crypto.New(config.DevCredentialEncKey)
-		s, err := NewService(pool, cipher, config.Load(), &stubProber{})
+		s, err := NewService(pool, cipher, config.Load(), &StubProber{})
 		if err != nil {
 			t.Fatalf("NewService: %v", err)
 		}
