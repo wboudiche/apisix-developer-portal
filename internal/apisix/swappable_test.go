@@ -3,6 +3,8 @@ package apisix
 import (
 	"context"
 	"errors"
+	"strconv"
+	"sync"
 	"testing"
 )
 
@@ -78,4 +80,44 @@ func TestSwappableDisabled(t *testing.T) {
 	if err := sw.EnsureRoute(context.Background(), "r", "/x", "u:80", nil); err != nil {
 		t.Fatalf("post swap-in delegate: %v", err)
 	}
+}
+
+// TestSwappableConcurrentSwapAndCall exercises the atomic pointer under
+// concurrent readers (method calls) and a concurrent writer (Swap): the point
+// is -race cleanliness, not any particular outcome, so it asserts only "no
+// panic, no data race" — run with `go test -race`.
+func TestSwappableConcurrentSwapAndCall(t *testing.T) {
+	ctx := context.Background()
+	sw := NewSwappable(NewFake())
+
+	const goroutines = 8
+	const iterations = 200
+
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for g := 0; g < goroutines; g++ {
+		go func(g int) {
+			defer wg.Done()
+			for i := 0; i < iterations; i++ {
+				username := "u" + strconv.Itoa(g) + "-" + strconv.Itoa(i)
+				if err := sw.EnsureConsumer(ctx, username, "k", RateLimit{Count: 1, WindowSeconds: 1}); err != nil {
+					// ErrGatewayDisabled is possible if a Swap(nil) lands
+					// between calls below; anything else is unexpected.
+					if !errors.Is(err, ErrGatewayDisabled) {
+						t.Errorf("EnsureConsumer: %v", err)
+					}
+				}
+			}
+		}(g)
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			sw.Swap(NewFake())
+		}
+	}()
+
+	wg.Wait()
 }

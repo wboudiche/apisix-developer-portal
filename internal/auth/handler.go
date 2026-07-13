@@ -44,9 +44,13 @@ type VerificationConfig struct {
 
 // VerificationProvider reports, per request, whether the email-verification
 // gate is currently on and where the verification link should point.
-// Enabled and BaseURL are resolved at the same moment for consistency (a
-// single snapshot read), and Enabled is consulted fresh on every request so
-// a dynamic provider can flip the gate without re-registering routes.
+// Enabled and BaseURL are each resolved from the current settings snapshot at
+// call time — not necessarily the same snapshot, since a dynamic provider may
+// take two independent reads. BaseURL can therefore be up to one settings
+// write newer or older than the Enabled decision for the same request; this
+// is harmless (a stale-by-one base URL in a verification link). Enabled is
+// consulted fresh on every request so a dynamic provider can flip the gate
+// without re-registering routes.
 type VerificationProvider interface {
 	VerificationEnabled() bool
 	VerificationBaseURL() string

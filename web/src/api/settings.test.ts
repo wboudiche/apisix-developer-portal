@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { adminPutSettings, adminGetSettings, adminResetSetting, adminTestSettings, SettingsSaveError } from './client'
+import { adminPutSettings, adminGetSettings, adminResetSetting, adminTestSettings, SettingsSaveError, ApiError } from './client'
 
 beforeEach(() => { localStorage.setItem('lang', 'fr') })
 afterEach(() => { vi.restoreAllMocks() })
@@ -43,6 +43,15 @@ describe('adminPutSettings', () => {
     expect(err).toBeInstanceOf(SettingsSaveError)
     expect(err.probe?.[0].name).toBe('smtp')
   })
+
+  it('routes non-422 errors through the generic parse path (ApiError, not SettingsSaveError)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
+      JSON.stringify({ error: 'boom' }), { status: 500 }))
+    const err = await adminPutSettings('jwt', { SMTP_HOST: 'x' }).catch(e => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err).not.toBeInstanceOf(SettingsSaveError)
+    expect(err.status).toBe(500)
+  })
 })
 
 describe('adminResetSetting', () => {
@@ -52,6 +61,12 @@ describe('adminResetSetting', () => {
     const [url, init] = f.mock.calls[0]
     expect(url).toBe('/api/admin/settings/SMTP_HOST')
     expect((init as RequestInit).method).toBe('DELETE')
+  })
+
+  it('URL-encodes a key containing reserved characters', async () => {
+    const f = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }))
+    await adminResetSetting('jwt', 'FOO/BAR BAZ')
+    expect(f.mock.calls[0][0]).toBe('/api/admin/settings/FOO%2FBAR%20BAZ')
   })
 })
 
