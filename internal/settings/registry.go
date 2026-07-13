@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"apisix-portal/internal/httpx"
 )
 
 type Type string
@@ -20,6 +22,10 @@ const (
 	TypeURL    Type = "url"
 	TypeEmail  Type = "email"
 	TypeCSV    Type = "csv"
+	// TypeProxyCIDRs is a comma-separated list of CIDR blocks, validated with
+	// the same parser the server boots with (httpx.ParseProxyCIDRs) so a value
+	// that saves is a value that boots.
+	TypeProxyCIDRs Type = "proxyCIDRs"
 )
 
 type Def struct {
@@ -41,7 +47,7 @@ var Registry = []Def{
 	{Key: "CREDENTIAL_ENC_KEY", Group: "server", Type: TypeString, Secret: true},
 	{Key: "PORTAL_BASE_URL", Group: "portal", Type: TypeURL, Editable: true, Required: true},
 	{Key: "ADMIN_EMAIL", Group: "portal", Type: TypeEmail, Editable: true, Required: true},
-	{Key: "TRUSTED_PROXIES", Group: "portal", Type: TypeCSV, Editable: true},
+	{Key: "TRUSTED_PROXIES", Group: "portal", Type: TypeProxyCIDRs, Editable: true},
 	{Key: "UPSTREAM_ALLOW_PRIVATE", Group: "portal", Type: TypeBool, Editable: true},
 	{Key: "APISIX_ADMIN_URL", Group: "apisix", Type: TypeURL, Editable: true, Required: true},
 	{Key: "APISIX_GATEWAY_URL", Group: "apisix", Type: TypeURL, Editable: true, Required: true},
@@ -97,6 +103,10 @@ func Validate(d Def, value string) error {
 	case TypeEmail:
 		if !strings.Contains(value, "@") {
 			return fmt.Errorf("must be an email address")
+		}
+	case TypeProxyCIDRs:
+		if _, err := httpx.ParseProxyCIDRs(value); err != nil {
+			return err
 		}
 	case TypeString, TypeCSV:
 		// free-form

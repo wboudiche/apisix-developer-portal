@@ -61,9 +61,18 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 
 	ipLimiter := httpx.NewRateLimiter(10, 0.5)    // per client IP, all /api/auth/ endpoints
 	loginLimiter := httpx.NewRateLimiter(10, 0.5) // per account (email), login only
-	if proxies, err := httpx.ParseProxyCIDRs(snap.Get("TRUSTED_PROXIES")); err != nil {
-		log.Fatalf("TRUSTED_PROXIES: %v", err)
-	} else if proxies != nil {
+	// The snapshot value may carry a DB override, and a bad DB row must never
+	// prevent boot (the settings UI has to stay reachable to fix it): on parse
+	// error, log and fall back to the operator-controlled env value. Only the
+	// env fallback failing is fatal — today's semantics for a bad env value.
+	proxies, err := httpx.ParseProxyCIDRs(snap.Get("TRUSTED_PROXIES"))
+	if err != nil {
+		log.Printf("TRUSTED_PROXIES (settings): %v; falling back to env value", err)
+		if proxies, err = httpx.ParseProxyCIDRs(cfg.TrustedProxies); err != nil {
+			log.Fatalf("TRUSTED_PROXIES: %v", err)
+		}
+	}
+	if proxies != nil {
 		// Behind a reverse proxy, RemoteAddr is the proxy; honor its
 		// X-Forwarded-For so per-IP limiting isolates real clients.
 		ipLimiter.SetTrustedProxies(proxies)

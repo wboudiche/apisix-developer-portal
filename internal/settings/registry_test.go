@@ -56,7 +56,9 @@ func TestValidateByType(t *testing.T) {
 		{"ADMIN_EMAIL", "admin@portal.local", true},
 		{"ADMIN_EMAIL", "nope", false},
 		{"TRUSTED_PROXIES", "10.0.0.0/8, 192.168.0.0/16", true},
-		{"UPSTREAM_ALLOW_PRIVATE", "0", false}, // strict "1"/""
+		{"TRUSTED_PROXIES", "192.168.1.1", false}, // bare IP, missing /32
+		{"TRUSTED_PROXIES", "", true},             // optional
+		{"UPSTREAM_ALLOW_PRIVATE", "0", false},    // strict "1"/""
 	}
 	for _, c := range cases {
 		d, ok := Lookup(c.key)
