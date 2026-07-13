@@ -1,27 +1,82 @@
-.adminpage .settings .group{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px}
-.adminpage .settings .group h3{font-size:15px;font-weight:600;padding:14px 18px;border-bottom:1px solid var(--border)}
+/* Admin Paramètres — scoped under .adminpage .settings; reuses the admin
+   system vocabulary (composer card, .field input, .switch toggle, .apill
+   badge, .iact icon button) so the page reads as part of the admin surface. */
 
-.adminpage .settings .srow{display:grid;grid-template-columns:minmax(160px,1fr) minmax(220px,2fr) auto;align-items:center;gap:16px;padding:12px 18px;border-bottom:1px solid var(--border)}
+.adminpage .settings{display:flex;flex-direction:column;gap:22px;padding-bottom:96px}
+
+/* group card */
+.adminpage .settings .group{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.adminpage .settings .sgroup-head{display:flex;align-items:center;gap:11px;padding:15px 20px;border-bottom:1px solid var(--border);background:var(--raise)}
+.adminpage .settings .sgroup-head .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);flex:none}
+.adminpage .settings .sgroup-head.locked .dot{background:var(--faint);box-shadow:0 0 0 4px color-mix(in oklab, var(--fg) 7%, transparent)}
+.adminpage .settings .sgroup-head .titles{min-width:0}
+.adminpage .settings .sgroup-head h3{font-family:var(--font-display);font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--fg)}
+.adminpage .settings .sgroup-head .gsub{font-size:12.5px;color:var(--muted);margin-top:1px}
+.adminpage .settings .sgroup-head .lock{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--faint);flex:none}
+.adminpage .settings .sgroup-head .lock svg{width:14px;height:14px}
+
+/* row */
+.adminpage .settings .srow{display:grid;grid-template-columns:minmax(200px,1.1fr) minmax(240px,1.4fr) auto;align-items:start;gap:18px;padding:15px 20px;border-bottom:1px solid var(--border)}
 .adminpage .settings .srow:last-child{border-bottom:none}
-.adminpage .settings .skey{font-family:var(--font-mono);font-size:13px;font-weight:600}
-.adminpage .settings .sdesc{display:block;font-size:12.5px;color:var(--muted);font-weight:400;margin-top:2px}
+.adminpage .settings .srow.ro{background:color-mix(in oklab, var(--fg) 1.5%, transparent)}
 
-.adminpage .settings .sctl{display:flex;flex-direction:column;gap:4px}
-.adminpage .settings .sctl .ipt{width:100%}
-.adminpage .settings .sctl input[type="checkbox"]{width:18px;height:18px}
-.adminpage .settings .serr{font-size:12px;color:var(--danger)}
-.adminpage .settings .shint{font-size:12px;color:var(--muted)}
+.adminpage .settings .slabel{display:flex;flex-direction:column;gap:5px;min-width:0;padding-top:2px}
+.adminpage .settings .sname{font-size:13.5px;font-weight:500;color:var(--fg);line-height:1.35;text-wrap:pretty}
+.adminpage .settings .skey{align-self:flex-start;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--muted);background:color-mix(in oklab, var(--fg) 5%, transparent);border:1px solid var(--border);padding:1px 7px;border-radius:6px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 
-.adminpage .settings .sright{display:flex;align-items:center;gap:8px;justify-self:end}
-.adminpage .settings .sbadge{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:99px;color:var(--muted);background:var(--border)}
+/* control */
+.adminpage .settings .sctl{display:flex;flex-direction:column;gap:6px;min-width:0}
+.adminpage .settings .sctl .ipt{
+  width:100%;height:42px;border:1px solid var(--border-2);border-radius:10px;background:var(--bg);
+  padding:0 13px;font-size:14px;color:var(--fg);transition:.15s;font-family:var(--font-mono);
+}
+.adminpage .settings .sctl .ipt::placeholder{color:var(--faint);font-family:var(--font-mono);letter-spacing:.02em}
+.adminpage .settings .sctl .ipt:hover:not(:disabled){border-color:var(--border)}
+.adminpage .settings .sctl .ipt:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);background:var(--surface)}
+.adminpage .settings .sctl .ipt:disabled{background:var(--raise);color:var(--muted);cursor:not-allowed;border-style:dashed}
+.adminpage .settings .sctl.invalid .ipt{border-color:var(--danger)}
+.adminpage .settings .serr{font-size:12px;color:var(--danger);display:flex;align-items:center;gap:5px}
+.adminpage .settings .serr svg{width:13px;height:13px;flex:none}
+
+/* bool -> switch (same toggle as the product Published control) */
+.adminpage .settings .sswitch{display:inline-flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;height:42px}
+.adminpage .settings .sswitch input{appearance:none;width:38px;height:22px;border-radius:20px;background:var(--border-2);position:relative;transition:.18s;cursor:pointer;flex:none}
+.adminpage .settings .sswitch input::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.18s}
+.adminpage .settings .sswitch input:checked{background:var(--success)}
+.adminpage .settings .sswitch input:checked::after{transform:translateX(16px)}
+.adminpage .settings .sswitch input:focus-visible{outline:none;box-shadow:0 0 0 4px var(--accent-soft)}
+.adminpage .settings .sswitch input:disabled{opacity:.5;cursor:not-allowed}
+.adminpage .settings .sswitch .son{color:var(--success);font-weight:600}
+
+/* source badge + reset */
+.adminpage .settings .sright{display:flex;align-items:center;gap:8px;justify-self:end;padding-top:9px}
+.adminpage .settings .sbadge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:20px;letter-spacing:.01em;color:var(--muted);background:color-mix(in oklab, var(--fg) 6%, transparent)}
 .adminpage .settings .sbadge.db{color:var(--accent);background:var(--accent-soft)}
-.adminpage .settings .sreset{border:1px solid var(--border-2);background:var(--surface);border-radius:8px;width:28px;height:28px;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.adminpage .settings .sbadge.db .pdot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.adminpage .settings .sreset{width:34px;height:34px;flex:none;border:1px solid var(--border-2);background:var(--surface);border-radius:9px;display:grid;place-items:center;color:var(--muted);transition:.15s;cursor:pointer}
+.adminpage .settings .sreset svg{width:16px;height:16px}
 .adminpage .settings .sreset:hover{color:var(--accent);border-color:var(--accent)}
 
-.adminpage .settings .savebar{position:sticky;bottom:0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:var(--r);box-shadow:var(--shadow-h);padding:14px 18px;margin-top:4px}
-.adminpage .settings .savebar .sp{flex:1;font-size:13px;color:var(--muted)}
+/* sticky save bar */
+.adminpage .settings .savebar{position:sticky;bottom:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-h);padding:12px 16px;display:flex;flex-direction:column;gap:12px;z-index:5}
+.adminpage .settings .savebar .savebar-row{display:flex;align-items:center;gap:12px}
+.adminpage .settings .savebar .dirty{flex:1;font-size:13px;font-weight:500;color:var(--fg);display:flex;align-items:center;gap:8px;min-width:0}
+.adminpage .settings .savebar .dirty .ddot{width:7px;height:7px;border-radius:50%;background:var(--warn);flex:none}
+.adminpage .settings .savebar .btn-force{background:var(--surface);border-color:var(--warn);color:var(--warn)}
+.adminpage .settings .savebar .btn-force:hover{background:var(--warn-soft)}
 
-.adminpage .settings .probes{display:flex;gap:8px;flex-wrap:wrap}
-.adminpage .settings .probe{font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;display:inline-flex;align-items:center;gap:6px}
-.adminpage .settings .probe.ok{color:var(--success);background:var(--success-soft)}
-.adminpage .settings .probe.ko{color:var(--danger);background:var(--danger-soft)}
+/* probe chips (own row above the buttons so long detail never crowds them) */
+.adminpage .settings .probes{display:flex;flex-direction:column;gap:6px;padding-bottom:2px;border-bottom:1px dashed var(--border)}
+.adminpage .settings .probe{font-size:12.5px;display:flex;align-items:flex-start;gap:8px;color:var(--fg)}
+.adminpage .settings .probe .ptag{font-weight:600;flex:none;display:inline-flex;align-items:center;gap:5px}
+.adminpage .settings .probe .ptag::before{content:"";width:7px;height:7px;border-radius:50%;flex:none}
+.adminpage .settings .probe.ok .ptag{color:var(--success)}
+.adminpage .settings .probe.ok .ptag::before{background:var(--success)}
+.adminpage .settings .probe.ko .ptag{color:var(--danger)}
+.adminpage .settings .probe.ko .ptag::before{background:var(--danger)}
+.adminpage .settings .probe .pdetail{color:var(--muted);font-family:var(--font-mono);font-size:12px;word-break:break-word;min-width:0}
+
+@media (max-width:720px){
+  .adminpage .settings .srow{grid-template-columns:1fr;gap:10px}
+  .adminpage .settings .sright{justify-self:start;padding-top:0}
+}

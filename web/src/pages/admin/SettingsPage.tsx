@@ -16,9 +16,33 @@ const READ_ONLY_GROUPS = new Set(['server'])
 
 type TFunc = ReturnType<typeof useT>
 
-// One row: label (raw key + one-liner), a type-appropriate control bound to
-// `draft` (bool -> checkbox, else -> text/password input), the source badge,
-// and — for db-overridden keys — a reset-to-env button.
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+      <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" strokeLinecap="round" />
+    </svg>
+  )
+}
+function ResetIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden="true">
+      <path d="M4 4v6h6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 10a8 8 0 1 1-1.6 4.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+function WarnIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden="true">
+      <path d="M12 8v5" strokeLinecap="round" /><circle cx="12" cy="16.5" r=".5" fill="currentColor" stroke="none" />
+      <path d="M10.3 3.9 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+// One row: a readable label with the env-var key as a mono chip beneath it, a
+// type-appropriate control bound to `draft` (bool -> toggle, else -> input),
+// the value source, and — for overridden keys — a reset-to-default button.
 function SettingRow({ item, group, draft, onChange, error, onReset, t }: {
   item: SettingItem
   group: string
@@ -38,13 +62,16 @@ function SettingRow({ item, group, draft, onChange, error, onReset, t }: {
     // rejects any other encoding (sending "0" would 422).
     const checked = (draftValue ?? (item.value === '1' ? '1' : '')) === '1'
     control = (
-      <input
-        type="checkbox"
-        aria-label={item.key}
-        checked={checked}
-        disabled={readOnly}
-        onChange={e => onChange(item, e.target.checked ? '1' : '')}
-      />
+      <label className="sswitch">
+        <input
+          type="checkbox"
+          aria-label={item.key}
+          checked={checked}
+          disabled={readOnly}
+          onChange={e => onChange(item, e.target.checked ? '1' : '')}
+        />
+        <span className={checked ? 'son' : ''}>{checked ? t('settings.on') : t('settings.off')}</span>
+      </label>
     )
   } else {
     const shown = draftValue ?? (item.secret ? '' : (item.value ?? ''))
@@ -63,25 +90,25 @@ function SettingRow({ item, group, draft, onChange, error, onReset, t }: {
   }
 
   return (
-    <div className="srow">
-      <div>
+    <div className={`srow${readOnly ? ' ro' : ''}`}>
+      <div className="slabel">
+        <span className="sname">{t(`settings.desc.${item.key}`)}</span>
         <span className="skey">{item.key}</span>
-        <span className="sdesc">{t(`settings.desc.${item.key}`)}</span>
       </div>
-      <div className="sctl">
+      <div className={`sctl${error ? ' invalid' : ''}`}>
         {control}
-        {error && <span className="serr">{error}</span>}
+        {error && <span className="serr"><WarnIcon />{error}</span>}
       </div>
       <div className="sright">
         {item.source === 'db'
-          ? <span className="sbadge db">{t('settings.badgeDb')}</span>
-          : <span className="sbadge">{t('settings.badgeEnv')}</span>}
+          ? <span className="sbadge db" title={t('settings.badgeDbTitle')}><span className="pdot" />{t('settings.badgeDb')}</span>
+          : <span className="sbadge" title={t('settings.badgeEnvTitle')}>{t('settings.badgeEnv')}</span>}
         {item.source === 'db' && (
           <button
             type="button" className="sreset"
             aria-label={t('settings.reset')} title={t('settings.reset')}
             onClick={() => onReset(item)}
-          >↺</button>
+          ><ResetIcon /></button>
         )}
       </div>
     </div>
@@ -92,14 +119,17 @@ function ProbeChips({ probes }: { probes: ProbeResult[] }) {
   return (
     <div className="probes">
       {probes.map(p => (
-        <span key={p.name} className={`probe ${p.ok ? 'ok' : 'ko'}`}>{p.name}: {p.detail}</span>
+        <div key={p.name} className={`probe ${p.ok ? 'ok' : 'ko'}`}>
+          <span className="ptag">{p.name}</span>
+          <span className="pdetail">{p.detail}</span>
+        </div>
       ))}
     </div>
   )
 }
 
-function SaveBar({ dirty, busy, probes, canForce, onTest, onSave, onForce, t }: {
-  dirty: boolean
+function SaveBar({ dirtyCount, busy, probes, canForce, onTest, onSave, onForce, t }: {
+  dirtyCount: number
   busy: boolean
   probes: ProbeResult[] | null
   canForce: boolean
@@ -108,16 +138,18 @@ function SaveBar({ dirty, busy, probes, canForce, onTest, onSave, onForce, t }: 
   onForce: () => void
   t: TFunc
 }) {
-  if (!dirty) return null
+  if (dirtyCount === 0) return null
   return (
     <div className="savebar">
-      <span className="sp" />
       {probes && <ProbeChips probes={probes} />}
-      <button type="button" className="btn btn-ghost" disabled={busy} onClick={onTest}>{t('settings.test')}</button>
-      <button type="button" className="btn btn-primary" disabled={busy} onClick={onSave}>{t('settings.save')}</button>
-      {canForce && (
-        <button type="button" className="btn btn-primary" disabled={busy} onClick={onForce}>{t('settings.saveForce')}</button>
-      )}
+      <div className="savebar-row">
+        <span className="dirty"><span className="ddot" />{t('settings.dirtyCount', { n: dirtyCount })}</span>
+        <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onTest}>{t('settings.test')}</button>
+        <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={onSave}>{t('settings.save')}</button>
+        {canForce && (
+          <button type="button" className="btn btn-sm btn-force" disabled={busy} onClick={onForce}>{t('settings.saveForce')}</button>
+        )}
+      </div>
     </div>
   )
 }
@@ -166,7 +198,7 @@ export function SettingsPage() {
     })
   }, [])
 
-  const dirty = Object.keys(draft).length > 0
+  const dirtyCount = Object.keys(draft).length
   const canForce = !!probes?.some(p => !p.ok)
 
   async function save(force: boolean) {
@@ -220,29 +252,36 @@ export function SettingsPage() {
     <AdminShell active="settings" title={t('settings.title')} description={t('settings.description')}>
       {loadErr && <p className="autherr" role="alert">{loadErr}</p>}
       <div className="settings">
-        {groups.map(g => (
-          <div className="group" key={g.group}>
-            <h3>
-              {t(`settings.group.${g.group}`)}
-              {READ_ONLY_GROUPS.has(g.group) && <span className="shint"> · {t('settings.readOnlyHint')}</span>}
-            </h3>
-            {g.items.map(item => (
-              <SettingRow
-                key={item.key}
-                item={item}
-                group={g.group}
-                draft={draft}
-                onChange={onChange}
-                error={errors[item.key]}
-                onReset={askReset}
-                t={t}
-              />
-            ))}
-          </div>
-        ))}
+        {groups.map(g => {
+          const locked = READ_ONLY_GROUPS.has(g.group)
+          return (
+            <div className="group" key={g.group}>
+              <div className={`sgroup-head${locked ? ' locked' : ''}`}>
+                <span className="dot" />
+                <div className="titles">
+                  <h3>{t(`settings.group.${g.group}`)}</h3>
+                  <div className="gsub">{t(`settings.groupDesc.${g.group}`)}</div>
+                </div>
+                {locked && <span className="lock"><LockIcon />{t('settings.readOnlyHint')}</span>}
+              </div>
+              {g.items.map(item => (
+                <SettingRow
+                  key={item.key}
+                  item={item}
+                  group={g.group}
+                  draft={draft}
+                  onChange={onChange}
+                  error={errors[item.key]}
+                  onReset={askReset}
+                  t={t}
+                />
+              ))}
+            </div>
+          )
+        })}
 
         <SaveBar
-          dirty={dirty}
+          dirtyCount={dirtyCount}
           busy={busy}
           probes={probes}
           canForce={canForce}
