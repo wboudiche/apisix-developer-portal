@@ -6,13 +6,23 @@
 
 /* group card */
 .adminpage .settings .group{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
-.adminpage .settings .sgroup-head{display:flex;align-items:center;gap:11px;padding:15px 20px;border-bottom:1px solid var(--border);background:var(--raise)}
-.adminpage .settings .sgroup-head .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);flex:none}
-.adminpage .settings .sgroup-head.locked .dot{background:var(--faint);box-shadow:0 0 0 4px color-mix(in oklab, var(--fg) 7%, transparent)}
+.adminpage .settings .sgroup-head{display:flex;align-items:center;gap:13px;padding:15px 20px;border-bottom:1px solid var(--border);background:var(--raise)}
+/* per-group colored icon swatch — same wayfinding device as the product/plan
+   row .swatch; each group carries its own hue so the page reads by colour. */
+.adminpage .settings .gico{width:38px;height:38px;flex:none;border-radius:11px;display:grid;place-items:center;color:#fff;box-shadow:0 3px 8px color-mix(in oklab, var(--tint, var(--accent)) 40%, transparent);background:linear-gradient(150deg, var(--tint, var(--accent)), color-mix(in oklab, var(--tint, var(--accent)) 70%, #000))}
+.adminpage .settings .gico svg{width:20px;height:20px}
+.adminpage .settings .g-server{--tint:var(--c-admin)}
+.adminpage .settings .g-portal{--tint:var(--accent)}
+.adminpage .settings .g-apisix{--tint:var(--c-eng)}
+.adminpage .settings .g-sandbox{--tint:var(--c-data)}
+.adminpage .settings .g-smtp{--tint:var(--c-marketing)}
+.adminpage .settings .g-policy{--tint:var(--c-finance)}
+.adminpage .settings .g-oidc{--tint:var(--c-oidc)}
+.adminpage .settings .g-observability{--tint:var(--c-obsv)}
 .adminpage .settings .sgroup-head .titles{min-width:0}
 .adminpage .settings .sgroup-head h3{font-family:var(--font-display);font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--fg)}
 .adminpage .settings .sgroup-head .gsub{font-size:12.5px;color:var(--muted);margin-top:1px}
-.adminpage .settings .sgroup-head .lock{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--faint);flex:none}
+.adminpage .settings .sgroup-head .lock{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--muted);flex:none}
 .adminpage .settings .sgroup-head .lock svg{width:14px;height:14px}
 
 /* row */
@@ -30,7 +40,7 @@
   width:100%;height:42px;border:1px solid var(--border-2);border-radius:10px;background:var(--bg);
   padding:0 13px;font-size:14px;color:var(--fg);transition:.15s;font-family:var(--font-mono);
 }
-.adminpage .settings .sctl .ipt::placeholder{color:var(--faint);font-family:var(--font-mono);letter-spacing:.02em}
+.adminpage .settings .sctl .ipt::placeholder{color:var(--muted);font-family:var(--font-mono);letter-spacing:.02em}
 .adminpage .settings .sctl .ipt:hover:not(:disabled){border-color:var(--border)}
 .adminpage .settings .sctl .ipt:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);background:var(--surface)}
 .adminpage .settings .sctl .ipt:disabled{background:var(--raise);color:var(--muted);cursor:not-allowed;border-style:dashed}
@@ -56,6 +66,7 @@
 .adminpage .settings .sreset{width:34px;height:34px;flex:none;border:1px solid var(--border-2);background:var(--surface);border-radius:9px;display:grid;place-items:center;color:var(--muted);transition:.15s;cursor:pointer}
 .adminpage .settings .sreset svg{width:16px;height:16px}
 .adminpage .settings .sreset:hover{color:var(--accent);border-color:var(--accent)}
+.adminpage .settings .sreset:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
 
 /* sticky save bar */
 .adminpage .settings .savebar{position:sticky;bottom:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-h);padding:12px 16px;display:flex;flex-direction:column;gap:12px;z-index:5}

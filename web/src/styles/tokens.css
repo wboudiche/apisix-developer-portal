@@ -24,6 +24,8 @@
   --c-marketing: oklch(64% 0.135 55);
   --c-eng: oklch(55% 0.11 288);
   --c-data: oklch(56% 0.12 230);
+  --c-oidc: oklch(55% 0.12 278);
+  --c-obsv: oklch(56% 0.09 195);
   --raise: oklch(99.4% 0.003 255);
   --r: 14px;
   --shadow: 0 1px 2px oklch(24% 0.03 262 / .05), 0 8px 24px oklch(24% 0.03 262 / .06);

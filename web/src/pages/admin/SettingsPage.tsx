@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { AdminShell } from './AdminShell'
 import { useAuth } from '../../auth/AuthProvider'
 import { useT } from '../../i18n/LanguageProvider'
@@ -22,6 +22,27 @@ function LockIcon() {
       <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" strokeLinecap="round" />
     </svg>
   )
+}
+
+// One icon per settings group — the colored swatch (hue set in CSS by the
+// g-<group> class) is the page's wayfinding device, mirroring the product/plan
+// row swatch. Fallback: a generic sliders glyph for any unmapped group.
+function GroupIcon({ group }: { group: string }) {
+  const p = {
+    fill: 'none', stroke: 'currentColor', strokeWidth: 1.8,
+    strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true,
+  }
+  const paths: Record<string, ReactNode> = {
+    server: <><rect x="3" y="4" width="18" height="7" rx="2" /><rect x="3" y="13" width="18" height="7" rx="2" /><path d="M7 7.5h.01M7 16.5h.01" /></>,
+    portal: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18" /></>,
+    apisix: <><path d="M4 7h9M4 12h16M4 17h9" /><path d="M16 4l4 3-4 3M16 14l4 3-4 3" /></>,
+    sandbox: <><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3" /></>,
+    smtp: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" /></>,
+    policy: <><path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-3Z" /></>,
+    oidc: <><circle cx="8" cy="8" r="4" /><path d="m11 11 8 8M16 16l2 2M18 14l2 2" /></>,
+    observability: <><path d="M3 12h4l2 6 4-14 2 8h6" /></>,
+  }
+  return <svg viewBox="0 0 24 24" {...p}>{paths[group] ?? <><circle cx="8" cy="8" r="2" /><circle cx="16" cy="16" r="2" /><path d="M10 8h10M4 16h4" /></>}</svg>
 }
 function ResetIcon() {
   return (
@@ -256,8 +277,8 @@ export function SettingsPage() {
           const locked = READ_ONLY_GROUPS.has(g.group)
           return (
             <div className="group" key={g.group}>
-              <div className={`sgroup-head${locked ? ' locked' : ''}`}>
-                <span className="dot" />
+              <div className={`sgroup-head g-${g.group}${locked ? ' locked' : ''}`}>
+                <span className="gico"><GroupIcon group={g.group} /></span>
                 <div className="titles">
                   <h3>{t(`settings.group.${g.group}`)}</h3>
                   <div className="gsub">{t(`settings.groupDesc.${g.group}`)}</div>
