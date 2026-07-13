@@ -44,9 +44,24 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	catRepo := catalog.NewRepo(pool)
 	catalogH := catalog.NewHandler(catRepo)
 	authRepo := auth.NewRepo(pool)
+
+	// cipher and settingsSvc are constructed before anything that seeds from
+	// config (the proxy-CIDR parse and the admin-role seed below) so that
+	// DB-persisted overrides of TRUSTED_PROXIES / ADMIN_EMAIL apply at boot,
+	// not just after the first settings change.
+	cipher, err := crypto.New(cfg.CredentialEncKey)
+	if err != nil {
+		log.Fatalf("credential cipher: %v", err)
+	}
+	settingsSvc, err := settings.NewService(pool, cipher, cfg, settings.NewProber())
+	if err != nil {
+		log.Fatalf("settings: %v", err)
+	}
+	snap := settingsSvc.Snapshot()
+
 	ipLimiter := httpx.NewRateLimiter(10, 0.5)    // per client IP, all /api/auth/ endpoints
 	loginLimiter := httpx.NewRateLimiter(10, 0.5) // per account (email), login only
-	if proxies, err := httpx.ParseProxyCIDRs(cfg.TrustedProxies); err != nil {
+	if proxies, err := httpx.ParseProxyCIDRs(snap.Get("TRUSTED_PROXIES")); err != nil {
 		log.Fatalf("TRUSTED_PROXIES: %v", err)
 	} else if proxies != nil {
 		// Behind a reverse proxy, RemoteAddr is the proxy; honor its
@@ -54,24 +69,14 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		ipLimiter.SetTrustedProxies(proxies)
 	}
 	authH := auth.NewHandler(authRepo, tok, loginLimiter)
-	if err := authRepo.EnsureAdminRole(ctx, cfg.AdminEmail); err != nil {
-		log.Printf("seed admin role (%s): %v", cfg.AdminEmail, err)
+	if err := authRepo.EnsureAdminRole(ctx, snap.Get("ADMIN_EMAIL")); err != nil {
+		log.Printf("seed admin role (%s): %v", snap.Get("ADMIN_EMAIL"), err)
 	}
 	plansH := plans.NewHandler(plans.NewRepo(pool))
 	eventRepo := events.NewRepo(pool)
 	appsRepo := applications.NewRepo(pool)
 	teamsRepo := teams.NewRepo(pool)
 	appsH := applications.NewHandler(appsRepo, teamsRepo, eventRepo)
-	cipher, err := crypto.New(cfg.CredentialEncKey)
-	if err != nil {
-		log.Fatalf("credential cipher: %v", err)
-	}
-
-	settingsSvc, err := settings.NewService(pool, cipher, cfg, settings.NewProber())
-	if err != nil {
-		log.Fatalf("settings: %v", err)
-	}
-	snap := settingsSvc.Snapshot()
 
 	newProd := func(e *settings.Effective) apisix.Gateway {
 		return apisix.NewClient(e.Get("APISIX_ADMIN_URL"), e.Get("APISIX_ADMIN_KEY"))
@@ -148,6 +153,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		prodGW.Swap(newProd(e))
 		sandboxGW.Swap(newSandbox(e))
 		subSvc.ConfigureOIDC(e.Get("OIDC_ISSUER"), e.Get("OIDC_CLIENT_ID_CLAIM"))
+		subH.SetOIDCIssuer(e.Get("OIDC_ISSUER"))
 		if pu := e.Get("PROMETHEUS_URL"); pu != "" {
 			subH.SetUsageReader(metrics.NewService(metrics.NewClient(pu)))
 		}

@@ -70,7 +70,10 @@ type Handler struct {
 	owns              OwnerCheck
 	router            chi.Router
 	sandboxGatewayURL func() string
-	oidcIssuer        string
+	// oidcIssuer is written by the settings-change hook (re-arming OIDC
+	// wiring) concurrently with requests reading it in detail; an
+	// atomic.Pointer keeps that race-free without a mutex.
+	oidcIssuer atomic.Pointer[string]
 }
 
 func NewHandler(svc *Service, reader Reader, eventReader EventReader, owns OwnerCheck, sandboxGatewayURL func() string) *Handler {
@@ -102,8 +105,18 @@ func (h *Handler) usageReader() UsageReader {
 }
 
 // SetOIDCIssuer wires the OIDC issuer URL for the app detail endpoint.
-// Left unset when OIDC is not configured.
-func (h *Handler) SetOIDCIssuer(s string) { h.oidcIssuer = s }
+// Left unset when OIDC is not configured. Safe to call concurrently with
+// requests (e.g. re-armed from a settings-change hook).
+func (h *Handler) SetOIDCIssuer(s string) { h.oidcIssuer.Store(&s) }
+
+// oidcIssuerValue returns the currently-wired OIDC issuer, or "" if never set.
+func (h *Handler) oidcIssuerValue() string {
+	p := h.oidcIssuer.Load()
+	if p == nil {
+		return ""
+	}
+	return *p
+}
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.router.ServeHTTP(w, r) }
 
@@ -215,8 +228,8 @@ func (h *Handler) detail(w http.ResponseWriter, r *http.Request) {
 			out.SandboxEnabled = true
 		}
 	}
-	if h.oidcIssuer != "" {
-		out.OIDCIssuer = h.oidcIssuer
+	if issuer := h.oidcIssuerValue(); issuer != "" {
+		out.OIDCIssuer = issuer
 		out.OIDCClientID, _ = h.reader.GetAppOIDCClientID(r.Context(), appID)
 		if prods, err := h.reader.OAuthProductsForApp(r.Context(), appID); err == nil {
 			out.OAuthEligible = len(prods) > 0
