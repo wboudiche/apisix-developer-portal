@@ -28,11 +28,20 @@ type Notifier struct {
 	sender  Sender
 	repo    Resolver
 	baseURL func() string // dynamic: reads the live settings snapshot on every send
+	enabled func() bool   // optional gate consulted at the top of deliver; nil = always enabled
 }
 
 func NewNotifier(sender Sender, repo Resolver, baseURL func() string) *Notifier {
 	return &Notifier{sender: sender, repo: repo, baseURL: baseURL}
 }
+
+// SetEnabled installs an optional gate consulted at the top of every deliver
+// call, before any resolver DB work runs. When enabled is non-nil and
+// returns false, deliver short-circuits immediately — used to keep a
+// mail-less deployment a genuine no-op (no resolver queries, no per-
+// recipient log line) instead of discovering "SMTP not configured" only at
+// the final send step. Nil (the default) means deliver always proceeds.
+func (n *Notifier) SetEnabled(enabled func() bool) { n.enabled = enabled }
 
 func (n *Notifier) SubscriptionRequested(appID, productID, planID int64) {
 	go n.deliver(kindRequested, appID, productID, planID)
@@ -97,6 +106,10 @@ func (n *Notifier) deliver(kind string, appID, productID, planID int64) {
 			log.Printf("notify: recovered panic in deliver: %v", r)
 		}
 	}()
+
+	if n.enabled != nil && !n.enabled() {
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), deliverTimeout)
 	defer cancel()

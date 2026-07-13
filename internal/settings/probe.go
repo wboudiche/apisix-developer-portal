@@ -3,6 +3,7 @@ package settings
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -19,7 +20,16 @@ type LiveProber struct{ client *http.Client }
 func NewProber() *LiveProber {
 	// No client-level Timeout: each probe bounds its whole request with a
 	// per-request context timeout, the single timeout mechanism.
-	return &LiveProber{client: &http.Client{}}
+	return &LiveProber{client: &http.Client{
+		// Refuse redirects outright: the APISIX admin-key probe sends the
+		// STORED X-API-KEY to an admin-supplied candidate URL, and a 3xx
+		// response could otherwise steer that header to an attacker-chosen
+		// origin, exfiltrating a write-only secret the admin never intended
+		// to share off-target.
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return errors.New("probe: redirects not allowed")
+		},
+	}}
 }
 
 func groupTouched(touched map[string]bool, group string) bool {

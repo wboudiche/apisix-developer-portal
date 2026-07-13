@@ -369,14 +369,23 @@ func (s *Service) Reset(ctx context.Context, key string, adminID int64) error {
 
 // Test runs the configured Prober against a hypothetical candidate without
 // persisting anything — used by the admin UI's "test connection" action.
-func (s *Service) Test(ctx context.Context, values map[string]string) []ProbeResult {
+//
+// Unlike Set/Reset, a probe never writes a portal_settings_audit row (nothing
+// is persisted), so it would otherwise leave no trail even though it sends
+// stored write-only secrets (e.g. APISIX_ADMIN_KEY) as a header to an
+// admin-supplied candidate URL. Log the acting admin and the touched keys
+// (never the values) so that action is still auditable from the app log.
+func (s *Service) Test(ctx context.Context, values map[string]string, adminID int64) []ProbeResult {
 	if err := checkKeys(values); err != nil {
 		return []ProbeResult{{Name: "validation", OK: false, Detail: err.Error()}}
 	}
 	touched := map[string]bool{}
+	keys := make([]string, 0, len(values))
 	for k := range values {
 		touched[k] = true
+		keys = append(keys, k)
 	}
+	log.Printf("settings: probe test by admin=%d touched=%v", adminID, keys)
 	if s.prober == nil {
 		return nil
 	}

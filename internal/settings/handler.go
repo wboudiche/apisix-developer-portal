@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -123,6 +124,7 @@ func (h *Handler) respond(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.As(err, &fe):
 		httpx.JSON(w, http.StatusUnprocessableEntity, map[string]any{"fields": fe})
 	case errors.As(err, &pe):
+		log.Printf("settings: probe-failed save attempt by admin=%d", h.adminID(r.Context()))
 		httpx.JSON(w, http.StatusUnprocessableEntity, map[string]any{"probe": pe.Results})
 	default:
 		httpx.ErrorT(w, r, http.StatusInternalServerError, "settings.saveFailed")
@@ -135,5 +137,5 @@ func (h *Handler) test(w http.ResponseWriter, r *http.Request) {
 		httpx.ErrorT(w, r, http.StatusBadRequest, "common.invalidBody")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, h.svc.Test(r.Context(), body.Values))
+	httpx.JSON(w, http.StatusOK, h.svc.Test(r.Context(), body.Values, h.adminID(r.Context())))
 }

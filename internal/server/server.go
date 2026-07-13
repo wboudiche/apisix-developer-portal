@@ -118,12 +118,17 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	subSvc.SetBiller(billingSvc)
 
 	// SMTP is now always wired: DynamicSender no-ops with ErrSMTPNotConfigured
-	// when the live snapshot has no host/from, and notify already logs and
-	// drops send errors, so an unconfigured mail server stays a silent no-op
-	// exactly as before — but a later settings change takes effect immediately.
+	// when the live snapshot has no host/from. The notifier's enabled gate
+	// reads that same snapshot and short-circuits deliver() before any
+	// resolver DB work, so a mail-less deployment stays a genuinely silent
+	// no-op (no per-recipient "SMTP not configured" log spam, no wasted
+	// resolver queries) rather than only no-op-ing at the final send step —
+	// and a later settings change takes effect immediately.
 	dynSender := notify.NewDynamicSender(settingsSvc)
-	subSvc.SetNotifier(notify.NewNotifier(dynSender, notify.NewRepo(pool),
-		func() string { return settingsSvc.Snapshot().Get("PORTAL_BASE_URL") }))
+	notifier := notify.NewNotifier(dynSender, notify.NewRepo(pool),
+		func() string { return settingsSvc.Snapshot().Get("PORTAL_BASE_URL") })
+	notifier.SetEnabled(func() bool { return settingsSvc.Snapshot().SMTPConfigured() })
+	subSvc.SetNotifier(notifier)
 	// Verification resends are limited to 3 quick tries then 1/min per email
 	// address. Enablement is decided per request from the live snapshot, so
 	// flipping REQUIRE_EMAIL_VERIFICATION takes effect without a restart.
@@ -138,6 +143,8 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 	// (empty URL) the /usage endpoint reports unavailable rather than guessing.
 	if pu := snap.Get("PROMETHEUS_URL"); pu != "" {
 		subH.SetUsageReader(metrics.NewService(metrics.NewClient(pu)))
+	} else {
+		subH.SetUsageReader(nil)
 	}
 	adminSvc := admin.NewService(admin.NewRepo(pool), subSvc)
 	adminH := admin.NewHandler(adminSvc,
@@ -165,6 +172,8 @@ func New(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, gw apisix.G
 		subH.SetOIDCIssuer(e.Get("OIDC_ISSUER"))
 		if pu := e.Get("PROMETHEUS_URL"); pu != "" {
 			subH.SetUsageReader(metrics.NewService(metrics.NewClient(pu)))
+		} else {
+			subH.SetUsageReader(nil)
 		}
 		if proxies, err := httpx.ParseProxyCIDRs(e.Get("TRUSTED_PROXIES")); err != nil {
 			log.Printf("settings: TRUSTED_PROXIES invalid, keeping previous: %v", err)
