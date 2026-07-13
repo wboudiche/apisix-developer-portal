@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync/atomic"
 
 	"apisix-portal/internal/apisix"
 	"apisix-portal/internal/events"
@@ -172,20 +173,48 @@ func RouteID(productID int64) string { return fmt.Sprintf("prod_%d", productID) 
 
 // Service orchestrates subscribe/unsubscribe and the matching APISIX provisioning.
 type Service struct {
-	store      Store
-	gw         apisix.Gateway
-	sandboxGW  apisix.Gateway
-	genKey     func() string
-	events     EventLogger
-	notifier   Notifier
-	biller     Biller
-	oidcIssuer string
-	oidcClaim  string
+	store     Store
+	gw        apisix.Gateway
+	sandboxGW apisix.Gateway
+	genKey    func() string
+	events    EventLogger
+	notifier  Notifier
+	biller    Biller
+
+	// oidcConf is re-armed by the settings-change hook (ConfigureOIDC) while
+	// reprovisionRoute reads it concurrently from request-serving goroutines;
+	// a single atomic.Pointer swap keeps issuer+claim consistent with each
+	// other without a mutex.
+	oidcConf atomic.Pointer[oidcConf]
+
+	// sandboxOn, when set, is consulted by sandboxEnabled instead of the
+	// static sandboxGW != nil check, so runtime settings can flip sandbox
+	// availability without rebuilding the service. Wired once at boot (see
+	// SetSandboxEnabledFn); never reassigned afterward, so no race.
+	sandboxOn func() bool
 }
 
+// oidcConf pairs the OIDC issuer and client-id claim so ConfigureOIDC can
+// publish both atomically (never an issuer paired with a stale claim).
+type oidcConf struct{ issuer, claim string }
+
 // ConfigureOIDC wires the trusted issuer + client-id claim for oauth2 product
-// routes. Empty issuer leaves OAuth2 provisioning disabled.
-func (s *Service) ConfigureOIDC(issuer, claim string) { s.oidcIssuer, s.oidcClaim = issuer, claim }
+// routes. Empty issuer leaves OAuth2 provisioning disabled. Safe to call
+// concurrently with route provisioning (e.g. re-armed from a settings-change
+// hook while requests are in flight).
+func (s *Service) ConfigureOIDC(issuer, claim string) {
+	s.oidcConf.Store(&oidcConf{issuer: issuer, claim: claim})
+}
+
+// oidc returns the current issuer + claim, or ("", "") if ConfigureOIDC has
+// never been called.
+func (s *Service) oidc() (issuer, claim string) {
+	c := s.oidcConf.Load()
+	if c == nil {
+		return "", ""
+	}
+	return c.issuer, c.claim
+}
 
 // SetNotifier wires email notifications. Left unset (nil) = disabled.
 func (s *Service) SetNotifier(n Notifier) { s.notifier = n }
@@ -193,11 +222,22 @@ func (s *Service) SetNotifier(n Notifier) { s.notifier = n }
 // SetBiller wires billing. Left unset (nil) = disabled.
 func (s *Service) SetBiller(b Biller) { s.biller = b }
 
+// SetSandboxEnabledFn wires a dynamic sandbox-availability check (e.g. reading
+// the live settings snapshot) so sandboxEnabled reflects runtime changes
+// instead of the gateway wired in at construction. Call once at boot, before
+// serving traffic; not safe to reassign concurrently with requests.
+func (s *Service) SetSandboxEnabledFn(fn func() bool) { s.sandboxOn = fn }
+
 func NewService(store Store, gw, sandboxGW apisix.Gateway, genKey func() string, eventLog EventLogger) *Service {
 	return &Service{store: store, gw: gw, sandboxGW: sandboxGW, genKey: genKey, events: eventLog}
 }
 
-func (s *Service) sandboxEnabled() bool { return s.sandboxGW != nil }
+func (s *Service) sandboxEnabled() bool {
+	if s.sandboxOn != nil {
+		return s.sandboxOn()
+	}
+	return s.sandboxGW != nil
+}
 
 // logEvent appends an activity event, best-effort: a failure is logged but never
 // propagated, so the feed can never break the action it merely records.
@@ -236,10 +276,11 @@ func (s *Service) reprovisionRoute(ctx context.Context, productID int64, extraCo
 				allowed = append(allowed, e)
 			}
 		}
-		if len(allowed) == 0 || s.oidcIssuer == "" {
+		issuer, claim := s.oidc()
+		if len(allowed) == 0 || issuer == "" {
 			return s.gw.DeleteRoute(ctx, RouteID(prod.ID))
 		}
-		return s.gw.EnsureOAuthRoute(ctx, RouteID(prod.ID), prod.ContextPath, prod.Upstream, s.oidcIssuer, s.oidcClaim, dedup(allowed))
+		return s.gw.EnsureOAuthRoute(ctx, RouteID(prod.ID), prod.ContextPath, prod.Upstream, issuer, claim, dedup(allowed))
 	}
 
 	allowed, err := s.store.ConsumersForProduct(ctx, productID)

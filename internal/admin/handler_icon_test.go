@@ -57,7 +57,7 @@ func smallPNG(t *testing.T) []byte {
 
 func TestUploadIconAcceptsPNG(t *testing.T) {
 	svc := &fakeIconService{}
-	h := NewHandler(svc, true, false, true)
+	h := NewHandler(svc, func() bool { return true }, func() bool { return false }, func() bool { return true })
 	body, ct := multipartIcon(t, "file", smallPNG(t))
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/products/7/icon", body)
 	req.Header.Set("Content-Type", ct)
@@ -75,7 +75,7 @@ func TestUploadIconAcceptsPNG(t *testing.T) {
 }
 
 func TestUploadIconRejectsNonImage(t *testing.T) {
-	h := NewHandler(&fakeIconService{}, true, false, true)
+	h := NewHandler(&fakeIconService{}, func() bool { return true }, func() bool { return false }, func() bool { return true })
 	body, ct := multipartIcon(t, "file", []byte(strings.Repeat("not-an-image ", 60)))
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/products/7/icon", body)
 	req.Header.Set("Content-Type", ct)
@@ -87,7 +87,7 @@ func TestUploadIconRejectsNonImage(t *testing.T) {
 }
 
 func TestUploadIconProductNotFound(t *testing.T) {
-	h := NewHandler(&fakeIconService{setErr: ErrNotFound}, true, false, true)
+	h := NewHandler(&fakeIconService{setErr: ErrNotFound}, func() bool { return true }, func() bool { return false }, func() bool { return true })
 	body, ct := multipartIcon(t, "file", smallPNG(t))
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/products/999/icon", body)
 	req.Header.Set("Content-Type", ct)
@@ -99,7 +99,7 @@ func TestUploadIconProductNotFound(t *testing.T) {
 }
 
 func TestServeIconReturnsPNG(t *testing.T) {
-	h := NewHandler(&fakeIconService{iconData: []byte("PNGBYTES")}, true, false, true)
+	h := NewHandler(&fakeIconService{iconData: []byte("PNGBYTES")}, func() bool { return true }, func() bool { return false }, func() bool { return true })
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/products/7/icon", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -115,7 +115,7 @@ func TestServeIconReturnsPNG(t *testing.T) {
 }
 
 func TestServeIconMissing(t *testing.T) {
-	h := NewHandler(&fakeIconService{}, true, false, true)
+	h := NewHandler(&fakeIconService{}, func() bool { return true }, func() bool { return false }, func() bool { return true })
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/products/7/icon", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)

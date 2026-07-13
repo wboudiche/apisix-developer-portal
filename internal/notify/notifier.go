@@ -27,10 +27,10 @@ type Resolver interface {
 type Notifier struct {
 	sender  Sender
 	repo    Resolver
-	baseURL string
+	baseURL func() string // dynamic: reads the live settings snapshot on every send
 }
 
-func NewNotifier(sender Sender, repo Resolver, baseURL string) *Notifier {
+func NewNotifier(sender Sender, repo Resolver, baseURL func() string) *Notifier {
 	return &Notifier{sender: sender, repo: repo, baseURL: baseURL}
 }
 
@@ -130,17 +130,17 @@ func (n *Notifier) deliver(kind string, appID, productID, planID int64) {
 		if plan == "" {
 			plan = "un forfait"
 		}
-		args = []any{appName, product, plan, n.baseURL}
+		args = []any{appName, product, plan, n.baseURL()}
 	case kindApproved:
 		to = owners
 		plan, _ := n.repo.PlanName(ctx, planID)
 		if plan == "" {
 			plan = "votre forfait"
 		}
-		args = []any{appName, product, plan, n.baseURL}
+		args = []any{appName, product, plan, n.baseURL()}
 	case kindRejected:
 		to = owners
-		args = []any{appName, product, n.baseURL}
+		args = []any{appName, product, n.baseURL()}
 	default:
 		return
 	}

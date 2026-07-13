@@ -35,17 +35,17 @@ var stripHeaders = map[string]bool{
 type Handler struct {
 	products Products
 	access   Access
-	gateway  string
-	sandbox  string
+	gateway  func() string // dynamic: reads the live settings snapshot on every request
+	sandbox  func() string
 	client   *http.Client
 	router   chi.Router
 }
 
-func NewHandler(p Products, a Access, gatewayURL string, sandboxGatewayURL string) *Handler {
+func NewHandler(p Products, a Access, gatewayURL func() string, sandboxGatewayURL func() string) *Handler {
 	h := &Handler{
 		products: p, access: a,
-		gateway: strings.TrimRight(gatewayURL, "/"),
-		sandbox: strings.TrimRight(sandboxGatewayURL, "/"),
+		gateway: gatewayURL,
+		sandbox: sandboxGatewayURL,
 		client:  &http.Client{Timeout: gatewayTimeout},
 		router:  chi.NewRouter(),
 	}
@@ -85,7 +85,7 @@ func (h *Handler) context(w http.ResponseWriter, r *http.Request) {
 		apps = []AppRef{}
 	}
 	sbAvail := false
-	if h.sandbox != "" {
+	if h.sandbox() != "" {
 		sbAvail, _ = h.products.SandboxUpstream(r.Context(), slug)
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"apps": apps, "sandboxAvailable": sbAvail})
@@ -130,7 +130,7 @@ func (h *Handler) proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.do(w, r, h.gateway, key, contextPath, chi.URLParam(r, "*"))
+	h.do(w, r, h.gateway(), key, contextPath, chi.URLParam(r, "*"))
 }
 
 func (h *Handler) sandboxProxy(w http.ResponseWriter, r *http.Request) {
@@ -140,7 +140,8 @@ func (h *Handler) sandboxProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.sandbox == "" {
+	sandboxURL := h.sandbox()
+	if sandboxURL == "" {
 		httpx.ErrorT(w, r, http.StatusNotFound, "tryit.sandboxNotAvailable")
 		return
 	}
@@ -185,7 +186,7 @@ func (h *Handler) sandboxProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.do(w, r, h.sandbox, key, contextPath, chi.URLParam(r, "*"))
+	h.do(w, r, sandboxURL, key, contextPath, chi.URLParam(r, "*"))
 }
 
 // do builds and executes the proxied request to the gateway. It handles header
@@ -194,6 +195,7 @@ func (h *Handler) sandboxProxy(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) do(w http.ResponseWriter, r *http.Request, gatewayBase, key, contextPath, rest string) {
 	// Build the gateway target from the product's context path + the wildcard
 	// remainder. The host is ALWAYS the configured gateway — never client input.
+	gatewayBase = strings.TrimRight(gatewayBase, "/")
 	rest = strings.TrimPrefix(rest, "/")
 	target := gatewayBase + contextPath
 	if rest != "" {
