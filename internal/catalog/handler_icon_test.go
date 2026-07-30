@@ -19,7 +19,7 @@ type fakeIconLister struct {
 func (f fakeIconLister) List(context.Context, Query, paging.Params) ([]Product, int, error) {
 	return nil, 0, nil
 }
-func (f fakeIconLister) GetBySlug(context.Context, string) (Product, error) { return Product{}, nil }
+func (f fakeIconLister) GetBySlug(context.Context, string) (Product, error)    { return Product{}, nil }
 func (f fakeIconLister) GetSpecBySlug(context.Context, string) (string, error) { return "", nil }
 func (f fakeIconLister) ListChangelogBySlug(context.Context, string) ([]ChangelogEntry, error) {
 	return nil, nil

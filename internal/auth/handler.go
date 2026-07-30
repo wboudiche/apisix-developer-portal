@@ -74,6 +74,7 @@ type Handler struct {
 	verifyLimiter *httpx.RateLimiter
 	verifyTTL     time.Duration
 	verifyGen     func() (plain, hash string)
+	verifyMounted bool
 }
 
 // NewHandler creates an auth handler. loginLimiter is an optional per-account
@@ -112,9 +113,15 @@ func (h *Handler) EnableDynamicVerification(p VerificationProvider, sender notif
 }
 
 // mountVerifyRoutes registers the verify/resend routes. Callers must invoke
-// only one of EnableEmailVerification/EnableDynamicVerification per handler —
-// chi panics on duplicate route registration.
+// only one of EnableEmailVerification/EnableDynamicVerification per handler.
+// chi does not reject a duplicate pattern — it silently replaces the handler,
+// so a second Enable* call would quietly install the later mode's provider and
+// sender over the first. Fail fast instead of shipping that mismatch.
 func (h *Handler) mountVerifyRoutes() {
+	if h.verifyMounted {
+		panic("auth: verification already enabled — call only one of EnableEmailVerification/EnableDynamicVerification per handler")
+	}
+	h.verifyMounted = true
 	h.router.Post("/api/auth/verify", h.verifyEmail)
 	h.router.Post("/api/auth/resend-verification", h.resendVerification)
 }

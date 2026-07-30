@@ -37,9 +37,9 @@ func envOr(k, def string) string {
 }
 
 type harness struct {
-	t   *testing.T
-	srv *httptest.Server
-	gw  *apisix.Client
+	t    *testing.T
+	srv  *httptest.Server
+	gw   *apisix.Client
 	pool *pgxpool.Pool
 }
 
