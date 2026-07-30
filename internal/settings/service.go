@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 	"sync/atomic"
 
@@ -81,7 +82,7 @@ type Service struct {
 }
 
 // envValues maps every registry key to its boot-time Config value. Booleans
-// render as "1"/"" to match the wire/env convention used throughout Registry.
+// render as "1"/"" to match the wire/env convention used throughout registry.
 func envValues(cfg config.Config) map[string]string {
 	b := func(v bool) string {
 		if v {
@@ -176,7 +177,7 @@ func (s *Service) loadOverrides(ctx context.Context) (map[string]string, error) 
 // env, producing a fresh immutable Effective.
 func (s *Service) build(overrides map[string]string) *Effective {
 	e := &Effective{Values: map[string]string{}, Source: map[string]string{}}
-	for _, d := range Registry {
+	for _, d := range registry {
 		if v, ok := overrides[d.Key]; ok {
 			e.Values[d.Key], e.Source[d.Key] = v, "db"
 		} else {
@@ -220,14 +221,18 @@ func (s *Service) candidate(values map[string]string) *Effective {
 // value passes type validation. Unknown/read-only short-circuit immediately
 // (400-class errors); type failures accumulate into FieldErrors (422).
 //
-// values is a map, so with multiple invalid keys the specific error returned
-// (unknown vs read-only vs which field(s) failed type validation) is
-// nondeterministic across runs. That's acceptable: every error class here
-// surfaces to the caller as the same 4xx response, and the ordering of
-// which invalid key is reported first carries no meaning.
+// Keys are walked in sorted order rather than map order: the unknown and
+// read-only branches return on the first offender, so with several bad keys
+// map iteration would make the reported one vary between identical requests.
 func checkKeys(values map[string]string) error {
+	keys := make([]string, 0, len(values))
+	for k := range values {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	fe := FieldErrors{}
-	for k, v := range values {
+	for _, k := range keys {
 		d, ok := Lookup(k)
 		if !ok {
 			return fmt.Errorf("%w: %s", ErrUnknownKey, k)
@@ -235,7 +240,7 @@ func checkKeys(values map[string]string) error {
 		if !d.Editable {
 			return fmt.Errorf("%w: %s", ErrReadOnlyKey, k)
 		}
-		if err := Validate(d, v); err != nil {
+		if err := Validate(d, values[k]); err != nil {
 			fe[k] = err.Error()
 		}
 	}

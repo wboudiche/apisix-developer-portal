@@ -98,7 +98,7 @@ func (p *LiveProber) smtp(ctx context.Context, host, port string) ProbeResult {
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(host, port))
 	if err != nil {
-		return ProbeResult{Name: "smtp", Detail: err.Error()}
+		return ProbeResult{Name: "smtp", Detail: smtpDetail(ctx, "connect failed", "", err)}
 	}
 	defer conn.Close()
 	if dl, ok := ctx.Deadline(); ok {
@@ -111,14 +111,32 @@ func (p *LiveProber) smtp(ctx context.Context, host, port string) ProbeResult {
 	r := bufio.NewReader(conn)
 	greet, err := r.ReadString('\n')
 	if err != nil || !strings.HasPrefix(greet, "220") {
-		return ProbeResult{Name: "smtp", Detail: fmt.Sprintf("no SMTP greeting (got %q, err %v)", strings.TrimSpace(greet), err)}
+		return ProbeResult{Name: "smtp", Detail: smtpDetail(ctx, "no SMTP greeting", greet, err)}
 	}
 	if _, err := fmt.Fprintf(conn, "EHLO portal\r\n"); err != nil {
-		return ProbeResult{Name: "smtp", Detail: err.Error()}
+		return ProbeResult{Name: "smtp", Detail: smtpDetail(ctx, "EHLO failed", "", err)}
 	}
 	line, err := r.ReadString('\n')
 	if err != nil || !strings.HasPrefix(line, "250") {
-		return ProbeResult{Name: "smtp", Detail: fmt.Sprintf("EHLO rejected (got %q, err %v)", strings.TrimSpace(line), err)}
+		return ProbeResult{Name: "smtp", Detail: smtpDetail(ctx, "EHLO rejected", line, err)}
 	}
 	return ProbeResult{Name: "smtp", OK: true, Detail: "SMTP reachable"}
+}
+
+// smtpDetail explains a failed probe step. When the budget ran out or the
+// caller went away, the underlying error is the "i/o timeout" produced by the
+// deadline AfterFunc sets — which reads as a fault on the server's side. Say
+// whose limit was actually hit instead, and only fall back to the raw error
+// when the context is still live.
+func smtpDetail(ctx context.Context, step, got string, err error) string {
+	switch {
+	case errors.Is(ctx.Err(), context.DeadlineExceeded):
+		return fmt.Sprintf("%s: no response within %s", step, probeTimeout)
+	case errors.Is(ctx.Err(), context.Canceled):
+		return step + ": probe cancelled"
+	case got != "":
+		return fmt.Sprintf("%s (got %q, err %v)", step, strings.TrimSpace(got), err)
+	default:
+		return fmt.Sprintf("%s: %v", step, err)
+	}
 }
