@@ -28,7 +28,12 @@ describe('adminFetchProductIcon', () => {
       new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'Content-Type': 'image/png' } }),
     )
     const res = await adminFetchProductIcon('tok', 7)
-    expect(res).toBeInstanceOf(Blob)
+    // Not toBeInstanceOf(Blob): res.blob() resolves undici's native Blob,
+    // while the jsdom test environment's ambient `Blob` is a distinct
+    // constructor from a different realm — instanceof across the two can
+    // never reliably pass. Assert the shape callers actually rely on.
+    expect(res.size).toBe(3)
+    expect(res.type).toBe('image/png')
     const [url, opts] = fetchMock.mock.calls[0]
     expect(url).toBe('/api/admin/products/7/icon')
     expect(((opts as RequestInit).headers as Record<string, string>).Authorization).toBe('Bearer tok')
