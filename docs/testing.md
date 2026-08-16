@@ -1,14 +1,14 @@
 # Testing
 
-Three layers, fastest first.
+Four layers, fastest first.
 
 ## 1. Unit / component (default, hermetic)
 
 - **Backend:** `make test` (`go test ./internal/... ./cmd/...`). Package tests
   with a faked `apisix.Gateway`. DB-backed repo tests **skip** when
   `DATABASE_URL` is unset; with a database up they run.
-- **Frontend:** `cd web && npx vitest run` — component tests with the API
-  mocked, plus `npx tsc -b` and `npm run build`.
+- **Frontend:** `cd web && pnpm test` — component tests with the API mocked,
+  plus `pnpm exec tsc -b` and `pnpm run build`.
 
 These need no docker stack and run in seconds. They do **not** cross the
 frontend↔backend or backend↔APISIX boundaries (both are mocked) — that is the
@@ -21,7 +21,7 @@ HTTP API, then calls the live APISIX gateway. Gated by `RUN_E2E=1` so it never
 runs in the hermetic suite.
 
 ```sh
-make up            # postgres, etcd, apisix, echo
+make up            # postgres, etcd, apisix + sandbox, echo, mailpit, prometheus
 make test-e2e      # PORTAL_ENV=dev UPSTREAM_ALLOW_PRIVATE=1 RUN_E2E=1 go test ./internal/e2e/...
 # or one shot:
 make e2e           # up + wait + test-e2e
@@ -61,6 +61,22 @@ It **skips** (not fails) when `RUN_E2E` is unset or the DB/stack is down.
 make up
 make test-it       # RUN_APISIX_IT=1 go test ./internal/apisix/...
 ```
+
+## 4. Full-stack Playwright (real browser, real API, real DB)
+
+`web/e2e` drives the built app through an actual browser via Playwright,
+against a live Go API and an isolated Postgres — no mocks anywhere in the
+stack.
+
+```sh
+make test-e2e-web
+```
+
+This brings up `docker-compose.e2e.yml` (its own Postgres, compose project
+`portal-e2e`, host port `5433` so it never collides with the dev DB), lets
+Playwright's `webServer` start the Go API on `:8090` and Vite on `:5173`, runs
+the suite, then tears the isolated DB down — pass or fail, exit code
+preserved.
 
 ## CI
 

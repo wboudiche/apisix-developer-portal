@@ -82,11 +82,18 @@ make full-down     # ... down -v
 
 ### Become an admin
 
-The admin role is granted to whoever owns `ADMIN_EMAIL` (default
-`admin@portal.local`), applied live — no restart needed:
+The admin role is granted at portal startup to whoever owns `ADMIN_EMAIL`
+(default `admin@portal.local`):
 
 1. Register `admin@portal.local` at <http://localhost:8088/register>.
-2. Log back in — the **Admin** menu now appears.
+2. `docker compose -f docker-compose.yml -f docker-compose.full.yml restart portal`
+3. Log back in — the **Admin** menu now appears.
+
+Changing `ADMIN_EMAIL` itself (e.g. via **Admin → Paramètres**) applies live —
+no restart needed for that. It's only the *first* registration against the
+still-unchanged default that needs one: promotion is a plain `UPDATE ... WHERE
+email=$1`, a no-op until that row exists, and nothing re-runs it at
+registration time.
 
 ---
 
