@@ -37,9 +37,14 @@ type Def struct {
 	Required bool
 }
 
-// Registry lists every portal parameter in UI display order. Boot-critical
+// registry lists every portal parameter in UI display order. Boot-critical
 // entries are Editable:false — visible, never writable.
-var Registry = []Def{
+//
+// Unexported on purpose: as a package-level slice it would otherwise be
+// writable by any importer, so an Editable:false entry could be flipped from
+// outside and the read-only guarantee would hold by convention only. Lookup
+// is the way in — Def is a value type, so callers get a copy.
+var registry = []Def{
 	{Key: "PORTAL_ADDR", Group: "server", Type: TypeString},
 	{Key: "PORTAL_ENV", Group: "server", Type: TypeString},
 	{Key: "DATABASE_URL", Group: "server", Type: TypeString, Secret: true},
@@ -67,8 +72,8 @@ var Registry = []Def{
 }
 
 var byKey = func() map[string]Def {
-	m := make(map[string]Def, len(Registry))
-	for _, d := range Registry {
+	m := make(map[string]Def, len(registry))
+	for _, d := range registry {
 		m[d.Key] = d
 	}
 	return m

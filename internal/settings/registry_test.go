@@ -3,8 +3,8 @@ package settings
 import "testing"
 
 func TestRegistryShape(t *testing.T) {
-	if len(Registry) != 24 {
-		t.Fatalf("registry has %d defs, want 24", len(Registry))
+	if len(registry) != 24 {
+		t.Fatalf("registry has %d defs, want 24", len(registry))
 	}
 	bootCritical := map[string]bool{
 		"DATABASE_URL": true, "PORTAL_ADDR": true, "PORTAL_ENV": true,
@@ -16,7 +16,7 @@ func TestRegistryShape(t *testing.T) {
 		"JWT_SECRET": true, "CREDENTIAL_ENC_KEY": true,
 	}
 	seen := map[string]bool{}
-	for _, d := range Registry {
+	for _, d := range registry {
 		if seen[d.Key] {
 			t.Fatalf("duplicate key %s", d.Key)
 		}
