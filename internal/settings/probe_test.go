@@ -14,7 +14,7 @@ import (
 func candidateWith(t *testing.T, values map[string]string) *Effective {
 	t.Helper()
 	e := &Effective{Values: map[string]string{}, Source: map[string]string{}}
-	for _, d := range Registry {
+	for _, d := range registry {
 		e.Values[d.Key] = ""
 	}
 	for k, v := range values {
@@ -91,6 +91,49 @@ func TestSMTPProbe(t *testing.T) {
 	}), map[string]bool{"SMTP_HOST": true})
 	if len(res) != 1 || res[0].OK {
 		t.Fatalf("smtp refused must fail: %+v", res)
+	}
+}
+
+// A server that accepts the connection then says nothing trips the deadline
+// AfterFunc sets, surfacing as "i/o timeout" — which reads as the server
+// misbehaving. The detail must name our own budget instead.
+func TestSMTPProbeTimeoutBlamesTheBudgetNotTheServer(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	accepted := make(chan net.Conn, 1)
+	go func() {
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		accepted <- c // held open, never greets
+	}()
+
+	u, _ := url.Parse("http://" + ln.Addr().String())
+	// Cancel the parent rather than wait out probeTimeout: same code path
+	// (AfterFunc expires the conn deadline), no 5s test.
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	p := NewProber()
+	res := p.smtp(ctx, u.Hostname(), u.Port())
+	if c := <-accepted; c != nil {
+		c.Close()
+	}
+	if res.OK {
+		t.Fatalf("silent server must fail the probe: %+v", res)
+	}
+	if !strings.Contains(res.Detail, "cancelled") {
+		t.Fatalf("detail should blame the cancelled probe, got %q", res.Detail)
+	}
+	if strings.Contains(res.Detail, "i/o timeout") {
+		t.Fatalf("detail still leaks the raw deadline error: %q", res.Detail)
 	}
 }
 

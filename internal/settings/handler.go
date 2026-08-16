@@ -66,7 +66,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	e := h.svc.Snapshot()
 	var groups []GroupView
 	idx := map[string]int{}
-	for _, d := range Registry {
+	for _, d := range registry {
 		gi, ok := idx[d.Group]
 		if !ok {
 			groups = append(groups, GroupView{Group: d.Group})

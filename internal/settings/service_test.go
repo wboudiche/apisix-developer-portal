@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -138,6 +139,34 @@ func TestSecretsEncryptedAtRest(t *testing.T) {
 	}
 	if svc.Snapshot().Get("SMTP_PASSWORD") != "hunter2" {
 		t.Fatal("snapshot must expose the decrypted secret to internal consumers")
+	}
+}
+
+// checkKeys returns on the first offender it meets, so with several bad keys
+// in one request map iteration used to pick a different one each time and the
+// same PUT could come back naming a different key. It reports the
+// lexicographically first now, identically on every run.
+func TestCheckKeysReportsTheSameOffenderEveryTime(t *testing.T) {
+	values := map[string]string{"ZULU": "x", "ALPHA": "x", "MIKE": "x", "BRAVO": "x"}
+	for i := 0; i < 200; i++ {
+		err := checkKeys(values)
+		if !errors.Is(err, ErrUnknownKey) {
+			t.Fatalf("want unknown-key error, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "ALPHA") {
+			t.Fatalf("run %d named a different key: %v", i, err)
+		}
+	}
+
+	// Read-only loses to unknown only by sort position, not by class: SMTP_HOST
+	// is a real editable key, JWT_SECRET is read-only, so JWT_SECRET is the one
+	// that must surface here every time.
+	readOnly := map[string]string{"SMTP_HOST": "x", "JWT_SECRET": "x", "PORTAL_ENV": "x"}
+	for i := 0; i < 200; i++ {
+		err := checkKeys(readOnly)
+		if !errors.Is(err, ErrReadOnlyKey) || !strings.Contains(err.Error(), "JWT_SECRET") {
+			t.Fatalf("run %d: want read-only JWT_SECRET, got %v", i, err)
+		}
 	}
 }
 

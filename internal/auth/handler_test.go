@@ -549,6 +549,25 @@ type toggleProvider struct {
 func (p *toggleProvider) VerificationEnabled() bool   { return p.on }
 func (p *toggleProvider) VerificationBaseURL() string { return p.baseURL }
 
+// Enabling verification twice used to pass silently — chi replaces a duplicate
+// pattern rather than rejecting it, so the second call's provider and sender
+// quietly won. The handler now fails fast on the misuse.
+func TestDoubleEnableVerificationPanics(t *testing.T) {
+	h := NewHandler(newMemRepo(), NewTokenizer("test-secret"), nil)
+	h.EnableEmailVerification(VerificationConfig{Sender: &fakeVerifSender{}, BaseURL: "http://localhost:8088"})
+
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("second enable did not panic")
+		}
+		if msg, _ := r.(string); !strings.Contains(msg, "verification already enabled") {
+			t.Fatalf("panic = %v, want the already-enabled misuse message", r)
+		}
+	}()
+	h.EnableDynamicVerification(&toggleProvider{on: true}, &fakeVerifSender{}, nil)
+}
+
 func TestDynamicVerificationToggles(t *testing.T) {
 	sender := &fakeVerifSender{}
 	prov := &toggleProvider{on: false, baseURL: "http://localhost:8088"}
