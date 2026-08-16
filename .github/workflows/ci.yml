@@ -13,21 +13,24 @@ jobs:
           go-version: "1.25"
       - name: Go unit tests
         run: go test ./internal/... ./cmd/...
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
       - name: Web install
         working-directory: web
-        run: npm ci
+        run: pnpm install --frozen-lockfile
       - name: Web unit tests
         working-directory: web
-        run: npx vitest run
+        run: pnpm test
       - name: Web typecheck
         working-directory: web
-        run: npx tsc -b --force
+        run: pnpm exec tsc -b --force
       - name: Web build
         working-directory: web
-        run: npm run build
+        run: pnpm run build
 
   e2e:
     runs-on: ubuntu-latest

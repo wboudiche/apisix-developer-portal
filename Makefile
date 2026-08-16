@@ -20,7 +20,7 @@ test-e2e-web:
 	docker compose -p portal-e2e -f docker-compose.e2e.yml up -d --wait
 	@-fuser -k $${E2E_API_PORT:-8090}/tcp 2>/dev/null; true
 	@-fuser -k $${E2E_WEB_PORT:-5173}/tcp 2>/dev/null; true
-	( cd web && CI=1 npm run test:e2e ); status=$$?; \
+	( cd web && CI=1 pnpm run test:e2e ); status=$$?; \
 	  docker compose -p portal-e2e -f docker-compose.e2e.yml down -v; \
 	  exit $$status
 tidy:        ; go mod tidy
