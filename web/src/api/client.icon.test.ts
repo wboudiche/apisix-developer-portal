@@ -21,8 +21,12 @@ describe('adminUploadProductIcon', () => {
 
 describe('adminFetchProductIcon', () => {
   it('GETs the admin icon endpoint with the bearer token and resolves to a Blob', async () => {
-    const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' })
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(blob, { status: 200 }))
+    // A raw byte body, not a jsdom Blob: undici's Response constructor calls
+    // .stream() on a Blob body, which jsdom's Blob doesn't implement under
+    // every Node version — bytes sidestep that entirely.
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'Content-Type': 'image/png' } }),
+    )
     const res = await adminFetchProductIcon('tok', 7)
     expect(res).toBeInstanceOf(Blob)
     const [url, opts] = fetchMock.mock.calls[0]
