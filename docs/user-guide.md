@@ -37,6 +37,7 @@ feature also has a direct API or gateway call, it's shown as `curl`.
   - [19. Manage plans and pricing](#19-manage-plans-and-pricing)
   - [20. Approve or reject subscriptions](#20-approve-or-reject-subscriptions)
   - [21. Manage invoices](#21-manage-invoices)
+  - [22. Runtime settings](#22-runtime-settings)
 - [How it works under the hood](#how-it-works-under-the-hood)
 - [Reference](#reference)
 
@@ -64,9 +65,16 @@ admin approves → your key works at the gateway.
    full stack — see the project README's "Full test stack") or wherever it's
    deployed.
 2. Click **Log in** (top-right) → **Register** to create a local account
-   (email + password, min 8 characters). You're signed in immediately.
+   (email + password, min 8 characters). You're signed in immediately —
+   *unless* the deployment requires email verification (below).
 3. Use the **FR / EN** toggle in the top bar to switch language at any time; your
    choice is remembered and syncs to your account.
+
+**If email verification is required** (an admin turned on
+`REQUIRE_EMAIL_VERIFICATION`, §22): registering shows a **"Check your inbox"**
+screen instead of signing you in. Click the link in the email to verify and
+then log in normally. An expired or already-used link shows an error page
+with a field to resend a fresh one.
 
 The top navigation shows **APIs** always, and **Applications**, **Teams**, and
 **Billing** once you're signed in. Admins additionally see **Admin**.
@@ -280,7 +288,7 @@ Click your avatar (top-right) for the profile menu:
 # Admin guide
 
 Admin features live under **Admin** in the top bar, with a sub-navigation:
-**Products**, **Plans**, **Approvals**, **Invoices**.
+**Products**, **Plans**, **Approvals**, **Invoices**, **Settings**.
 
 ## 14. Becoming an admin
 
@@ -388,6 +396,37 @@ Approvals/rejections send an email to the developer (in their language).
 Invoices are created automatically when a paid subscription is approved and are
 scoped to the subscriber's **team**. The ledger survives unsubscribes (a paid
 invoice is retained).
+
+## 22. Runtime settings
+
+**Admin → Settings** is where every configurable parameter of the running
+deployment lives, grouped by area:
+
+- **Portal** — base URL, `ADMIN_EMAIL`, trusted-proxy CIDRs, the private-upstream
+  guard.
+- **APISIX** / **Sandbox** — the admin/gateway URLs and admin keys for each
+  gateway.
+- **SMTP** — host, port, credentials, and the from-address used for the
+  approval-loop and verification emails.
+- **Policy** — `REQUIRE_EMAIL_VERIFICATION` (see [Getting started](#getting-started))
+  and other account rules.
+- **OIDC** — the OAuth2 identity provider's issuer and client-id claim (§7).
+- **Observability** — the Prometheus URL usage/quota metrics are read from.
+
+For each setting, the row shows its current **source** — env var (the
+deployment's default) or an override saved from this UI — and a **reset**
+button clears an override back to the env default. **Secrets** (keys,
+passwords) are write-only: the field never displays the current value, only
+lets you replace it.
+
+Before a change is applied, **Test** runs a live health probe against
+anything that touched APISIX or SMTP; a failing probe blocks **Save** unless
+you deliberately click **Save anyway** to force it through.
+
+A handful of boot-critical parameters (`DATABASE_URL`, `PORTAL_ADDR`,
+`PORTAL_ENV`, `JWT_SECRET`, `CREDENTIAL_ENC_KEY`) are fixed at process start
+and shown read-only here — they can only be changed via the environment and a
+restart.
 
 ---
 
