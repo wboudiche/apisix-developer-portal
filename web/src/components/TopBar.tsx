@@ -188,8 +188,8 @@ export function TopBar({
         <span className="mark">
           <img src="/brand-apisix.svg" alt="" aria-hidden="true" />
         </span>
-        <span>
-          <span className="name">APISIX</span>{' '}
+        <span className="brand-text">
+          <span className="name">APISIX</span>
           <span className="sub">{t('nav.brandSub')}</span>
         </span>
       </Link>

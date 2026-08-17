@@ -15,8 +15,9 @@
   display:grid;place-items:center;
 }
 .brand .mark img{width:30px;height:auto;display:block}
+.brand-text{display:flex;flex-direction:column;gap:2px}
 .brand .name{font-family:var(--font-display);font-weight:700;font-size:17px;letter-spacing:-.01em;line-height:1}
-.brand .sub{font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.brand .sub{font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;line-height:1}
 
 .nav-tabs{display:flex;gap:2px;margin-left:6px}
 .nav-tabs a{
