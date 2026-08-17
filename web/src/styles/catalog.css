@@ -19,14 +19,18 @@
 .brand .name{font-family:var(--font-display);font-weight:700;font-size:17px;letter-spacing:-.01em;line-height:1}
 .brand .sub{font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;line-height:1}
 
-.nav-tabs{display:flex;gap:2px;margin-left:6px}
+.nav-tabs{display:flex;gap:4px;margin-left:6px}
 .nav-tabs a{
-  padding:8px 14px;border-radius:9px;font-size:14px;font-weight:500;color:var(--muted);
+  padding:9px 16px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted);
   display:flex;align-items:center;gap:7px;transition:.15s;
 }
 .nav-tabs a svg{width:16px;height:16px;opacity:.8}
-.nav-tabs a:hover{color:var(--fg);background:var(--accent-soft)}
-.nav-tabs a.active{color:var(--accent);background:var(--accent-soft)}
+/* Hover stays neutral so it never reads as "selected" — only .active gets the
+   accent treatment; a hovered inactive tab would otherwise be visually
+   indistinguishable from the current page. */
+.nav-tabs a:hover{color:var(--fg);background:color-mix(in oklab,var(--fg) 6%,transparent)}
+.nav-tabs a.active{color:var(--accent);background:var(--accent-soft);font-weight:600}
+.nav-tabs a.active:hover{color:var(--accent);background:var(--accent-soft)}
 
 .search{
   margin-left:auto;position:relative;flex:1;max-width:420px;min-width:140px;
