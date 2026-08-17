@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import type { Application } from '../../api/types'
-import type { ModalSpec } from '../../components/ConfirmModal'
 import { useT } from '../../i18n/LanguageProvider'
 
 function CheckIcon() {
@@ -18,10 +17,10 @@ function TrashIcon() {
   )
 }
 
-export function SettingsTab({ app, notify, openModal }: {
+export function SettingsTab({ app, notify, onDeleteApp }: {
   app: Application
   notify: (msg: string) => void
-  openModal: (spec: ModalSpec) => void
+  onDeleteApp: () => void
 }) {
   const t = useT()
   const [name, setName] = useState(app.name)
@@ -65,15 +64,7 @@ export function SettingsTab({ app, notify, openModal }: {
           <h4>{t('app.deleteAppTitle')}</h4>
           <p>{t('app.deleteAppDesc')}</p>
         </div>
-        {/* Blueprint demo behavior — no delete endpoint yet */}
-        <button
-          className="btn danger"
-          onClick={() => openModal({
-            title: t('app.deleteConfirmTitle', { name: app.name }), danger: true, confirmLabel: t('app.deleteConfirmAction'),
-            body: t('app.deleteConfirmBody'),
-            onConfirm: () => notify(t('app.appDeletedNotify')),
-          })}
-        >
+        <button className="btn danger" onClick={onDeleteApp}>
           <TrashIcon />{t('app.deleteAppButton')}
         </button>
       </div>

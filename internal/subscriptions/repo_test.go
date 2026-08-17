@@ -81,6 +81,65 @@ func TestGetOrCreateCredentialIsIdempotent(t *testing.T) {
 	}
 }
 
+// TestDeleteApplicationDeletesRowAndCascades proves the DB-level cascade this
+// repo method relies on: removing the application row also removes its
+// credential and subscriptions (ON DELETE CASCADE), without needing explicit
+// child deletes here.
+func TestDeleteApplicationDeletesRowAndCascades(t *testing.T) {
+	ctx, repo, appID := testRepo(t)
+	suffix := time.Now().Format("150405.000000000")
+
+	if _, err := repo.GetOrCreateCredential(ctx, appID, GenerateKey); err != nil {
+		t.Fatalf("seed credential: %v", err)
+	}
+
+	var productID int64
+	if err := repo.pool.QueryRow(ctx,
+		`INSERT INTO api_products(name,slug,category,context_path,published)
+		 VALUES($1,$2,'Test','/delapp-test',true) RETURNING id`,
+		"DelAppTestProduct+"+suffix, "delapp-test-product-"+suffix,
+	).Scan(&productID); err != nil {
+		t.Fatalf("seed product: %v", err)
+	}
+	var planID int64
+	if err := repo.pool.QueryRow(ctx,
+		`INSERT INTO plans(name,rate_limit_count,rate_limit_window_s) VALUES($1,100,60) RETURNING id`,
+		"DelAppPlan+"+suffix,
+	).Scan(&planID); err != nil {
+		t.Fatalf("seed plan: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = repo.pool.Exec(ctx, `DELETE FROM plans WHERE id=$1`, planID)
+		_, _ = repo.pool.Exec(ctx, `DELETE FROM api_products WHERE id=$1`, productID)
+	})
+	if _, err := repo.pool.Exec(ctx,
+		`INSERT INTO subscriptions(application_id,api_product_id,plan_id,status) VALUES($1,$2,$3,'active')`,
+		appID, productID, planID); err != nil {
+		t.Fatalf("seed subscription: %v", err)
+	}
+
+	if err := repo.DeleteApplication(ctx, appID); err != nil {
+		t.Fatalf("DeleteApplication: %v", err)
+	}
+
+	var n int
+	if err := repo.pool.QueryRow(ctx, `SELECT count(*) FROM applications WHERE id=$1`, appID).Scan(&n); err != nil {
+		t.Fatalf("count applications: %v", err)
+	} else if n != 0 {
+		t.Errorf("application row still present after delete")
+	}
+	if err := repo.pool.QueryRow(ctx, `SELECT count(*) FROM credentials WHERE application_id=$1`, appID).Scan(&n); err != nil {
+		t.Fatalf("count credentials: %v", err)
+	} else if n != 0 {
+		t.Errorf("credential row still present after delete (should cascade)")
+	}
+	if err := repo.pool.QueryRow(ctx, `SELECT count(*) FROM subscriptions WHERE application_id=$1`, appID).Scan(&n); err != nil {
+		t.Fatalf("count subscriptions: %v", err)
+	} else if n != 0 {
+		t.Errorf("subscription row still present after delete (should cascade)")
+	}
+}
+
 func TestGenerateKeyIs32Hex(t *testing.T) {
 	k := GenerateKey()
 	if len(k) != 32 {

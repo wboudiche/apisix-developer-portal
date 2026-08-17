@@ -294,6 +294,16 @@ func (r *Repo) SubscriptionsForApp(ctx context.Context, appID int64) ([]Subscrip
 	return out, rows.Err()
 }
 
+// DeleteApplication removes the application row. credentials, subscriptions,
+// and activity events cascade (ON DELETE CASCADE); invoices keep their row
+// with subscription_id set NULL (ON DELETE SET NULL), so the billing ledger
+// survives. Callers are responsible for deprovisioning APISIX first — this
+// only touches Postgres.
+func (r *Repo) DeleteApplication(ctx context.Context, appID int64) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM applications WHERE id=$1`, appID)
+	return err
+}
+
 // GetSubscription returns the subscription's identity + status, or ErrNotFound.
 func (r *Repo) GetSubscription(ctx context.Context, subID int64) (SubscriptionRecord, error) {
 	var s SubscriptionRecord

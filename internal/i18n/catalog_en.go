@@ -73,6 +73,7 @@ var en = map[string]string{
 	"subscribe.subscribeFailed":         "subscription failed",
 	"subscribe.badProductID":            "bad product id",
 	"subscribe.unsubscribeFailed":       "unsubscribe failed",
+	"subscribe.deleteApplicationFailed": "failed to delete the application",
 	"subscribe.credentialLoadFailed":    "failed to load credential",
 	"subscribe.subscriptionsLoadFailed": "failed to load subscriptions",
 	"subscribe.noKeyToRotate":           "no key to rotate — subscribe and get approved first",

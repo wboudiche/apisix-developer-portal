@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { getApplications, getApplicationDetail, getPlans, createApplication, unsubscribe } from '../../api/client'
+import { getApplications, getApplicationDetail, getPlans, createApplication, unsubscribe, deleteApplication } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { TopBar } from '../../components/TopBar'
 import type { Application, AppDetail, Plan } from '../../api/types'
@@ -104,6 +104,26 @@ export function AppDetailPage() {
     })
   }
 
+  function onDeleteApp() {
+    if (!app) return
+    setModal({
+      title: t('app.deleteConfirmTitle', { name: app.name }),
+      body: t('app.deleteConfirmBody'),
+      confirmLabel: t('app.deleteConfirmAction'), danger: true,
+      onConfirm: () => {
+        if (!token) return
+        deleteApplication(token, appId)
+          .then(async () => {
+            notify(t('app.appDeletedNotify'))
+            const next = await getApplications(token)
+            setApps(next.items)
+            nav('/applications')
+          })
+          .catch(() => notify(t('app.deleteAppFailed')))
+      },
+    })
+  }
+
   async function onCreateApp(name: string) {
     if (!token) return
     const a = await createApplication(token, name, '')
@@ -192,7 +212,7 @@ export function AppDetailPage() {
             )}
             {tab === 'subs' && <SubscriptionsTab subs={subs} plans={plans} onResiliate={onResiliate} />}
             {tab === 'usage' && <UsageTab token={token} appId={appId} />}
-            {tab === 'settings' && <SettingsTab app={app} notify={notify} openModal={setModal} />}
+            {tab === 'settings' && <SettingsTab app={app} notify={notify} onDeleteApp={onDeleteApp} />}
           </>
         )}
       </div>

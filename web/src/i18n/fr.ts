@@ -260,7 +260,8 @@ export const fr = {
     deleteConfirmTitle: 'Supprimer « {name} » ?',
     deleteConfirmAction: 'Supprimer définitivement',
     deleteConfirmBody: 'Toutes les clés seront révoquées et les abonnements résiliés dans APISIX. Cette action est irréversible.',
-    appDeletedNotify: 'Application supprimée (démo)',
+    appDeletedNotify: 'Application supprimée',
+    deleteAppFailed: "Échec de la suppression de l'application.",
     deleteAppButton: "Supprimer l'application",
     // UsageCards
     statToday: "Requêtes · aujourd'hui",

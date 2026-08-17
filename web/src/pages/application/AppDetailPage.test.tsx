@@ -115,6 +115,32 @@ describe('AppDetailPage', () => {
     await waitFor(() => expect(unsub).toHaveBeenCalledWith('jwt', 1, 9))
     expect(api.getApplicationDetail).toHaveBeenCalledTimes(2)
   })
+  it('delete flow: modal → confirm → api → navigate to the applications list', async () => {
+    const del = vi.spyOn(api, 'deleteApplication').mockResolvedValue(undefined)
+    renderAt('/applications/1')
+    await screen.findByRole('heading', { level: 1, name: /Boutique Mobile/ })
+    // The Settings tab button shares its label with an unrelated shortcut
+    // button elsewhere on the page — scope to the tab bar to disambiguate.
+    await userEvent.click(within(document.querySelector('.tabs')!).getByRole('button', { name: /Paramètres/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Supprimer l'application/ }))
+    expect(screen.getByText(/Supprimer « Boutique Mobile »/)).toBeInTheDocument()
+    const dialog = screen.getByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Supprimer définitivement' }))
+    await waitFor(() => expect(del).toHaveBeenCalledWith('jwt', 1))
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Applications' })).toBeInTheDocument())
+  })
+  it('delete failure shows an error toast and stays on the page', async () => {
+    const del = vi.spyOn(api, 'deleteApplication').mockRejectedValue(new Error('boom'))
+    renderAt('/applications/1')
+    await screen.findByRole('heading', { level: 1, name: /Boutique Mobile/ })
+    await userEvent.click(within(document.querySelector('.tabs')!).getByRole('button', { name: /Paramètres/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Supprimer l'application/ }))
+    const dialog = screen.getByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Supprimer définitivement' }))
+    await waitFor(() => expect(del).toHaveBeenCalled())
+    expect(await screen.findByText("Échec de la suppression de l'application.")).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /Boutique Mobile/ })).toBeInTheDocument()
+  })
   it('create app from switcher navigates to the new app', async () => {
     const created: Application = { id: 7, ownerId: 1, name: 'Nouvelle', description: '', createdAt: '2026-06-05T00:00:00Z' }
     vi.spyOn(api, 'createApplication').mockResolvedValue(created)

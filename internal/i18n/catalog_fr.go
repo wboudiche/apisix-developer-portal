@@ -74,6 +74,7 @@ var fr = map[string]string{
 	"subscribe.subscribeFailed":         "échec de l'abonnement",
 	"subscribe.badProductID":            "identifiant de produit invalide",
 	"subscribe.unsubscribeFailed":       "échec du désabonnement",
+	"subscribe.deleteApplicationFailed": "échec de la suppression de l'application",
 	"subscribe.credentialLoadFailed":    "impossible de charger les identifiants",
 	"subscribe.subscriptionsLoadFailed": "impossible de charger les abonnements",
 	"subscribe.noKeyToRotate":           "aucune clé à faire tourner — abonnez-vous et attendez d'abord l'approbation",

@@ -223,6 +223,15 @@ export async function unsubscribe(token: string, appId: number, productId: numbe
   }
 }
 
+export async function deleteApplication(token: string, appId: number): Promise<void> {
+  const url = `/api/applications/${appId}`
+  const res = await fetch(url, { method: 'DELETE', headers: langHeaders(token) })
+  if (!res.ok) {
+    handle401(res.status, url)
+    throw new ApiError(`delete application failed (${res.status})`, res.status)
+  }
+}
+
 async function sendAuthed(method: string, url: string, token: string, body?: unknown): Promise<void> {
   const res = await fetch(url, {
     method,

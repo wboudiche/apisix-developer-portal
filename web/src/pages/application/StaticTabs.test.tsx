@@ -7,7 +7,6 @@ import { UsageTab } from './UsageTab'
 import { SettingsTab } from './SettingsTab'
 import { LanguageProvider } from '../../i18n/LanguageProvider'
 import type { AppDetail, Application, Usage } from '../../api/types'
-import type { ModalSpec } from '../../components/ConfirmModal'
 
 function renderT(ui: ReactElement) {
   return render(<LanguageProvider>{ui}</LanguageProvider>)
@@ -80,26 +79,23 @@ describe('UsageTab', () => {
 describe('SettingsTab', () => {
   it('prefills real name/description and saving shows the demo toast', async () => {
     const notify = vi.fn()
-    renderT(<SettingsTab app={app} notify={notify} openModal={() => {}} />)
+    renderT(<SettingsTab app={app} notify={notify} onDeleteApp={() => {}} />)
     expect(screen.getByLabelText("Nom de l'application")).toHaveValue('Boutique Mobile')
     expect(screen.getByLabelText('Description')).toHaveValue('desc app')
     await userEvent.click(screen.getByRole('button', { name: /Enregistrer/ }))
     expect(notify).toHaveBeenCalledWith('Modifications enregistrées (démo)')
   })
   it('resyncs the form when a different app is shown (switcher navigation)', () => {
-    const { rerender } = renderT(<SettingsTab app={app} notify={() => {}} openModal={() => {}} />)
+    const { rerender } = renderT(<SettingsTab app={app} notify={() => {}} onDeleteApp={() => {}} />)
     const app2: Application = { ...app, id: 5, name: 'Autre App', description: 'autre desc' }
-    rerender(<LanguageProvider><SettingsTab app={app2} notify={() => {}} openModal={() => {}} /></LanguageProvider>)
+    rerender(<LanguageProvider><SettingsTab app={app2} notify={() => {}} onDeleteApp={() => {}} /></LanguageProvider>)
     expect(screen.getByLabelText("Nom de l'application")).toHaveValue('Autre App')
     expect(screen.getByLabelText('Description')).toHaveValue('autre desc')
   })
-  it('delete app goes through the danger modal then demo toast', async () => {
-    const notify = vi.fn()
-    let lastModal: ModalSpec | null = null
-    renderT(<SettingsTab app={app} notify={notify} openModal={s => { lastModal = s }} />)
+  it('delete button delegates to the parent-provided handler', async () => {
+    const onDeleteApp = vi.fn()
+    renderT(<SettingsTab app={app} notify={() => {}} onDeleteApp={onDeleteApp} />)
     await userEvent.click(screen.getByRole('button', { name: /Supprimer l'application/ }))
-    expect(lastModal!.danger).toBe(true)
-    lastModal!.onConfirm()
-    expect(notify).toHaveBeenCalledWith('Application supprimée (démo)')
+    expect(onDeleteApp).toHaveBeenCalledTimes(1)
   })
 })

@@ -79,6 +79,7 @@ type Handler struct {
 func NewHandler(svc *Service, reader Reader, eventReader EventReader, owns OwnerCheck, sandboxGatewayURL func() string) *Handler {
 	h := &Handler{svc: svc, reader: reader, events: eventReader, owns: owns, router: chi.NewRouter(), sandboxGatewayURL: sandboxGatewayURL}
 	h.router.Get("/api/applications/{appID}", h.detail)
+	h.router.Delete("/api/applications/{appID}", h.deleteApplication)
 	h.router.Get("/api/applications/{appID}/usage", h.usageHandler)
 	h.router.Get("/api/applications/{appID}/quota", h.quotaHandler)
 	h.router.Post("/api/applications/{appID}/subscriptions", h.subscribe)
@@ -185,6 +186,19 @@ func (h *Handler) unsubscribe(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.Unsubscribe(r.Context(), appID, productID); err != nil {
 		log.Printf("unsubscribe failed (app=%d product=%d): %v", appID, productID, err)
 		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.unsubscribeFailed")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) deleteApplication(w http.ResponseWriter, r *http.Request) {
+	appID, ok := h.authorize(w, r)
+	if !ok {
+		return
+	}
+	if err := h.svc.DeleteApplication(r.Context(), appID); err != nil {
+		log.Printf("delete application failed (app=%d): %v", appID, err)
+		httpx.ErrorT(w, r, http.StatusInternalServerError, "subscribe.deleteApplicationFailed")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

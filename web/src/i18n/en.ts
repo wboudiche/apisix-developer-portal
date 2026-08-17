@@ -261,7 +261,8 @@ export const en: Messages = {
     deleteConfirmTitle: 'Delete "{name}"?',
     deleteConfirmAction: 'Delete permanently',
     deleteConfirmBody: 'All keys will be revoked and subscriptions cancelled in APISIX. This action is irreversible.',
-    appDeletedNotify: 'Application deleted (demo)',
+    appDeletedNotify: 'Application deleted',
+    deleteAppFailed: 'Failed to delete the application.',
     deleteAppButton: 'Delete application',
     // UsageCards
     statToday: 'Requests · today',

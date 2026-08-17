@@ -139,6 +139,40 @@ func TestUnsubscribeEndpoint(t *testing.T) {
 	}
 }
 
+func TestDeleteApplicationEndpoint(t *testing.T) {
+	h, gw := newTestHandler()
+	// Subscribe + approve so app 1 has a real consumer to delete.
+	sub := httptest.NewRequest(http.MethodPost, "/api/applications/1/subscriptions", strings.NewReader(`{"productId":3,"planId":2}`))
+	h.ServeHTTP(httptest.NewRecorder(), sub.WithContext(auth.WithUserID(sub.Context(), 5)))
+	if err := h.svc.Approve(context.Background(), h.svc.store.(*memStore).findRecord(1, 3).ID); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+	if _, ok := gw.Consumers["app_1"]; !ok {
+		t.Fatal("setup: app_1 consumer should exist before delete")
+	}
+
+	del := httptest.NewRequest(http.MethodDelete, "/api/applications/1", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, del.WithContext(auth.WithUserID(del.Context(), 5)))
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status=%d body=%s want 204", rec.Code, rec.Body)
+	}
+	if _, ok := gw.Consumers["app_1"]; ok {
+		t.Error("app_1 consumer still present on the gateway after delete")
+	}
+}
+
+func TestDeleteApplicationEndpointRejectsNonOwner(t *testing.T) {
+	h, _ := newTestHandler()
+	req := httptest.NewRequest(http.MethodDelete, "/api/applications/1", nil)
+	req = req.WithContext(auth.WithUserID(req.Context(), 999))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status=%d want 403", rec.Code)
+	}
+}
+
 func TestAppDetailReturnsKeyAndSubscriptions(t *testing.T) {
 	h, _ := newTestHandler()
 	req := httptest.NewRequest(http.MethodGet, "/api/applications/1", nil)

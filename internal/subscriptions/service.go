@@ -147,6 +147,12 @@ type Store interface {
 	// SetAppOIDCClientID persists the OIDC client id for the app (ErrNotFound when
 	// no app row).
 	SetAppOIDCClientID(ctx context.Context, appID int64, clientID string) error
+	// SubscriptionsForApp lists an application's subscriptions (used by
+	// DeleteApplication to deprovision every product route it touches).
+	SubscriptionsForApp(ctx context.Context, appID int64) ([]SubscriptionView, error)
+	// DeleteApplication removes the application row (and, via cascade, its
+	// credential and any remaining subscriptions/events).
+	DeleteApplication(ctx context.Context, appID int64) error
 }
 
 func consumerName(appID int64) string { return fmt.Sprintf("app_%d", appID) }
@@ -443,6 +449,49 @@ func (s *Service) Unsubscribe(ctx context.Context, appID, productID int64) error
 		return err
 	}
 	return s.reprovisionSandboxRoute(ctx, productID)
+}
+
+// DeleteApplication permanently removes an application: cancels every
+// subscription first (deprovisioning each affected product's route, same as
+// Unsubscribe), removes the APISIX consumer(s) — production and, if the app
+// ever enabled it, sandbox — then deletes the application row. Credentials,
+// remaining subscriptions and activity events cascade with it in Postgres;
+// invoices are preserved (their subscription_id is set NULL, not cascaded).
+func (s *Service) DeleteApplication(ctx context.Context, appID int64) error {
+	subs, err := s.store.SubscriptionsForApp(ctx, appID)
+	if err != nil {
+		return err
+	}
+	for _, sub := range subs {
+		if err := s.Unsubscribe(ctx, appID, sub.ProductID); err != nil {
+			return err
+		}
+	}
+
+	cred, err := s.store.GetCredential(ctx, appID)
+	switch {
+	case errors.Is(err, ErrNotFound):
+		// No key-auth subscription was ever made, so no consumer exists.
+	case err != nil:
+		return err
+	default:
+		if err := s.gw.DeleteConsumer(ctx, cred.ConsumerUsername); err != nil {
+			return err
+		}
+		if s.sandboxEnabled() {
+			sk, err := s.store.GetSandboxKey(ctx, appID)
+			if err != nil {
+				return err
+			}
+			if sk != "" {
+				if err := s.sandboxGW.DeleteConsumer(ctx, cred.ConsumerUsername); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return s.store.DeleteApplication(ctx, appID)
 }
 
 // Approve activates a pending subscription: it provisions the application's

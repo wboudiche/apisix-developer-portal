@@ -264,6 +264,26 @@ func (m *memStore) SetAppOIDCClientID(_ context.Context, appID int64, clientID s
 	m.oidcClientIDs[appID] = clientID
 	return nil
 }
+func (m *memStore) SubscriptionsForApp(_ context.Context, appID int64) ([]SubscriptionView, error) {
+	var out []SubscriptionView
+	for _, r := range m.records {
+		if r.AppID == appID {
+			out = append(out, SubscriptionView{ProductID: r.ProductID, PlanID: r.PlanID, Status: r.Status})
+		}
+	}
+	return out, nil
+}
+func (m *memStore) DeleteApplication(_ context.Context, appID int64) error {
+	for id, r := range m.records {
+		if r.AppID == appID {
+			delete(m.records, id)
+		}
+	}
+	delete(m.creds, appID)
+	delete(m.sandboxKeys, appID)
+	delete(m.oidcClientIDs, appID)
+	return nil
+}
 
 type fakeNotifier struct{ requested, approved, rejected int }
 
@@ -506,6 +526,76 @@ func TestUnsubscribeRemovesFromWhitelist(t *testing.T) {
 	r := gw.Routes["prod_3"]
 	if len(r.Allowed) != 1 || r.Allowed[0] != "app_43" {
 		t.Fatalf("whitelist after unsubscribe: %+v", r.Allowed)
+	}
+}
+
+func TestDeleteApplicationRemovesConsumerAndRoute(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	gw := apisix.NewFake()
+	svc := NewService(store, gw, nil, func() string { return "k" }, nil)
+	_, _ = svc.Subscribe(ctx, 42, 3, 2)
+	_, _ = svc.Subscribe(ctx, 43, 3, 2)
+	if err := svc.Approve(ctx, store.findRecord(42, 3).ID); err != nil {
+		t.Fatalf("approve 42: %v", err)
+	}
+	if err := svc.Approve(ctx, store.findRecord(43, 3).ID); err != nil {
+		t.Fatalf("approve 43: %v", err)
+	}
+	if _, ok := gw.Consumers["app_42"]; !ok {
+		t.Fatal("setup: app_42 consumer should exist before delete")
+	}
+
+	if err := svc.DeleteApplication(ctx, 42); err != nil {
+		t.Fatalf("DeleteApplication: %v", err)
+	}
+
+	if _, ok := gw.Consumers["app_42"]; ok {
+		t.Error("app_42 consumer still present on the gateway after delete")
+	}
+	r := gw.Routes["prod_3"]
+	if len(r.Allowed) != 1 || r.Allowed[0] != "app_43" {
+		t.Fatalf("whitelist after delete: %+v (app_43's subscription must be untouched)", r.Allowed)
+	}
+	if _, err := store.GetCredential(ctx, 42); !errors.Is(err, ErrNotFound) {
+		t.Errorf("credential for app 42 should be gone, got err=%v", err)
+	}
+	subs, err := store.SubscriptionsForApp(ctx, 42)
+	if err != nil || len(subs) != 0 {
+		t.Errorf("SubscriptionsForApp(42) = %+v, %v; want empty", subs, err)
+	}
+}
+
+func TestDeleteApplicationRemovesSandboxConsumer(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	store.creds[42] = Credential{ApplicationID: 42, APIKey: "prodkey", ConsumerUsername: "app_42"}
+	store.sandboxKeys[42] = "sbkey"
+	prodGW, sbGW := apisix.NewFake(), apisix.NewFake()
+	_ = prodGW.EnsureConsumer(ctx, "app_42", "prodkey", apisix.RateLimit{})
+	_ = sbGW.EnsureConsumer(ctx, "app_42", "sbkey", apisix.RateLimit{})
+	svc := NewService(store, prodGW, sbGW, func() string { return "k" }, nil)
+
+	if err := svc.DeleteApplication(ctx, 42); err != nil {
+		t.Fatalf("DeleteApplication: %v", err)
+	}
+	if _, ok := prodGW.Consumers["app_42"]; ok {
+		t.Error("production consumer app_42 still present after delete")
+	}
+	if _, ok := sbGW.Consumers["app_42"]; ok {
+		t.Error("sandbox consumer app_42 still present after delete")
+	}
+}
+
+// DeleteApplication must not fail an app that never subscribed to anything —
+// no credential was ever created, so there is no consumer to remove.
+func TestDeleteApplicationNoCredentialNoop(t *testing.T) {
+	ctx := context.Background()
+	store := newMemStore()
+	svc := NewService(store, apisix.NewFake(), apisix.NewFake(), func() string { return "k" }, nil)
+
+	if err := svc.DeleteApplication(ctx, 99); err != nil {
+		t.Fatalf("DeleteApplication on a credential-less app: %v", err)
 	}
 }
 
