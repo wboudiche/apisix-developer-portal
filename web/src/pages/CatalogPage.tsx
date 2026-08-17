@@ -66,7 +66,7 @@ export function CatalogPage() {
   return (
     <>
       <TopBar search={search} onSearch={setSearch} onMenu={() => setRailOpen(o => !o)} />
-      <div className="layout">
+      <div className={`layout${railOpen ? '' : ' rail-closed'}`}>
         <CategoryRail categories={categories} active={category} onPick={setCategory} tags={tags} activeTag={tag} onPickTag={setTag} open={railOpen} onClose={() => setRailOpen(false)} />
         {railOpen && <div className="rail-scrim" onClick={() => setRailOpen(false)} aria-hidden="true" />}
         <main className="content">

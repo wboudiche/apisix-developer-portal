@@ -115,7 +115,13 @@
 .hamb{display:grid}
 
 /* ===================== LAYOUT ===================== */
+/* .rail.closed is display:none, so the grid must drop its track too — a
+   fixed two-column template would otherwise still reserve --rail-w and
+   place .content into it (grid auto-placement takes the first free track),
+   squeezing the whole catalog into a narrow column with the freed space
+   left empty. */
 .layout{display:grid;grid-template-columns:var(--rail-w) 1fr;min-height:calc(100vh - var(--topbar-h))}
+.layout.rail-closed{grid-template-columns:1fr}
 
 /* ===================== SIDEBAR ===================== */
 .rail{
