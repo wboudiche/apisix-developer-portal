@@ -262,18 +262,19 @@ func (s *Service) ReprovisionRoute(ctx context.Context, productID int64) error {
 	return s.reprovisionRoute(ctx, productID)
 }
 
-// HasOAuthReadyConsumer reports whether at least one of productID's active
-// subscribers has registered an OIDC client id. admin.Service.Update uses this
-// to refuse an auth-type migration to oauth2 that would otherwise leave
-// reprovisionRoute's allowed-consumer list empty and silently delete the route
-// out from under subscribers who joined under the product's previous auth
-// method and haven't configured OAuth2 credentials yet.
-func (s *Service) HasOAuthReadyConsumer(ctx context.Context, productID int64) (bool, error) {
+// OAuthReadyConsumerCount reports how many of productID's active subscribers
+// have registered an OIDC client id. admin.Service.Update compares this
+// against the total active-subscriber count to refuse an auth-type migration
+// to oauth2 that would otherwise leave reprovisionRoute's allowed-consumer
+// list missing some (or, if none are ready, all) of the subscribers who
+// joined under the product's previous auth method and haven't configured
+// OAuth2 credentials yet.
+func (s *Service) OAuthReadyConsumerCount(ctx context.Context, productID int64) (int, error) {
 	clients, err := s.store.OAuthClientsForProduct(ctx, productID)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
-	return len(clients) > 0, nil
+	return len(clients), nil
 }
 
 // reprovisionRoute rebuilds the product route whitelist from the currently active

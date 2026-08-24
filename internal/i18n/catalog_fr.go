@@ -109,7 +109,7 @@ var fr = map[string]string{
 	"admin.product.deleteFailed":          "impossible de supprimer le produit",
 	"admin.product.hasSubscriptions":      "le produit a des abonnements actifs",
 	"admin.product.oauthNotConfigured":    "OAuth2 n'est pas configuré sur ce portail",
-	"admin.product.oauthMigrationBlocked": "impossible de passer à OAuth2 : aucun abonné actif n'a encore enregistré d'identifiant client OIDC — la route perdrait tout accès. Faites-le d'abord enregistrer un identifiant client, ou contactez-nous avant de migrer.",
+	"admin.product.oauthMigrationBlocked": "impossible de passer à OAuth2 : tous les abonnés actifs n'ont pas encore enregistré d'identifiant client OIDC — ils perdraient l'accès. Faites-le leur enregistrer un identifiant client, ou contactez-nous avant de migrer.",
 	"admin.product.badOpenapiSpec":        "openapiSpec n'est pas un document OpenAPI 3.x / Swagger 2.0 valide",
 	"admin.product.slugRequired":          "le slug est requis",
 	"admin.product.categoryRequired":      "la catégorie est requise",

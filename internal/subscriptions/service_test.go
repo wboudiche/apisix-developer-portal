@@ -935,28 +935,29 @@ func TestSetOIDCClientIDRejectsBadCharset(t *testing.T) {
 	}
 }
 
-// TestHasOAuthReadyConsumer covers the readiness check admin.Update uses to block
-// an auth-type migration to oauth2 that would otherwise silently delete the route
-// out from under subscribers who haven't registered an OIDC client id yet (#8).
-func TestHasOAuthReadyConsumer(t *testing.T) {
+// TestOAuthReadyConsumerCount covers the readiness check admin.Update uses to
+// block an auth-type migration to oauth2 that would otherwise strand — or, if
+// none are ready, silently delete the route out from under — subscribers who
+// haven't registered an OIDC client id yet (#8).
+func TestOAuthReadyConsumerCount(t *testing.T) {
 	store := newMemStore()
 	svc := NewService(store, apisix.NewFake(), nil, func() string { return "k" }, nil)
 
-	ready, err := svc.HasOAuthReadyConsumer(context.Background(), 9)
+	n, err := svc.OAuthReadyConsumerCount(context.Background(), 9)
 	if err != nil {
-		t.Fatalf("HasOAuthReadyConsumer: %v", err)
+		t.Fatalf("OAuthReadyConsumerCount: %v", err)
 	}
-	if ready {
-		t.Fatal("expected not ready when no active subscriber has an oidc client id")
+	if n != 0 {
+		t.Fatalf("expected 0 ready when no active subscriber has an oidc client id, got %d", n)
 	}
 
-	store.oauthWhitelist[9] = []string{"client-a"}
-	ready, err = svc.HasOAuthReadyConsumer(context.Background(), 9)
+	store.oauthWhitelist[9] = []string{"client-a", "client-b"}
+	n, err = svc.OAuthReadyConsumerCount(context.Background(), 9)
 	if err != nil {
-		t.Fatalf("HasOAuthReadyConsumer: %v", err)
+		t.Fatalf("OAuthReadyConsumerCount: %v", err)
 	}
-	if !ready {
-		t.Fatal("expected ready once an active subscriber has an oidc client id")
+	if n != 2 {
+		t.Fatalf("expected 2 ready once 2 active subscribers have an oidc client id, got %d", n)
 	}
 }
 

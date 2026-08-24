@@ -14,10 +14,12 @@ import (
 var ErrHasSubscriptions = errors.New("admin: product has active subscriptions")
 
 // ErrOAuthMigrationBlocked is returned when switching a product's auth method
-// to oauth2 would leave its active subscribers with no eligible consumer
-// (none has registered an OIDC client id yet), which would otherwise cause
-// the route to be silently deleted on reprovision (see reprovisionRoute).
-var ErrOAuthMigrationBlocked = errors.New("admin: cannot switch to oauth2 while active subscribers have no OIDC client id registered")
+// to oauth2 would leave one or more of its active subscribers without an
+// eligible consumer (they haven't registered an OIDC client id yet), which
+// would otherwise cause reprovisioning to either drop them from the route's
+// whitelist silently, or — if none are eligible — delete the route outright
+// (see reprovisionRoute).
+var ErrOAuthMigrationBlocked = errors.New("admin: cannot switch to oauth2 until every active subscriber has an OIDC client id registered")
 
 // Store is the persistence surface the service needs (satisfied by *Repo).
 type Store interface {
@@ -41,7 +43,9 @@ type Provisioner interface {
 	ReprovisionRoute(ctx context.Context, productID int64) error
 	ReprovisionSandboxRoute(ctx context.Context, productID int64) error
 	DeprovisionRoute(ctx context.Context, productID int64) error
-	HasOAuthReadyConsumer(ctx context.Context, productID int64) (bool, error)
+	// OAuthReadyConsumerCount returns how many of productID's active
+	// subscribers have registered an OIDC client id.
+	OAuthReadyConsumerCount(ctx context.Context, productID int64) (int, error)
 }
 
 // Service applies admin product operations and keeps APISIX in sync.
@@ -88,24 +92,41 @@ func (s *Service) Update(ctx context.Context, p Product) (Product, error) {
 			return Product{}, ErrContextPathTaken
 		}
 	}
+	// activeCount is loaded at most once and reused below by both the oauth2
+	// migration guard and the reprovision decision, so a single Update never
+	// issues the same COUNT query twice.
+	var activeCount int
+	var activeCountLoaded bool
+	loadActiveCount := func() (int, error) {
+		if !activeCountLoaded {
+			n, err := s.store.CountActiveSubscriptions(ctx, p.ID)
+			if err != nil {
+				return 0, err
+			}
+			activeCount, activeCountLoaded = n, true
+		}
+		return activeCount, nil
+	}
 	if p.AuthType == "oauth2" && old.AuthType != "oauth2" {
 		// Migrating an in-use product to oauth2 reprovisions the route with only
-		// its OIDC-registered subscribers as the allowed whitelist. If none of
-		// the existing (e.g. key-auth) subscribers have registered a client id
-		// yet, that whitelist is empty and reprovisioning deletes the route
-		// outright (see subscriptions.reprovisionRoute) — a silent outage for
-		// every active subscriber. Refuse the change before it's persisted, so
-		// the product and the route it serves never disagree about auth_type.
-		n, err := s.store.CountActiveSubscriptions(ctx, p.ID)
+		// its OIDC-registered subscribers as the allowed whitelist. Any active
+		// subscriber (e.g. still on key-auth) who hasn't registered a client id
+		// yet would be silently dropped from that whitelist — or, if none are
+		// ready, the whole route is deleted outright (see reprovisionRoute).
+		// Refuse the change before it's persisted unless EVERY active
+		// subscriber is already OAuth2-ready, so the migration never strands
+		// any of them, and the product and its route never disagree about
+		// auth_type.
+		n, err := loadActiveCount()
 		if err != nil {
 			return Product{}, err
 		}
 		if n > 0 {
-			ready, err := s.prov.HasOAuthReadyConsumer(ctx, p.ID)
+			ready, err := s.prov.OAuthReadyConsumerCount(ctx, p.ID)
 			if err != nil {
 				return Product{}, err
 			}
-			if !ready {
+			if ready < n {
 				return Product{}, ErrOAuthMigrationBlocked
 			}
 		}
@@ -120,7 +141,7 @@ func (s *Service) Update(ctx context.Context, p Product) (Product, error) {
 		}
 	}
 	if updated.UpstreamURL != old.UpstreamURL || updated.AuthType != old.AuthType {
-		n, err := s.store.CountActiveSubscriptions(ctx, p.ID)
+		n, err := loadActiveCount()
 		if err != nil {
 			return Product{}, err
 		}
