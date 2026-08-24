@@ -179,6 +179,10 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 		httpx.ErrorT(w, r, http.StatusConflict, "admin.product.contextPathTaken")
 		return
 	}
+	if errors.Is(err, ErrOAuthMigrationBlocked) {
+		httpx.ErrorT(w, r, http.StatusConflict, "admin.product.oauthMigrationBlocked")
+		return
+	}
 	if err != nil {
 		log.Printf("admin update product %d: %v", id, err)
 		httpx.ErrorT(w, r, http.StatusInternalServerError, "admin.product.updateFailed")

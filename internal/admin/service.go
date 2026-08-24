@@ -13,6 +13,12 @@ import (
 // still has active subscriptions.
 var ErrHasSubscriptions = errors.New("admin: product has active subscriptions")
 
+// ErrOAuthMigrationBlocked is returned when switching a product's auth method
+// to oauth2 would leave its active subscribers with no eligible consumer
+// (none has registered an OIDC client id yet), which would otherwise cause
+// the route to be silently deleted on reprovision (see reprovisionRoute).
+var ErrOAuthMigrationBlocked = errors.New("admin: cannot switch to oauth2 while active subscribers have no OIDC client id registered")
+
 // Store is the persistence surface the service needs (satisfied by *Repo).
 type Store interface {
 	ListAll(ctx context.Context, p paging.Params) ([]Product, int, error)
@@ -35,6 +41,7 @@ type Provisioner interface {
 	ReprovisionRoute(ctx context.Context, productID int64) error
 	ReprovisionSandboxRoute(ctx context.Context, productID int64) error
 	DeprovisionRoute(ctx context.Context, productID int64) error
+	HasOAuthReadyConsumer(ctx context.Context, productID int64) (bool, error)
 }
 
 // Service applies admin product operations and keeps APISIX in sync.
@@ -79,6 +86,28 @@ func (s *Service) Update(ctx context.Context, p Product) (Product, error) {
 		}
 		if overlaps {
 			return Product{}, ErrContextPathTaken
+		}
+	}
+	if p.AuthType == "oauth2" && old.AuthType != "oauth2" {
+		// Migrating an in-use product to oauth2 reprovisions the route with only
+		// its OIDC-registered subscribers as the allowed whitelist. If none of
+		// the existing (e.g. key-auth) subscribers have registered a client id
+		// yet, that whitelist is empty and reprovisioning deletes the route
+		// outright (see subscriptions.reprovisionRoute) — a silent outage for
+		// every active subscriber. Refuse the change before it's persisted, so
+		// the product and the route it serves never disagree about auth_type.
+		n, err := s.store.CountActiveSubscriptions(ctx, p.ID)
+		if err != nil {
+			return Product{}, err
+		}
+		if n > 0 {
+			ready, err := s.prov.HasOAuthReadyConsumer(ctx, p.ID)
+			if err != nil {
+				return Product{}, err
+			}
+			if !ready {
+				return Product{}, ErrOAuthMigrationBlocked
+			}
 		}
 	}
 	updated, err := s.store.Update(ctx, p)

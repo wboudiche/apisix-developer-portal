@@ -99,6 +99,7 @@ type fakeProv struct {
 	reprovisioned        []int64
 	deprovisioned        []int64
 	sandboxReprovisioned []int64
+	oauthReady           map[int64]bool
 }
 
 func (f *fakeProv) ReprovisionRoute(_ context.Context, id int64) error {
@@ -112,6 +113,9 @@ func (f *fakeProv) ReprovisionSandboxRoute(_ context.Context, id int64) error {
 func (f *fakeProv) DeprovisionRoute(_ context.Context, id int64) error {
 	f.deprovisioned = append(f.deprovisioned, id)
 	return nil
+}
+func (f *fakeProv) HasOAuthReadyConsumer(_ context.Context, id int64) (bool, error) {
+	return f.oauthReady[id], nil
 }
 
 func TestUpdateReprovisionsWhenUpstreamChangesAndHasSubs(t *testing.T) {
@@ -272,7 +276,7 @@ func TestUpdateReprovisionsWhenAuthTypeChangesAndHasSubs(t *testing.T) {
 	store := newFakeStore()
 	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p", UpstreamURL: "api:8080", AuthType: "key-auth"}
 	store.counts[1] = 3
-	prov := &fakeProv{}
+	prov := &fakeProv{oauthReady: map[int64]bool{1: true}}
 	svc := NewService(store, prov)
 
 	updated := store.products[1]
@@ -282,6 +286,71 @@ func TestUpdateReprovisionsWhenAuthTypeChangesAndHasSubs(t *testing.T) {
 	}
 	if len(prov.reprovisioned) != 1 || prov.reprovisioned[0] != 1 {
 		t.Fatalf("expected reprovision of product 1 on auth_type change, got %v", prov.reprovisioned)
+	}
+}
+
+// TestUpdateBlocksOAuthMigrationWithoutReadyConsumer is a regression test for #8:
+// switching an in-use product from key-auth to oauth2 while its active
+// subscribers have no OIDC client id registered must NOT silently reprovision
+// (and thereby delete) the route. It must fail loudly instead.
+func TestUpdateBlocksOAuthMigrationWithoutReadyConsumer(t *testing.T) {
+	store := newFakeStore()
+	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p", UpstreamURL: "api:8080", AuthType: "key-auth"}
+	store.counts[1] = 3 // 3 active key-auth subscribers, none migrated to OAuth2 yet
+	prov := &fakeProv{} // oauthReady left empty: nobody is OAuth2-ready
+	svc := NewService(store, prov)
+
+	updated := store.products[1]
+	updated.AuthType = "oauth2"
+	_, err := svc.Update(context.Background(), updated)
+	if !errors.Is(err, ErrOAuthMigrationBlocked) {
+		t.Fatalf("err = %v, want ErrOAuthMigrationBlocked", err)
+	}
+	if len(prov.reprovisioned) != 0 {
+		t.Fatalf("must not reprovision (would delete the route), got %v", prov.reprovisioned)
+	}
+	if store.products[1].AuthType != "key-auth" {
+		t.Fatalf("product auth_type must not be persisted when the migration is blocked, got %q", store.products[1].AuthType)
+	}
+}
+
+// TestUpdateAllowsOAuthMigrationWhenSubscriberIsReady ensures the guard added for
+// #8 doesn't over-block: once at least one active subscriber has registered an
+// OIDC client id, the migration proceeds and reprovisions normally.
+func TestUpdateAllowsOAuthMigrationWhenSubscriberIsReady(t *testing.T) {
+	store := newFakeStore()
+	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p", UpstreamURL: "api:8080", AuthType: "key-auth"}
+	store.counts[1] = 3
+	prov := &fakeProv{oauthReady: map[int64]bool{1: true}}
+	svc := NewService(store, prov)
+
+	updated := store.products[1]
+	updated.AuthType = "oauth2"
+	if _, err := svc.Update(context.Background(), updated); err != nil {
+		t.Fatalf("expected migration to proceed, got %v", err)
+	}
+	if len(prov.reprovisioned) != 1 || prov.reprovisioned[0] != 1 {
+		t.Fatalf("expected reprovision of product 1, got %v", prov.reprovisioned)
+	}
+}
+
+// TestUpdateNoOAuthGuardWhenNoActiveSubs ensures the new readiness check is only
+// consulted when there are active subscriptions to protect; a product with none
+// can freely switch to oauth2 (nothing to silently break).
+func TestUpdateNoOAuthGuardWhenNoActiveSubs(t *testing.T) {
+	store := newFakeStore()
+	store.products[1] = Product{ID: 1, Name: "P", Slug: "p", Category: "C", ContextPath: "/p", UpstreamURL: "api:8080", AuthType: "key-auth"}
+	store.counts[1] = 0
+	prov := &fakeProv{} // oauthReady left empty; must not matter since there are no subs
+	svc := NewService(store, prov)
+
+	updated := store.products[1]
+	updated.AuthType = "oauth2"
+	if _, err := svc.Update(context.Background(), updated); err != nil {
+		t.Fatalf("expected no error with zero active subs, got %v", err)
+	}
+	if len(prov.reprovisioned) != 0 {
+		t.Fatalf("expected no reprovision (no active subs), got %v", prov.reprovisioned)
 	}
 }
 

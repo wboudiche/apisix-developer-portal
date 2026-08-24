@@ -935,6 +935,31 @@ func TestSetOIDCClientIDRejectsBadCharset(t *testing.T) {
 	}
 }
 
+// TestHasOAuthReadyConsumer covers the readiness check admin.Update uses to block
+// an auth-type migration to oauth2 that would otherwise silently delete the route
+// out from under subscribers who haven't registered an OIDC client id yet (#8).
+func TestHasOAuthReadyConsumer(t *testing.T) {
+	store := newMemStore()
+	svc := NewService(store, apisix.NewFake(), nil, func() string { return "k" }, nil)
+
+	ready, err := svc.HasOAuthReadyConsumer(context.Background(), 9)
+	if err != nil {
+		t.Fatalf("HasOAuthReadyConsumer: %v", err)
+	}
+	if ready {
+		t.Fatal("expected not ready when no active subscriber has an oidc client id")
+	}
+
+	store.oauthWhitelist[9] = []string{"client-a"}
+	ready, err = svc.HasOAuthReadyConsumer(context.Background(), 9)
+	if err != nil {
+		t.Fatalf("HasOAuthReadyConsumer: %v", err)
+	}
+	if !ready {
+		t.Fatal("expected ready once an active subscriber has an oidc client id")
+	}
+}
+
 // TestReprovisionOAuth2EmptyClientIDDoesNotCreateRoute is a regression test for the
 // empty-extras filter fix: when an Approve carries a "" client id (the app has no
 // OIDC client id yet) and the product has no other active oauth subscribers, the
