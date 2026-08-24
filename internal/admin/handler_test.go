@@ -240,6 +240,22 @@ func TestUpdateRejectsRemoveOpenapiSpecWithSpecBody(t *testing.T) {
 	}
 }
 
+// TestCreateRejectsRemoveOpenapiSpec is a regression test for a code-review
+// finding on #10's own fix: removeOpenapiSpec is meaningless on Create (there
+// is no existing spec to remove yet), but was silently accepted and dropped
+// instead of rejected — inconsistent with how strictly Update validates the
+// same field.
+func TestCreateRejectsRemoveOpenapiSpec(t *testing.T) {
+	svc := &fakeService{products: map[int64]Product{}}
+	h := newTestHandler(svc)
+	rec := do(h, http.MethodPost, "/api/admin/products", Product{
+		Name: "X", Slug: "x", Category: "C", ContextPath: "/x", RemoveOpenapiSpec: true,
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestCreateOAuth2ProductReturns400WhenOIDCUnconfigured(t *testing.T) {
 	svc := &fakeService{products: map[int64]Product{}}
 	h := NewHandler(svc, func() bool { return true }, func() bool { return false }, func() bool { return true }) // oidcConfigured=false

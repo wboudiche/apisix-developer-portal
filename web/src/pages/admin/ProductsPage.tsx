@@ -422,7 +422,9 @@ export function ProductsPage() {
                     {t('admin.removeSpecButton')}
                   </button>
             )}
-            <div className="help">{editing ? t('admin.specFileHelpEditing') : t('admin.specFileHelpCreating')}</div>
+            {!(editing && form.removeOpenapiSpec) && (
+              <div className="help">{editing ? t('admin.specFileHelpEditing') : t('admin.specFileHelpCreating')}</div>
+            )}
           </div>
           {editing?.id != null && token && (
             <ChangelogEditor key={editing.id} productId={editing.id} token={token} notify={notify} />

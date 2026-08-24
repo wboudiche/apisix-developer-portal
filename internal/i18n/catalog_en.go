@@ -110,6 +110,7 @@ var en = map[string]string{
 	"admin.product.oauthNotConfigured":  "OAuth2 is not configured on this portal",
 	"admin.product.badOpenapiSpec":      "openapiSpec is not a valid OpenAPI 3.x / Swagger 2.0 document",
 	"admin.product.specRemoveConflict":  "cannot remove the OpenAPI spec and submit a new one in the same request",
+	"admin.product.removeSpecOnCreate":  "removeOpenapiSpec is not valid when creating a product — there is nothing to remove yet",
 	"admin.product.slugRequired":        "slug is required",
 	"admin.product.categoryRequired":    "category is required",
 	"admin.product.contextPathRequired": "contextPath is required",

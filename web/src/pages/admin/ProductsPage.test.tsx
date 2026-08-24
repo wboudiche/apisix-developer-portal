@@ -98,6 +98,20 @@ describe('ProductsPage', () => {
     expect(update.mock.calls[0][2].openapiSpec).toBe('')
   })
 
+  // Regression test for a code-review finding on #10's own fix: the
+  // always-on "leave empty to keep the existing specification" help text
+  // contradicted the "will be removed" notice when a removal was pending.
+  it('hides the stale "leave empty to keep" help text while a removal is pending', async () => {
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getAllByRole('button', { name: 'Modifier' })[0])
+    expect(screen.getByText('Laissez vide pour conserver la spécification existante.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Supprimer la spécification' }))
+    expect(screen.queryByText('Laissez vide pour conserver la spécification existante.')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Conserver la spécification' }))
+    expect(screen.getByText('Laissez vide pour conserver la spécification existante.')).toBeInTheDocument()
+  })
+
   it('keeping the specification undoes a pending removal', async () => {
     const update = vi.spyOn(api, 'adminUpdateProduct').mockResolvedValue(products[0])
     renderPage()
