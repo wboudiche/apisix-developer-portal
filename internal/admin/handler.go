@@ -386,6 +386,10 @@ func (h *Handler) decodeProduct(w http.ResponseWriter, r *http.Request) (Product
 		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.product.oauthNotConfigured")
 		return Product{}, false
 	}
+	if p.RemoveOpenapiSpec && p.OpenAPISpec != "" {
+		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.product.specRemoveConflict")
+		return Product{}, false
+	}
 	if p.OpenAPISpec != "" {
 		if _, err := parseSpec([]byte(p.OpenAPISpec)); err != nil {
 			httpx.ErrorT(w, r, http.StatusBadRequest, "admin.product.badOpenapiSpec")

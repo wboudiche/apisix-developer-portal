@@ -80,6 +80,49 @@ describe('ProductsPage', () => {
     expect(update.mock.calls[0][2].upstreamUrl).toBe('fx:9000')
   })
 
+  // Regression tests for #10: there was previously no way to clear an
+  // attached OpenAPI spec — an empty textarea on save silently kept the
+  // existing one.
+  it('remove specification disables the field and sends removeOpenapiSpec on save', async () => {
+    const update = vi.spyOn(api, 'adminUpdateProduct').mockResolvedValue(products[0])
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getAllByRole('button', { name: 'Modifier' })[0])
+    await userEvent.click(screen.getByRole('button', { name: 'Supprimer la spécification' }))
+    const textarea = screen.getByLabelText(/Spécification OpenAPI/)
+    expect(textarea).toHaveValue('')
+    expect(textarea).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: /Enregistrer/ }))
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    expect(update.mock.calls[0][2].removeOpenapiSpec).toBe(true)
+    expect(update.mock.calls[0][2].openapiSpec).toBe('')
+  })
+
+  it('keeping the specification undoes a pending removal', async () => {
+    const update = vi.spyOn(api, 'adminUpdateProduct').mockResolvedValue(products[0])
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getAllByRole('button', { name: 'Modifier' })[0])
+    await userEvent.click(screen.getByRole('button', { name: 'Supprimer la spécification' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Conserver la spécification' }))
+    expect(screen.getByRole('button', { name: 'Supprimer la spécification' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Spécification OpenAPI/)).not.toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: /Enregistrer/ }))
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    expect(update.mock.calls[0][2].removeOpenapiSpec).toBe(false)
+  })
+
+  it('typing a new spec cancels a pending removal', async () => {
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await userEvent.click(screen.getAllByRole('button', { name: 'Modifier' })[0])
+    await userEvent.click(screen.getByRole('button', { name: 'Supprimer la spécification' }))
+    // Directly setting the value bypasses the disabled textarea (matching how
+    // a spec-file upload behaves), exercising setSpec's reset of the flag.
+    fireEvent.change(screen.getByLabelText(/Spécification OpenAPI/), { target: { value: '{"openapi":"3.0.0"}' } })
+    expect(screen.getByRole('button', { name: 'Supprimer la spécification' })).toBeInTheDocument()
+  })
+
   it('the eye toggle flips published', async () => {
     const update = vi.spyOn(api, 'adminUpdateProduct').mockResolvedValue(products[0])
     renderPage()

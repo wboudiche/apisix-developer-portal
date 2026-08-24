@@ -64,6 +64,60 @@ func TestProductLifecycleDefaultsToActive(t *testing.T) {
 	}
 }
 
+// specColumn reads the raw openapi_spec column directly, since productCols
+// (and therefore Create/Update/Get's returned Product) never re-selects it.
+func specColumn(t *testing.T, ctx context.Context, repo *Repo, id int64) string {
+	t.Helper()
+	var spec string
+	if err := repo.pool.QueryRow(ctx, `SELECT openapi_spec FROM api_products WHERE id=$1`, id).Scan(&spec); err != nil {
+		t.Fatalf("read openapi_spec: %v", err)
+	}
+	return spec
+}
+
+// TestUpdateRemovesOpenapiSpec is a regression test for #10: there was no way
+// to clear an attached spec — an empty OpenAPISpec on Update means "leave it
+// untouched" (see the COALESCE in Update's SQL), so removal needs the explicit
+// RemoveOpenapiSpec flag to actually blank the column.
+func TestUpdateRemovesOpenapiSpec(t *testing.T) {
+	ctx, repo := adminTestRepo(t)
+	spec := `{"openapi":"3.0.0","info":{"title":"X","version":"1.0.0"}}`
+	p, err := repo.Create(ctx, Product{
+		Name: "Sp", Slug: "sp-" + time.Now().Format("150405.000000000"), Category: "C",
+		ContextPath: "/sp", Tags: []string{}, OpenAPISpec: spec,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	t.Cleanup(func() { _, _ = repo.pool.Exec(ctx, `DELETE FROM api_products WHERE id=$1`, p.ID) })
+	if got := specColumn(t, ctx, repo, p.ID); got != spec {
+		t.Fatalf("spec not stored on create: %q", got)
+	}
+
+	// An update with an empty OpenAPISpec and no removal flag must keep the
+	// existing spec (unchanged pre-existing behavior).
+	unrelated := p
+	unrelated.OpenAPISpec = ""
+	if _, err := repo.Update(ctx, unrelated); err != nil {
+		t.Fatalf("update (unrelated field): %v", err)
+	}
+	if got := specColumn(t, ctx, repo, p.ID); got != spec {
+		t.Fatalf("spec should be kept when RemoveOpenapiSpec is false, got %q", got)
+	}
+
+	// Setting RemoveOpenapiSpec must blank the column, even though
+	// OpenAPISpec itself is also empty in the same request.
+	removal := p
+	removal.OpenAPISpec = ""
+	removal.RemoveOpenapiSpec = true
+	if _, err := repo.Update(ctx, removal); err != nil {
+		t.Fatalf("update (remove spec): %v", err)
+	}
+	if got := specColumn(t, ctx, repo, p.ID); got != "" {
+		t.Fatalf("expected spec cleared, got %q", got)
+	}
+}
+
 func TestChangelogAddDelete(t *testing.T) {
 	ctx, repo := adminTestRepo(t)
 	p, err := repo.Create(ctx, Product{

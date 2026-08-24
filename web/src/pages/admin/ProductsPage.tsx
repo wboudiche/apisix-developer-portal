@@ -15,9 +15,10 @@ import { BUILTIN_ICON_KEYS, ApiIcon } from '../../components/apiIcons'
 interface FormState {
   name: string; slug: string; category: string; contextPath: string
   upstreamUrl: string; sandboxUpstreamUrl: string; authType: string; version: string; published: boolean; openapiSpec: string
+  removeOpenapiSpec: boolean
   lifecycleStatus: string; sunsetDate: string; icon: string
 }
-const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', upstreamUrl: '', sandboxUpstreamUrl: '', authType: 'key-auth', version: '1.0.0', published: true, openapiSpec: '', lifecycleStatus: 'active', sunsetDate: '', icon: '' }
+const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', upstreamUrl: '', sandboxUpstreamUrl: '', authType: 'key-auth', version: '1.0.0', published: true, openapiSpec: '', removeOpenapiSpec: false, lifecycleStatus: 'active', sunsetDate: '', icon: '' }
 
 const CHANGELOG_KINDS = ['added', 'changed', 'fixed', 'removed', 'deprecated', 'security'] as const
 
@@ -170,6 +171,9 @@ export function ProductsPage() {
   const shown = products.filter(p => !q || `${p.name} ${p.contextPath} ${p.category} ${p.upstreamUrl}`.toLowerCase().includes(q))
 
   function set<K extends keyof FormState>(k: K, v: FormState[K]) { setForm(f => ({ ...f, [k]: v })) }
+  // Typing/uploading a new spec always cancels a pending removal — the two are
+  // mutually exclusive (the backend rejects sending both in one request).
+  function setSpec(v: string) { setForm(f => ({ ...f, openapiSpec: v, removeOpenapiSpec: false })) }
 
   function openCreate() { setEditing(null); setForm(EMPTY); setSlugTouched(false); setIconV(0); setIconErr(''); setOpen(true) }
 
@@ -180,7 +184,7 @@ export function ProductsPage() {
       contextPath: draft.contextPath, upstreamUrl: draft.upstreamUrl,
       sandboxUpstreamUrl: draft.sandboxUpstreamUrl ?? '',
       authType: draft.authType ?? 'key-auth',
-      version: draft.version, published: false, openapiSpec: draft.openapiSpec ?? '',
+      version: draft.version, published: false, openapiSpec: draft.openapiSpec ?? '', removeOpenapiSpec: false,
       lifecycleStatus: 'active', sunsetDate: '', icon: draft.icon ?? '',
     })
     setSlugTouched(true)
@@ -189,7 +193,7 @@ export function ProductsPage() {
 
   function openEdit(p: AdminProduct) {
     setEditing(p)
-    setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, sandboxUpstreamUrl: p.sandboxUpstreamUrl ?? '', authType: p.authType ?? 'key-auth', version: p.version, published: p.published, openapiSpec: '', lifecycleStatus: p.lifecycleStatus ?? 'active', sunsetDate: p.sunsetDate ?? '', icon: p.icon ?? '' })
+    setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, sandboxUpstreamUrl: p.sandboxUpstreamUrl ?? '', authType: p.authType ?? 'key-auth', version: p.version, published: p.published, openapiSpec: '', removeOpenapiSpec: false, lifecycleStatus: p.lifecycleStatus ?? 'active', sunsetDate: p.sunsetDate ?? '', icon: p.icon ?? '' })
     setSlugTouched(true)
     setIconV(0); setIconErr('')
     setOpen(true)
@@ -210,6 +214,7 @@ export function ProductsPage() {
       version: form.version.trim() || '1.0.0',
       published: form.published,
       openapiSpec: form.openapiSpec,
+      removeOpenapiSpec: form.removeOpenapiSpec,
       lifecycleStatus: form.lifecycleStatus as AdminProduct['lifecycleStatus'],
       sunsetDate: form.sunsetDate || null,
       icon: form.icon,
@@ -402,10 +407,21 @@ export function ProductsPage() {
           </div>
           <div className="field" style={{ gridColumn: '1 / -1' }}>
             <label htmlFor="f-spec">{t('admin.openapiSpecLabel')} <span className="opt">{t('admin.optionalTag')}</span></label>
-            <input id="f-spec-file" type="file" accept=".json,.yaml,.yml"
-              onChange={async e => { const f = e.target.files?.[0]; if (f) set('openapiSpec', await f.text()) }} />
+            <input id="f-spec-file" type="file" accept=".json,.yaml,.yml" disabled={form.removeOpenapiSpec}
+              onChange={async e => { const f = e.target.files?.[0]; if (f) setSpec(await f.text()) }} />
             <textarea id="f-spec" className="ipt mono" rows={4} placeholder={t('admin.specPlaceholder')}
-              value={form.openapiSpec} onChange={e => set('openapiSpec', e.target.value)} />
+              disabled={form.removeOpenapiSpec}
+              value={form.openapiSpec} onChange={e => setSpec(e.target.value)} />
+            {editing && (
+              form.removeOpenapiSpec
+                ? <div className="help specRemovePending">
+                    {t('admin.specWillBeRemoved')}{' '}
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => set('removeOpenapiSpec', false)}>{t('admin.undoRemoveSpecButton')}</button>
+                  </div>
+                : <button type="button" className="btn btn-ghost btn-sm" onClick={() => setForm(f => ({ ...f, openapiSpec: '', removeOpenapiSpec: true }))}>
+                    {t('admin.removeSpecButton')}
+                  </button>
+            )}
             <div className="help">{editing ? t('admin.specFileHelpEditing') : t('admin.specFileHelpCreating')}</div>
           </div>
           {editing?.id != null && token && (
