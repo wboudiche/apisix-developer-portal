@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { AdminProduct, ChangelogEntry } from '../../api/types'
 import { adminGetMeta, adminGetProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminGetChangelog, addChangelogEntry, deleteChangelogEntry, adminUploadProductIcon, adminFetchProductIcon, ApiError } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
@@ -20,6 +21,33 @@ interface FormState {
 const EMPTY: FormState = { name: '', slug: '', category: '', contextPath: '', upstreamUrl: '', sandboxUpstreamUrl: '', authType: 'key-auth', version: '1.0.0', published: true, openapiSpec: '', lifecycleStatus: 'active', sunsetDate: '', icon: '' }
 
 const CHANGELOG_KINDS = ['added', 'changed', 'fixed', 'removed', 'deprecated', 'security'] as const
+
+// Row-level icon: the list falls back to the category glyph the SAME way the
+// edit form's icon picker resolves a saved icon — a custom upload (fetched via
+// the authenticated admin endpoint, since draft products have no public icon
+// URL), a builtin key, or the category default. Previously the list ignored
+// p.icon entirely and always showed the category glyph, even after saving a
+// custom icon (#5).
+function RowIcon({ product, token, fallback }: { product: AdminProduct; token: string | null; fallback: ReactNode }) {
+  const [blobUrl, setBlobUrl] = useState('')
+  useEffect(() => {
+    if (product.icon !== 'upload' || product.id == null || !token) { setBlobUrl(''); return }
+    let url = ''
+    let cancelled = false
+    adminFetchProductIcon(token, product.id)
+      .then(blob => { if (!cancelled) { url = URL.createObjectURL(blob); setBlobUrl(url) } })
+      .catch(() => { if (!cancelled) setBlobUrl('') })
+    return () => { cancelled = true; if (url) URL.revokeObjectURL(url) }
+  }, [product.icon, product.id, token])
+
+  if (product.icon === 'upload') {
+    return blobUrl ? <img className="row-ico-img" src={blobUrl} alt="" width={19} height={19} /> : <>{fallback}</>
+  }
+  if (product.icon && BUILTIN_ICON_KEYS.includes(product.icon)) {
+    return <ApiIcon name={product.icon} />
+  }
+  return <>{fallback}</>
+}
 
 // Editor for a product's changelog: shown only while editing an existing
 // product (needs its numeric id). Owns its own fetch/add/delete cycle,
@@ -432,7 +460,9 @@ export function ProductsPage() {
           return (
             <div className="row" key={p.id}>
               <div className="swatch" style={{ background: m.color }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{m.icon}</svg>
+                <RowIcon product={p} token={token} fallback={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{m.icon}</svg>
+                } />
               </div>
               <div className="main">
                 <div className="nm"><b>{p.name}</b><span className="actx">{p.contextPath}</span></div>

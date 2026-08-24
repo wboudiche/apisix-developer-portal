@@ -42,6 +42,31 @@ describe('ProductsPage', () => {
     expect(screen.getByText('v1.0.0')).toBeInTheDocument()
   })
 
+  // Regression test for #5: the list row ignored p.icon entirely and always
+  // showed the category default glyph, even for a product with a saved
+  // custom (uploaded) icon.
+  it('shows the saved custom icon in the list row instead of the category default', async () => {
+    const withIcon = { ...products[0], icon: 'upload' }
+    vi.spyOn(api, 'adminGetProducts').mockResolvedValue({ items: [withIcon], total: 1, page: 1, pageSize: 20 })
+    const iconBlob = new Blob(['fake-png-bytes'], { type: 'image/png' })
+    const fetchIcon = vi.spyOn(api, 'adminFetchProductIcon').mockResolvedValue(iconBlob)
+    const { container } = renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await waitFor(() => expect(fetchIcon).toHaveBeenCalledWith('jwt', 1))
+    await waitFor(() => expect(container.querySelector('.swatch .row-ico-img')).not.toBeNull())
+    expect(container.querySelector('.swatch svg')).toBeNull()
+  })
+
+  it('shows a builtin icon key in the list row instead of the category default', async () => {
+    const withIcon = { ...products[0], icon: 'pizza' }
+    vi.spyOn(api, 'adminGetProducts').mockResolvedValue({ items: [withIcon], total: 1, page: 1, pageSize: 20 })
+    const { container } = renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    const svg = container.querySelector('.swatch svg')
+    expect(svg).not.toBeNull()
+    expect(svg!.querySelector('path')?.getAttribute('d')).toContain('M12 3c5 0 9 3 9 3')
+  })
+
   it('filters rows client-side', async () => {
     renderPage()
     await screen.findByText('CurrencyConverterAPI')
