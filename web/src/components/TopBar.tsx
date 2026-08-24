@@ -240,7 +240,7 @@ export function TopBar({
             aria-expanded={menuOpen}
           >
             <span className="av">{initials(user)}</span>
-            <span className="who">{displayName(user)}<small>{t('nav.devSpace')}</small></span>
+            <span className="who">{displayName(user)}<small>{pathname.startsWith('/admin') ? t('nav.adminSpace') : t('nav.devSpace')}</small></span>
             <IconChevron />
           </button>
 

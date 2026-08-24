@@ -18,6 +18,7 @@ export const en: Messages = {
     toggleTheme: 'Toggle theme',
     userMenuLabel: 'Menu for {name}',
     devSpace: 'Developer space',
+    adminSpace: 'Admin space',
     roleAdmin: 'Admin',
     roleDeveloper: 'Developer',
     logout: 'Log out',

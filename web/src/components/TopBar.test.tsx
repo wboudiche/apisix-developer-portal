@@ -185,6 +185,23 @@ describe('TopBar', () => {
     expect(who?.textContent).toContain('Espace développeur')
   })
 
+  // Regression tests for #7: the account menu subtitle always said "Espace
+  // développeur", even for an admin actually browsing the admin dashboard.
+  it('shows "Espace admin" instead of "Espace développeur" when an admin is on an /admin/* route', () => {
+    loginAs('admin')
+    const { container } = renderAt('/admin/products')
+    const who = container.querySelector('.user .who')
+    expect(who?.textContent).toContain('Espace admin')
+    expect(who?.textContent).not.toContain('Espace développeur')
+  })
+
+  it('still shows "Espace développeur" for an admin browsing outside /admin', () => {
+    loginAs('admin')
+    const { container } = renderAt('/applications')
+    const who = container.querySelector('.user .who')
+    expect(who?.textContent).toContain('Espace développeur')
+  })
+
   it('shows initials in .av when logged in with a name', () => {
     localStorage.setItem('user', JSON.stringify({ id: 1, email: 'admin@portal.local', name: 'Admin Doe', role: 'admin' }))
     localStorage.setItem('token', 'abc123')
