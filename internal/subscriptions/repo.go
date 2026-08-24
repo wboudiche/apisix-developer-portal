@@ -273,7 +273,7 @@ func (r *Repo) UpdateCredentialKey(ctx context.Context, appID int64, newKey stri
 // including pending/rejected ones so the developer can see their status.
 func (r *Repo) SubscriptionsForApp(ctx context.Context, appID int64) ([]SubscriptionView, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT s.api_product_id, p.name, p.version, p.context_path, s.plan_id, pl.name, s.status, (p.sandbox_upstream_url <> '')
+		`SELECT s.api_product_id, p.name, p.version, p.context_path, s.plan_id, pl.name, s.status, (p.sandbox_upstream_url <> ''), p.auth_type
 		 FROM subscriptions s
 		 JOIN api_products p ON p.id = s.api_product_id
 		 JOIN plans pl ON pl.id = s.plan_id
@@ -286,7 +286,7 @@ func (r *Repo) SubscriptionsForApp(ctx context.Context, appID int64) ([]Subscrip
 	var out []SubscriptionView
 	for rows.Next() {
 		var v SubscriptionView
-		if err := rows.Scan(&v.ProductID, &v.ProductName, &v.Version, &v.ContextPath, &v.PlanID, &v.PlanName, &v.Status, &v.SandboxAvailable); err != nil {
+		if err := rows.Scan(&v.ProductID, &v.ProductName, &v.Version, &v.ContextPath, &v.PlanID, &v.PlanName, &v.Status, &v.SandboxAvailable, &v.AuthType); err != nil {
 			return nil, err
 		}
 		out = append(out, v)

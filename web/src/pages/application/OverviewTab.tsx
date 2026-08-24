@@ -1,4 +1,5 @@
-import type { AppDetail } from '../../api/types'
+import { useState } from 'react'
+import type { AppDetail, SubscriptionView } from '../../api/types'
 import { copyText } from './helpers'
 import { describe as describeEvent } from './activity'
 import { DEMO_QUICKSTART } from './demo'
@@ -20,12 +21,21 @@ export function OverviewTab({ detail, token, appId, notify }: { detail: AppDetai
   // renders immediately; the 24h window backs the "today"/p95/error cards.
   const usage = useUsage(token, appId, '24h')
 
-  // Quickstart uses the first ACTIVE subscription's real gateway path + real key;
-  // the blueprint sample otherwise.
-  const active = detail.subscriptions.find(s => s.status === 'active')
-  const path = active ? active.contextPath : DEMO_QUICKSTART.path
-  const key = active ? detail.apiKey : DEMO_QUICKSTART.key
-  const curl = `curl http://localhost:9080${path} -H "apikey: ${key}"`
+  // Quickstart shows one example per ACTIVE subscription — each may use a
+  // different auth method (apikey vs. OAuth2) — or the blueprint sample when
+  // the app has none yet. selectedProductId tracks the picked tab; falling
+  // back to the first active subscription keeps it valid as subscriptions change.
+  const activeSubs = detail.subscriptions.filter(s => s.status === 'active')
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
+  const selected: SubscriptionView | null =
+    activeSubs.find(s => s.productId === selectedProductId) ?? activeSubs[0] ?? null
+  const isOAuth = selected?.authType === 'oauth2'
+
+  const path = selected ? selected.contextPath : DEMO_QUICKSTART.path
+  const requestName = selected ? selected.productName : DEMO_QUICKSTART.apiName
+  const curl = isOAuth
+    ? `curl http://localhost:9080${path} -H "Authorization: Bearer ${t('app.quickstartOAuthTokenPlaceholder')}"`
+    : `curl http://localhost:9080${path} -H "apikey: ${selected ? detail.apiKey : DEMO_QUICKSTART.key}"`
 
   function copyCurl() {
     void copyText(curl).then(() => notify(t('app.copyCurlNotify')))
@@ -39,18 +49,36 @@ export function OverviewTab({ detail, token, appId, notify }: { detail: AppDetai
         <div className="dcard">
           <div className="ch">
             <h3>{t('app.quickstartTitle')}</h3>
-            <p>{t('app.quickstartAuthPre')}<span className="mono">apikey</span>{t('app.quickstartAuthPost')}</p>
+            {isOAuth
+              ? <p>{t('app.quickstartOAuthAuthPre')}<span className="mono">Authorization: Bearer</span>{t('app.quickstartOAuthAuthPost')}</p>
+              : <p>{t('app.quickstartAuthPre')}<span className="mono">apikey</span>{t('app.quickstartAuthPost')}</p>}
           </div>
           <div className="cb">
+            {activeSubs.length > 1 && (
+              <div className="qs-tabs" role="group" aria-label={t('app.quickstartSubscriptionsLabel')}>
+                {activeSubs.map(s => (
+                  <button key={s.productId} type="button" className={selected?.productId === s.productId ? 'on' : ''}
+                    aria-pressed={selected?.productId === s.productId} onClick={() => setSelectedProductId(s.productId)}>
+                    {s.productName}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="code">
-              <div className="cbar"><i /><i /><i /><span>{t('app.requestLabel', { name: active ? active.productName : DEMO_QUICKSTART.apiName })}</span>
+              <div className="cbar"><i /><i /><i /><span>{t('app.requestLabel', { name: requestName })}</span>
                 <button className="copy" onClick={copyCurl}>{t('subscribeModal.copy')}</button>
               </div>
-              <pre><span className="c">{t('app.curlComment')}</span>{'\n'}<span className="cmd">curl</span> http://localhost:9080{path} \{'\n'}  <span className="flag">-H</span> <span className="str">"apikey: {key}"</span></pre>
+              {isOAuth
+                ? <pre><span className="c">{t('app.quickstartOAuthComment')}</span>{'\n'}<span className="cmd">curl</span> http://localhost:9080{path} \{'\n'}  <span className="flag">-H</span> <span className="str">"Authorization: Bearer {t('app.quickstartOAuthTokenPlaceholder')}"</span></pre>
+                : <pre><span className="c">{t('app.curlComment')}</span>{'\n'}<span className="cmd">curl</span> http://localhost:9080{path} \{'\n'}  <span className="flag">-H</span> <span className="str">"apikey: {selected ? detail.apiKey : DEMO_QUICKSTART.key}"</span></pre>}
             </div>
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 14, lineHeight: 1.55 }}>
-              {t('app.quickstartInfoPre')}<b style={{ color: 'var(--fg)' }}>consumer</b>{t('app.quickstartInfoMid')}<span className="mono">key-auth</span> + <span className="mono">limit-count</span>{t('app.quickstartInfoMid2')}<b style={{ color: 'var(--fg)' }}>Sandbox</b>{t('app.quickstartInfoPost')}
-            </p>
+            {isOAuth
+              ? <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 14, lineHeight: 1.55 }}>
+                  {t('app.quickstartOAuthInfoPre')}<span className="mono">{detail.oidcClientId || '—'}</span>{t('app.quickstartOAuthInfoMid')}<span className="mono">{detail.oidcIssuer || '—'}</span>{t('app.quickstartOAuthInfoPost')}
+                </p>
+              : <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 14, lineHeight: 1.55 }}>
+                  {t('app.quickstartInfoPre')}<b style={{ color: 'var(--fg)' }}>consumer</b>{t('app.quickstartInfoMid')}<span className="mono">key-auth</span> + <span className="mono">limit-count</span>{t('app.quickstartInfoMid2')}<b style={{ color: 'var(--fg)' }}>Sandbox</b>{t('app.quickstartInfoPost')}
+                </p>}
           </div>
         </div>
 

@@ -72,3 +72,18 @@ func TestOAuthClientWhitelistAndProductsForApp(t *testing.T) {
 		t.Fatalf("OAuthProductsForApp = %+v, %v", prods, err)
 	}
 }
+
+// TestSubscriptionsForAppReportsAuthType is a regression test for #9: the
+// Overview Quickstart card needs each subscription's auth type to render the
+// right example (apikey header vs. OAuth2 bearer) per subscription, not just
+// the most recent one.
+func TestSubscriptionsForAppReportsAuthType(t *testing.T) {
+	ctx, repo, appID, _ := oauthTestRepo(t)
+	subs, err := repo.SubscriptionsForApp(ctx, appID)
+	if err != nil {
+		t.Fatalf("SubscriptionsForApp: %v", err)
+	}
+	if len(subs) != 1 || subs[0].AuthType != "oauth2" {
+		t.Fatalf("SubscriptionsForApp = %+v, want one oauth2 subscription", subs)
+	}
+}

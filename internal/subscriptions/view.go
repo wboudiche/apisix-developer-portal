@@ -17,6 +17,10 @@ type SubscriptionView struct {
 	PlanName         string `json:"planName"`
 	Status           string `json:"status"`
 	SandboxAvailable bool   `json:"sandboxAvailable"`
+	// AuthType is the subscribed product's auth method ("key-auth" or
+	// "oauth2"), so a caller with several active subscriptions can render the
+	// right example (apikey header vs. OAuth2 bearer token) for each one.
+	AuthType string `json:"authType"`
 }
 
 // AppDetail is the response for GET /api/applications/{id}: the app's gateway

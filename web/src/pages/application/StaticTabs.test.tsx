@@ -47,6 +47,32 @@ describe('OverviewTab', () => {
     expect(screen.getByText(/9080\/orders/)).toBeInTheDocument()
     expect(screen.getByText(/ax_live_real_key_0001/)).toBeInTheDocument()
   })
+  // Regression tests for #9: Quickstart used to show only the first active
+  // subscription, hardcoded to an apikey example regardless of real auth type.
+  it('shows a tab per active subscription and switches the example when picking OAuth2', async () => {
+    const multi: AppDetail = {
+      ...detail,
+      oidcClientId: 'client-xyz', oidcIssuer: 'https://idp.example/realms/dev',
+      subscriptions: [
+        { productId: 9, productName: 'Orders API', version: '2.1.0', contextPath: '/orders', planId: 3, planName: 'Gold', status: 'active', authType: 'key-auth' },
+        { productId: 12, productName: 'Payments API', version: '1.0.0', contextPath: '/payments', planId: 5, planName: 'Silver', status: 'active', authType: 'oauth2' },
+      ],
+    }
+    renderT(<OverviewTab detail={multi} token="t" appId={4} notify={() => {}} />)
+    expect(screen.getByText(/9080\/orders/)).toBeInTheDocument()
+    expect(screen.queryByText(/VOTRE_TOKEN_D_ACCES/)).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Payments API' }))
+    expect(screen.getByText(/9080\/payments/)).toBeInTheDocument()
+    expect(screen.getByText(/VOTRE_TOKEN_D_ACCES/)).toBeInTheDocument()
+    expect(screen.getByText('client-xyz')).toBeInTheDocument()
+    expect(screen.getByText('https://idp.example/realms/dev')).toBeInTheDocument()
+  })
+
+  it('does not show subscription tabs with only one active subscription', () => {
+    renderT(<OverviewTab detail={detail} token="t" appId={4} notify={() => {}} />)
+    expect(screen.queryByRole('group', { name: 'Abonnements' })).not.toBeInTheDocument()
+  })
+
   it('falls back to blueprint sample without an active subscription', () => {
     renderT(<OverviewTab detail={{ ...detail, subscriptions: [] }} token="t" appId={4} notify={() => {}} />)
     expect(screen.getByText(/ax_live_a3f9c1e7b240d8e5f6/)).toBeInTheDocument()
