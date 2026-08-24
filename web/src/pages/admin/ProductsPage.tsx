@@ -28,7 +28,7 @@ const CHANGELOG_KINDS = ['added', 'changed', 'fixed', 'removed', 'deprecated', '
 // URL), a builtin key, or the category default. Previously the list ignored
 // p.icon entirely and always showed the category glyph, even after saving a
 // custom icon (#5).
-function RowIcon({ product, token, fallback }: { product: AdminProduct; token: string | null; fallback: ReactNode }) {
+function RowIcon({ product, token, fallback, cacheBust }: { product: AdminProduct; token: string | null; fallback: ReactNode; cacheBust?: number }) {
   const [blobUrl, setBlobUrl] = useState('')
   useEffect(() => {
     if (product.icon !== 'upload' || product.id == null || !token) { setBlobUrl(''); return }
@@ -38,7 +38,11 @@ function RowIcon({ product, token, fallback }: { product: AdminProduct; token: s
       .then(blob => { if (!cancelled) { url = URL.createObjectURL(blob); setBlobUrl(url) } })
       .catch(() => { if (!cancelled) setBlobUrl('') })
     return () => { cancelled = true; if (url) URL.revokeObjectURL(url) }
-  }, [product.icon, product.id, token])
+    // cacheBust (the Composer's iconV, passed only for the row being edited)
+    // forces a refetch after a re-upload — otherwise this row would keep
+    // showing the pre-upload blob until the page is reloaded, since
+    // product.icon/id/token never change across a same-key re-upload.
+  }, [product.icon, product.id, token, cacheBust])
 
   if (product.icon === 'upload') {
     return blobUrl ? <img className="row-ico-img" src={blobUrl} alt="" width={19} height={19} /> : <>{fallback}</>
@@ -460,7 +464,7 @@ export function ProductsPage() {
           return (
             <div className="row" key={p.id}>
               <div className="swatch" style={{ background: m.color }}>
-                <RowIcon product={p} token={token} fallback={
+                <RowIcon product={p} token={token} cacheBust={editing?.id === p.id ? iconV : undefined} fallback={
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{m.icon}</svg>
                 } />
               </div>

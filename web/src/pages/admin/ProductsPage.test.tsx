@@ -57,6 +57,37 @@ describe('ProductsPage', () => {
     expect(container.querySelector('.swatch svg')).toBeNull()
   })
 
+  // Regression test for a code-review finding on #5's own fix: RowIcon had no
+  // cache-bust dependency (unlike the Composer's own icon-preview effect,
+  // which bumps iconV after a successful upload), so replacing an existing
+  // custom icon with a new one never refreshed the list row until a full
+  // page reload.
+  it('refreshes the list row icon after uploading a new one over an existing custom icon', async () => {
+    const withIcon = { ...products[0], icon: 'upload' }
+    vi.spyOn(api, 'adminGetProducts').mockResolvedValue({ items: [withIcon], total: 1, page: 1, pageSize: 20 })
+    const oldBlob = new Blob(['old-bytes'], { type: 'image/png' })
+    const fetchIcon = vi.spyOn(api, 'adminFetchProductIcon').mockResolvedValue(oldBlob)
+    const upload = vi.spyOn(api, 'adminUploadProductIcon').mockResolvedValue({ updatedAt: '2026-08-25T00:00:00Z' })
+    renderPage()
+    await screen.findByText('CurrencyConverterAPI')
+    await waitFor(() => expect(fetchIcon).toHaveBeenCalledTimes(1)) // RowIcon's initial fetch
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Modifier' })[0])
+    // Opening Edit also fires the Composer's own icon-preview fetch — wait for
+    // it to settle so the count captured below reflects only what the upload
+    // itself triggers next, isolating RowIcon's refetch from the Composer's.
+    await waitFor(() => expect(fetchIcon.mock.calls.length).toBeGreaterThanOrEqual(2))
+    const beforeUpload = fetchIcon.mock.calls.length
+
+    const file = new File(['new-bytes'], 'icon.png', { type: 'image/png' })
+    await userEvent.upload(screen.getByTestId('icon-upload'), file)
+    await waitFor(() => expect(upload).toHaveBeenCalled())
+
+    // Both the Composer's own preview AND the list row must refetch — 2 new
+    // calls, not just the Composer's.
+    await waitFor(() => expect(fetchIcon.mock.calls.length).toBeGreaterThanOrEqual(beforeUpload + 2))
+  })
+
   it('shows a builtin icon key in the list row instead of the category default', async () => {
     const withIcon = { ...products[0], icon: 'pizza' }
     vi.spyOn(api, 'adminGetProducts').mockResolvedValue({ items: [withIcon], total: 1, page: 1, pageSize: 20 })
