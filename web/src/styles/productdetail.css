@@ -33,3 +33,24 @@
 .apidetail .try-mode{display:inline-flex;gap:4px;margin:8px 0;border:1px solid var(--border-2);border-radius:10px;padding:3px;width:max-content}
 .apidetail .try-mode button{font:inherit;font-size:13px;padding:5px 12px;border:none;background:none;color:var(--muted);border-radius:7px;cursor:pointer}
 .apidetail .try-mode button.on{background:var(--accent);color:#fff}
+
+.apidetail .manual-try{border:1px solid var(--border-2);border-radius:14px;padding:20px 22px}
+.apidetail .manual-try .mono{font-family:var(--font-mono)}
+.apidetail .manual-try h3{font-family:var(--font-display);font-size:16px;color:var(--fg);margin-bottom:4px}
+.apidetail .manual-try .mt-hint{font-size:13px;color:var(--muted);margin-bottom:14px;max-width:70ch}
+.apidetail .manual-try .mt-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.apidetail .manual-try select,
+.apidetail .manual-try input,
+.apidetail .manual-try textarea{background:var(--bg);border:1px solid var(--border-2);border-radius:9px;color:var(--fg);font-size:13px;padding:8px 10px}
+.apidetail .manual-try select{flex:none}
+.apidetail .manual-try .mt-base{color:var(--muted);white-space:nowrap}
+.apidetail .manual-try .mt-path{flex:1;min-width:160px}
+.apidetail .manual-try .mt-headers{margin-top:12px}
+.apidetail .manual-try .mt-headers summary{font-size:13px;color:var(--muted);cursor:pointer}
+.apidetail .manual-try .mt-headers textarea{width:100%;margin-top:8px;resize:vertical}
+.apidetail .manual-try .mt-body{width:100%;margin-top:12px;resize:vertical}
+.apidetail .manual-try .mt-result{margin-top:16px;border-top:1px solid var(--border-2);padding-top:14px}
+.apidetail .manual-try .mt-status{font-size:13px;font-weight:700;margin-bottom:8px}
+.apidetail .manual-try .mt-status.ok{color:var(--accent)}
+.apidetail .manual-try .mt-status.err{color:var(--danger)}
+.apidetail .manual-try .mt-body-out{background:var(--bg);border:1px solid var(--border-2);border-radius:9px;padding:12px;font-size:12.5px;max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word}

@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { TopBar } from '../components/TopBar'
 import { SubscribeModal } from '../components/SubscribeModal'
 import { ApiIcon, categoryDotColor, iconSrc } from '../components/apiIcons'
+import { ManualTryPanel } from '../components/ManualTryPanel'
 import { LifecycleBadge } from '../components/LifecycleBadge'
 import { Reviews } from '../components/Reviews'
 import { useT } from '../i18n/LanguageProvider'
@@ -110,8 +111,10 @@ export function ProductDetailPage() {
               </Suspense>
             )}
             {loaded && !spec && (
-              <div className="docs-empty"><h3>{t('product.docsComingSoonTitle')}</h3>
-                <p>{t('product.docsComingSoonBody')}</p></div>
+              serverUrl && token
+                ? <ManualTryPanel serverUrl={serverUrl} contextPath={product.contextPath} token={token} />
+                : <div className="docs-empty"><h3>{t('product.docsComingSoonTitle')}</h3>
+                    <p>{t('product.docsComingSoonBody')}</p></div>
             )}
             {changelog.length > 0 && (
               <section className="changelog">
