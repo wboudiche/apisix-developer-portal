@@ -33,11 +33,20 @@ export function ManualTryPanel({ serverUrl, contextPath, token }: { serverUrl: s
     try {
       const suffix = path.trim()
       const url = serverUrl + (suffix ? (suffix.startsWith('/') ? suffix : `/${suffix}`) : '')
-      const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
+      const headers: Record<string, string> = {}
       for (const line of headersText.split('\n')) {
         const idx = line.indexOf(':')
-        if (idx > 0) headers[line.slice(0, idx).trim()] = line.slice(idx + 1).trim()
+        if (idx <= 0) continue
+        const name = line.slice(0, idx).trim()
+        // Never let a typed header override the injected portal token — the
+        // gateway proxy authenticates the caller with it (see internal/tryit),
+        // and a duplicate case-insensitive key would otherwise be comma-joined
+        // onto the same header by fetch's Headers algorithm instead of cleanly
+        // replaced.
+        if (name.toLowerCase() === 'authorization') continue
+        headers[name] = line.slice(idx + 1).trim()
       }
+      headers.Authorization = `Bearer ${token}`
       const sendBody = hasBody && body.trim() !== ''
       if (sendBody && !Object.keys(headers).some(h => h.toLowerCase() === 'content-type')) {
         headers['Content-Type'] = 'application/json'

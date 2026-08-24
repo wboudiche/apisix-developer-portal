@@ -101,6 +101,64 @@ it('sends a manual request through the tryit proxy and shows the response', asyn
   vi.unstubAllGlobals()
 })
 
+// Regression test for a code-review finding on #11's own fix: a user-typed
+// "Authorization" header in the custom-headers box must never override the
+// injected portal token, since fetch() would otherwise send two conflicting
+// Authorization values (comma-joined by the Headers algorithm) or the
+// wrong one outright.
+it('does not let a typed Authorization header override the injected token', async () => {
+  localStorage.setItem('token', 'jwt')
+  localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'D', role: 'developer' }))
+  vi.spyOn(api, 'getProductSpec').mockResolvedValue(null)
+  vi.spyOn(api, 'getTryContext').mockResolvedValue({ apps: [{ id: 3, name: 'App A' }] })
+  const f = vi.fn(async (input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input.toString()
+    if (url.startsWith('/api/try/')) {
+      return new Response('{}', { status: 200, statusText: 'OK' })
+    }
+    return new Response('{}', { status: 500 })
+  })
+  vi.stubGlobal('fetch', f)
+  renderAt('orders')
+  await screen.findByRole('heading', { name: 'Essayer manuellement' })
+  await userEvent.click(screen.getByText('En-têtes personnalisés (optionnel)'))
+  await userEvent.type(screen.getByLabelText('En-têtes personnalisés (optionnel)'), 'Authorization: evil-value')
+  await userEvent.click(screen.getByRole('button', { name: 'Envoyer la requête' }))
+  await waitFor(() => expect(f).toHaveBeenCalled())
+  const call = f.mock.calls.find(([u]) => (typeof u === 'string' ? u : u.toString()).startsWith('/api/try/'))
+  const [, init] = call!
+  const headers = init?.headers as Record<string, string>
+  expect(headers.Authorization).toBe('Bearer jwt')
+  expect(Object.keys(headers).filter(k => k.toLowerCase() === 'authorization')).toHaveLength(1)
+  vi.unstubAllGlobals()
+})
+
+// Regression test for a code-review finding on #11's own fix: ManualTryPanel
+// wasn't remounted when the "try with" app picker switched apps, so the
+// previous app's response stayed on screen after switching — misleading the
+// developer into thinking it was the newly-picked app's response.
+it('clears the previous response when switching to a different app', async () => {
+  localStorage.setItem('token', 'jwt')
+  localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'D', role: 'developer' }))
+  vi.spyOn(api, 'getProductSpec').mockResolvedValue(null)
+  vi.spyOn(api, 'getTryContext').mockResolvedValue({ apps: [{ id: 3, name: 'App A' }, { id: 4, name: 'App B' }] })
+  const f = vi.fn(async (input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input.toString()
+    if (url.startsWith('/api/try/')) {
+      return new Response('{"ok":true}', { status: 200, statusText: 'OK' })
+    }
+    return new Response('{}', { status: 500 })
+  })
+  vi.stubGlobal('fetch', f)
+  renderAt('orders')
+  await screen.findByRole('heading', { name: 'Essayer manuellement' })
+  await userEvent.click(screen.getByRole('button', { name: 'Envoyer la requête' }))
+  expect(await screen.findByText('200 OK')).toBeInTheDocument()
+  await userEvent.selectOptions(screen.getByLabelText('Essayer avec :'), '4')
+  expect(screen.queryByText('200 OK')).not.toBeInTheDocument()
+  vi.unstubAllGlobals()
+})
+
 it('routes try-it through the proxy for a subscribed user (single app)', async () => {
   localStorage.setItem('token', 'jwt')
   localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'D', role: 'developer' }))

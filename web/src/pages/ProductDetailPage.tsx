@@ -112,7 +112,9 @@ export function ProductDetailPage() {
             )}
             {loaded && !spec && (
               serverUrl && token
-                ? <ManualTryPanel serverUrl={serverUrl} contextPath={product.contextPath} token={token} />
+                // key={appId} forces a remount (fresh state, no stale response)
+                // when the "try with" picker switches to a different app.
+                ? <ManualTryPanel key={appId} serverUrl={serverUrl} contextPath={product.contextPath} token={token} />
                 : <div className="docs-empty"><h3>{t('product.docsComingSoonTitle')}</h3>
                     <p>{t('product.docsComingSoonBody')}</p></div>
             )}
