@@ -935,6 +935,32 @@ func TestSetOIDCClientIDRejectsBadCharset(t *testing.T) {
 	}
 }
 
+// TestOAuthReadyConsumerCount covers the readiness check admin.Update uses to
+// block an auth-type migration to oauth2 that would otherwise strand — or, if
+// none are ready, silently delete the route out from under — subscribers who
+// haven't registered an OIDC client id yet (#8).
+func TestOAuthReadyConsumerCount(t *testing.T) {
+	store := newMemStore()
+	svc := NewService(store, apisix.NewFake(), nil, func() string { return "k" }, nil)
+
+	n, err := svc.OAuthReadyConsumerCount(context.Background(), 9)
+	if err != nil {
+		t.Fatalf("OAuthReadyConsumerCount: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("expected 0 ready when no active subscriber has an oidc client id, got %d", n)
+	}
+
+	store.oauthWhitelist[9] = []string{"client-a", "client-b"}
+	n, err = svc.OAuthReadyConsumerCount(context.Background(), 9)
+	if err != nil {
+		t.Fatalf("OAuthReadyConsumerCount: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("expected 2 ready once 2 active subscribers have an oidc client id, got %d", n)
+	}
+}
+
 // TestReprovisionOAuth2EmptyClientIDDoesNotCreateRoute is a regression test for the
 // empty-extras filter fix: when an Approve carries a "" client id (the app has no
 // OIDC client id yet) and the product has no other active oauth subscribers, the
