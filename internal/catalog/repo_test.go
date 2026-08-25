@@ -79,13 +79,13 @@ func TestListSearchMatchesNameAndDescription(t *testing.T) {
 	if len(byName) != 1 || byName[0].Slug != "pizzashackapi" {
 		t.Fatalf("search 'pizza' => %d results, want 1 (pizzashackapi)", len(byName))
 	}
-	// "backlinks" appears only in the SEOAPI description, not any name
-	byDesc, _, err := repo.List(ctx, Query{Search: "backlinks"}, paging.Params{Page: 1, Size: 20})
+	// "backlink" appears only in the SEOAPI description, not any name
+	byDesc, _, err := repo.List(ctx, Query{Search: "backlink"}, paging.Params{Page: 1, Size: 20})
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
 	if len(byDesc) != 1 || byDesc[0].Slug != "seoapi" {
-		t.Fatalf("search 'backlinks' => %d results, want 1 (seoapi)", len(byDesc))
+		t.Fatalf("search 'backlink' => %d results, want 1 (seoapi)", len(byDesc))
 	}
 	// case-insensitive
 	ci, _, _ := repo.List(ctx, Query{Search: "PIZZA"}, paging.Params{Page: 1, Size: 20})
