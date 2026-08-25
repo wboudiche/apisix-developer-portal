@@ -119,6 +119,12 @@ export function TopBar({
   // Route-derived active tab. Admin spans several sub-routes (/admin/products,
   // /admin/plans, /admin/approvals), so match the whole section, not one path.
   const tab = (active: boolean) => (active ? 'active' : undefined)
+  // Requires both role and route, matching the admin nav tab below: an admin
+  // browsing the Developer Portal as a consumer must still see "Developer
+  // space", and (defense in depth) this must never read "Admin space" for a
+  // non-admin even if TopBar is ever reached under /admin/* without the
+  // AdminGuard redirect that normally prevents that today.
+  const inAdminSection = user?.role === 'admin' && pathname.startsWith('/admin')
   const searchRef = useRef<HTMLInputElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -199,7 +205,7 @@ export function TopBar({
         {user && <Link className={tab(pathname.startsWith('/applications'))} to="/applications"><IconDoc />{t('nav.applications')}</Link>}
         {user && <Link className={tab(pathname.startsWith('/teams'))} to="/teams"><IconDoc />{t('nav.teams')}</Link>}
         {user && <Link className={tab(pathname.startsWith('/billing'))} to="/billing"><IconDoc />{t('nav.billing')}</Link>}
-        {user?.role === 'admin' && <Link className={tab(pathname.startsWith('/admin'))} to="/admin/products"><IconShield />{t('nav.admin')}</Link>}
+        {user?.role === 'admin' && <Link className={tab(inAdminSection)} to="/admin/products"><IconShield />{t('nav.admin')}</Link>}
       </nav>
 
       <div className="search">
@@ -240,7 +246,7 @@ export function TopBar({
             aria-expanded={menuOpen}
           >
             <span className="av">{initials(user)}</span>
-            <span className="who">{displayName(user)}<small>{t('nav.devSpace')}</small></span>
+            <span className="who">{displayName(user)}<small>{inAdminSection ? t('nav.adminSpace') : t('nav.devSpace')}</small></span>
             <IconChevron />
           </button>
 

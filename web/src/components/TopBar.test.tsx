@@ -185,6 +185,37 @@ describe('TopBar', () => {
     expect(who?.textContent).toContain('Espace développeur')
   })
 
+  // Regression tests for #7: the account menu subtitle always said "Espace
+  // développeur", even for an admin actually browsing the admin dashboard.
+  it('shows "Espace admin" instead of "Espace développeur" when an admin is on an /admin/* route', () => {
+    loginAs('admin')
+    const { container } = renderAt('/admin/products')
+    const who = container.querySelector('.user .who')
+    expect(who?.textContent).toContain('Espace admin')
+    expect(who?.textContent).not.toContain('Espace développeur')
+  })
+
+  it('still shows "Espace développeur" for an admin browsing outside /admin', () => {
+    loginAs('admin')
+    const { container } = renderAt('/applications')
+    const who = container.querySelector('.user .who')
+    expect(who?.textContent).toContain('Espace développeur')
+  })
+
+  // Regression test for a code-review finding on #7's own fix: the label was
+  // derived from pathname alone, with no role check — unlike the admin nav
+  // tab two lines above it in TopBar.tsx, which requires both. This only
+  // matters if TopBar is ever reached under /admin/* without AdminGuard
+  // (which redirects non-admins today) — a defense-in-depth gap, not
+  // currently reachable through the app's own routing.
+  it('does not show "Espace admin" for a non-admin user on an /admin/* path', () => {
+    loginAs('developer')
+    const { container } = renderAt('/admin/products')
+    const who = container.querySelector('.user .who')
+    expect(who?.textContent).toContain('Espace développeur')
+    expect(who?.textContent).not.toContain('Espace admin')
+  })
+
   it('shows initials in .av when logged in with a name', () => {
     localStorage.setItem('user', JSON.stringify({ id: 1, email: 'admin@portal.local', name: 'Admin Doe', role: 'admin' }))
     localStorage.setItem('token', 'abc123')

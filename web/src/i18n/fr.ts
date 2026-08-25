@@ -17,6 +17,7 @@ export const fr = {
     toggleTheme: 'Basculer le thème',
     userMenuLabel: 'Menu de {name}',
     devSpace: 'Espace développeur',
+    adminSpace: 'Espace admin',
     roleAdmin: 'Admin',
     roleDeveloper: 'Développeur',
     logout: 'Se déconnecter',
