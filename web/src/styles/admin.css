@@ -89,6 +89,7 @@
 .adminpage .row:hover{background:var(--raise)}
 .adminpage .row .swatch{width:38px;height:38px;flex:none;border-radius:10px;display:grid;place-items:center;color:#fff}
 .adminpage .row .swatch svg{width:19px;height:19px}
+.adminpage .row .swatch .row-ico-img{width:19px;height:19px;object-fit:cover;border-radius:4px}
 .adminpage .row .main{min-width:0;flex:1}
 .adminpage .row .main .nm{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .adminpage .row .main .nm b{font-family:var(--font-display);font-size:15px;font-weight:600;letter-spacing:-.01em}
