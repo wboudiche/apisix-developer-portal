@@ -26,7 +26,9 @@ export function ManualTryPanel({ serverUrl, contextPath, token }: { serverUrl: s
   const [error, setError] = useState('')
   const [result, setResult] = useState<Result | null>(null)
 
-  const hasBody = method !== 'GET' && method !== 'HEAD'
+  // METHODS never offers HEAD as a selectable option, so GET is the only
+  // no-body case reachable here.
+  const hasBody = method !== 'GET'
 
   async function send() {
     setSending(true); setError(''); setResult(null)

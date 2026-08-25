@@ -79,7 +79,10 @@ it('sends a manual request through the tryit proxy and shows the response', asyn
   // Reviews also fetches ratings on mount via the real fetch — only intercept
   // the tryit proxy call itself, and let anything else fail like an
   // unmocked fetch normally does in these tests (Reviews swallows that error).
-  const f = vi.fn(async (input: RequestInfo | URL) => {
+  // The two-arg generic gives the mock's recorded calls an [input, init] tuple
+  // (needed to assert on init.headers below); the implementation only reads
+  // input, so declaring a second unused parameter isn't necessary.
+  const f = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input) => {
     const url = typeof input === 'string' ? input : input.toString()
     if (url.startsWith('/api/try/')) {
       return new Response('{"ok":true}', { status: 200, statusText: 'OK', headers: { 'Content-Type': 'application/json' } })
@@ -111,7 +114,7 @@ it('does not let a typed Authorization header override the injected token', asyn
   localStorage.setItem('user', JSON.stringify({ id: 1, email: 'a@b.c', name: 'D', role: 'developer' }))
   vi.spyOn(api, 'getProductSpec').mockResolvedValue(null)
   vi.spyOn(api, 'getTryContext').mockResolvedValue({ apps: [{ id: 3, name: 'App A' }] })
-  const f = vi.fn(async (input: RequestInfo | URL) => {
+  const f = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input) => {
     const url = typeof input === 'string' ? input : input.toString()
     if (url.startsWith('/api/try/')) {
       return new Response('{}', { status: 200, statusText: 'OK' })
