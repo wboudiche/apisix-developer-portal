@@ -64,6 +64,9 @@
 .appdetail .dcard .ch h3{font-family:var(--font-display);font-size:17px;font-weight:600;letter-spacing:-.01em}
 .appdetail .dcard .ch p{font-size:13.5px;color:var(--muted);margin-top:3px}
 .appdetail .dcard .ch .right{margin-left:auto}
+.appdetail .dcard .cb .qs-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px;border:1px solid var(--border-2);border-radius:10px;padding:3px;width:max-content}
+.appdetail .dcard .cb .qs-tabs button{font:inherit;font-size:12.5px;padding:5px 11px;border:none;background:none;color:var(--muted);border-radius:7px;cursor:pointer}
+.appdetail .dcard .cb .qs-tabs button.on{background:var(--accent);color:#fff}
 .appdetail .dcard .cb{padding:20px}
 
 .appdetail .section-title{font-family:var(--font-display);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 14px}

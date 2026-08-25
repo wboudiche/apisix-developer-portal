@@ -109,6 +109,7 @@ export interface SubscriptionView {
   planName: string
   status: string
   sandboxAvailable?: boolean
+  authType?: string
 }
 
 // Deployment capabilities reported by GET /api/admin/meta, so the admin UI
