@@ -82,12 +82,12 @@ func (r *Repo) Update(ctx context.Context, p Product) (Product, error) {
 	updated, err := scanProduct(r.pool.QueryRow(ctx,
 		`UPDATE api_products SET name=$2, slug=$3, category=$4, version=COALESCE(NULLIF($5,''),'1.0.0'),
 		   context_path=$6, description=$7, tags=$8, icon=$9, upstream_url=$10, sandbox_upstream_url=$11, published=$12,
-		   openapi_spec=COALESCE(NULLIF($13,''), openapi_spec),
+		   openapi_spec=CASE WHEN $17 THEN '' ELSE COALESCE(NULLIF($13,''), openapi_spec) END,
 		   auth_type=COALESCE(NULLIF($14,''),'key-auth'),
 		   lifecycle_status=COALESCE(NULLIF($15,''),'active'), sunset_date=NULLIF($16,'')::date
 		 WHERE id=$1
 		 RETURNING `+productCols,
-		p.ID, p.Name, p.Slug, p.Category, p.Version, p.ContextPath, p.Description, p.Tags, p.Icon, p.UpstreamURL, p.SandboxUpstreamURL, p.Published, p.OpenAPISpec, p.AuthType, p.LifecycleStatus, derefStr(p.SunsetDate)))
+		p.ID, p.Name, p.Slug, p.Category, p.Version, p.ContextPath, p.Description, p.Tags, p.Icon, p.UpstreamURL, p.SandboxUpstreamURL, p.Published, p.OpenAPISpec, p.AuthType, p.LifecycleStatus, derefStr(p.SunsetDate), p.RemoveOpenapiSpec))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Product{}, ErrNotFound
 	}

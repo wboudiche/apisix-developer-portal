@@ -101,6 +101,11 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if p.RemoveOpenapiSpec {
+		// Meaningless on Create — there is no existing spec yet to remove.
+		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.product.removeSpecOnCreate")
+		return
+	}
 	created, err := h.svc.Create(r.Context(), p)
 	if errors.Is(err, ErrSlugTaken) {
 		httpx.ErrorT(w, r, http.StatusConflict, "admin.product.slugTaken")
@@ -388,6 +393,10 @@ func (h *Handler) decodeProduct(w http.ResponseWriter, r *http.Request) (Product
 	}
 	if p.AuthType == "oauth2" && !h.oidcConfigured() {
 		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.product.oauthNotConfigured")
+		return Product{}, false
+	}
+	if p.RemoveOpenapiSpec && p.OpenAPISpec != "" {
+		httpx.ErrorT(w, r, http.StatusBadRequest, "admin.product.specRemoveConflict")
 		return Product{}, false
 	}
 	if p.OpenAPISpec != "" {

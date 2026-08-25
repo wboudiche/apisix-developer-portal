@@ -131,6 +131,8 @@ export interface AdminProduct {
   upstreamUrl: string
   published: boolean
   openapiSpec?: string
+  /** Update-only: clears an already-attached spec. See `admin.product.specRemoveConflict`. */
+  removeOpenapiSpec?: boolean
   sandboxUpstreamUrl?: string
   authType?: string
   lifecycleStatus?: 'active' | 'deprecated' | 'sunset'

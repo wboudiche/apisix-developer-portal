@@ -111,6 +111,8 @@ var fr = map[string]string{
 	"admin.product.oauthNotConfigured":    "OAuth2 n'est pas configuré sur ce portail",
 	"admin.product.oauthMigrationBlocked": "impossible de passer à OAuth2 : tous les abonnés actifs n'ont pas encore enregistré d'identifiant client OIDC — ils perdraient l'accès. Faites-le leur enregistrer un identifiant client, ou contactez-nous avant de migrer.",
 	"admin.product.badOpenapiSpec":        "openapiSpec n'est pas un document OpenAPI 3.x / Swagger 2.0 valide",
+	"admin.product.specRemoveConflict":    "impossible de supprimer la spécification OpenAPI et d'en soumettre une nouvelle dans la même requête",
+	"admin.product.removeSpecOnCreate":    "removeOpenapiSpec n'est pas valide lors de la création d'un produit — il n'y a encore rien à supprimer",
 	"admin.product.slugRequired":          "le slug est requis",
 	"admin.product.categoryRequired":      "la catégorie est requise",
 	"admin.product.contextPathRequired":   "le contextPath est requis",

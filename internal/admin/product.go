@@ -27,6 +27,11 @@ type Product struct {
 	// product's docs + Try-it. Empty = no docs. omitempty so list/update
 	// responses (which don't re-select it) don't echo an empty string.
 	OpenAPISpec string `json:"openapiSpec,omitempty"`
+	// RemoveOpenapiSpec, sent on Update only, explicitly clears an already
+	// attached spec. An empty OpenAPISpec alone means "leave it untouched" (so
+	// an edit that doesn't touch the spec field doesn't blank it out), so
+	// removal needs its own signal. Never populated on responses.
+	RemoveOpenapiSpec bool `json:"removeOpenapiSpec,omitempty"`
 
 	// LifecycleStatus is one of "active" (default), "deprecated", "sunset".
 	LifecycleStatus string `json:"lifecycleStatus"`
