@@ -12,6 +12,9 @@ import { usePersistedView } from '../../components/usePersistedView'
 
 const STATUSES = ['', 'pending', 'paid', 'void'] as const
 
+/** Team name, or `#id` when the team has since been deleted. */
+const teamLabel = (inv: Invoice) => inv.teamName || `#${inv.teamId}`
+
 export function InvoicesPage() {
   const { token } = useAuth()
   const t = useT(); const { lang } = useLang()
@@ -58,7 +61,7 @@ export function InvoicesPage() {
                 </div>
                 <div className="ic-amt">{money(inv.priceCents, inv.currency)}</div>
                 <dl className="ic-facts">
-                  <div><dt>{t('billing.col.team')}</dt><dd className="mono">{inv.teamId}</dd></div>
+                  <div><dt>{t('billing.col.team')}</dt><dd>{teamLabel(inv)}</dd></div>
                   <div><dt>{t('billing.col.created')}</dt><dd>{formatDate(inv.createdAt, lang)}</dd></div>
                 </dl>
                 {inv.status === 'pending' && (
@@ -83,7 +86,7 @@ export function InvoicesPage() {
                   <tr key={inv.id}>
                     <td>{inv.planName}</td>
                     <td className="amt">{money(inv.priceCents, inv.currency)}</td>
-                    <td className="tid">{inv.teamId}</td>
+                    <td className="tid">{teamLabel(inv)}</td>
                     <td><span className={`pill ${inv.status}`}>{label(inv.status)}</span></td>
                     <td>{formatDate(inv.createdAt, lang)}</td>
                     <td className="acts">

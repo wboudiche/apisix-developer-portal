@@ -3,6 +3,7 @@ package billing_test
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -256,6 +257,9 @@ func TestRepoListByTeamsAndTeamsForUser(t *testing.T) {
 	}
 	if len(invs) != 1 || invs[0].TeamID != teamID {
 		t.Fatalf("ListByTeams = %+v", invs)
+	}
+	if !strings.HasPrefix(invs[0].TeamName, "BillingTeam ") {
+		t.Fatalf("TeamName = %q, want the seeded team's name", invs[0].TeamName)
 	}
 
 	if empty, err := repo.ListByTeams(ctx, nil); err != nil || len(empty) != 0 {

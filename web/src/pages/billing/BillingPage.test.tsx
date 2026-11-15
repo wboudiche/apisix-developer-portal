@@ -8,7 +8,7 @@ import * as api from '../../api/client'
 import type { Invoice } from '../../api/types'
 
 const invoice: Invoice = {
-  id: 21, teamId: 5, subscriptionId: 100, planName: 'Gold', priceCents: 4900,
+  id: 21, teamId: 5, teamName: 'Acme', subscriptionId: 100, planName: 'Gold', priceCents: 4900,
   currency: 'EUR', status: 'pending', createdAt: '2026-06-06T10:00:00Z', paidAt: null,
 }
 

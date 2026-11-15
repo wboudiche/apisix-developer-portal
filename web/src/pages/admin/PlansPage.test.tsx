@@ -58,12 +58,12 @@ describe('PlansPage', () => {
     await screen.findByText('Free')
     await userEvent.click(screen.getByRole('button', { name: /Nouveau plan/ }))
     await userEvent.type(screen.getByLabelText('Nom du plan'), 'Gold')
-    await userEvent.clear(screen.getByLabelText('Prix (centimes)'))
-    await userEvent.type(screen.getByLabelText('Prix (centimes)'), '2900')
+    await userEvent.type(screen.getByLabelText(/^Prix/), '29,00')
+    await userEvent.selectOptions(screen.getByLabelText('Devise'), 'USD')
     await userEvent.click(screen.getByRole('button', { name: /Créer le plan/ }))
     await waitFor(() => expect(create).toHaveBeenCalled())
     expect(create).toHaveBeenCalledWith(expect.any(String),
-      expect.objectContaining({ name: 'Gold', rateLimit: 100, windowSeconds: 60, priceCents: 2900, currency: 'EUR' }))
+      expect.objectContaining({ name: 'Gold', rateLimit: 100, windowSeconds: 60, priceCents: 2900, currency: 'USD' }))
   })
 
   it('edit opens prefilled and saves with PUT', async () => {
@@ -83,8 +83,21 @@ describe('PlansPage', () => {
     renderPage()
     await screen.findByText('Free')
     await userEvent.click(screen.getAllByRole('button', { name: 'Modifier' })[1])
-    expect(screen.getByLabelText('Prix (centimes)')).toHaveValue(2900)
+    expect(screen.getByLabelText(/^Prix/)).toHaveValue('29,00')
     expect(screen.getByLabelText('Devise')).toHaveValue('EUR')
+  })
+
+  it('rejects a malformed price without calling the API', async () => {
+    const create = vi.spyOn(api, 'adminCreatePlan').mockResolvedValue(plans[1])
+    renderPage()
+    await screen.findByText('Free')
+    await userEvent.click(screen.getByRole('button', { name: /Nouveau plan/ }))
+    await userEvent.type(screen.getByLabelText('Nom du plan'), 'Gold')
+    await userEvent.type(screen.getByLabelText(/^Prix/), '49,999')
+    await userEvent.click(screen.getByRole('button', { name: /Créer le plan/ }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Montant invalide')
+    expect(screen.getByLabelText(/^Prix/)).toHaveAttribute('aria-invalid', 'true')
+    expect(create).not.toHaveBeenCalled()
   })
 
   it('a 409 delete shows the plan-in-use toast', async () => {

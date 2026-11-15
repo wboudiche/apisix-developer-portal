@@ -418,7 +418,10 @@ export const en: Messages = {
     planCreatedNotify: 'Plan {name} created',
     loadPlansError: 'Unable to load plans.',
     plan: {
-      priceLabel: 'Price (cents)',
+      priceLabel: 'Price',
+      pricePlaceholder: 'e.g. 49.90',
+      priceInvalid: 'Invalid amount: digits with at most two decimals (e.g. 49.90).',
+      priceHelp: 'Amount invoiced when the subscription is approved. Empty or 0 = free.',
       currencyLabel: 'Currency',
     },
     icon: {

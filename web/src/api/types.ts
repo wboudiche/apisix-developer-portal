@@ -57,6 +57,8 @@ export interface Plan {
 export interface Invoice {
   id: number
   teamId: number
+  /** Current team name; empty when the team was deleted. */
+  teamName: string
   subscriptionId: number | null
   planName: string
   priceCents: number

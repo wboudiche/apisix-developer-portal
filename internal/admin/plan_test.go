@@ -21,6 +21,9 @@ func TestPlanValidate(t *testing.T) {
 		{"lowercase currency", func(p *Plan) { p.Currency = "eur" }, true},
 		{"too-long currency", func(p *Plan) { p.Currency = "EURO" }, true},
 		{"empty currency", func(p *Plan) { p.Currency = "" }, true},
+		{"unknown 3-letter code", func(p *Plan) { p.Currency = "EUX" }, true},
+		{"zero-decimal currency", func(p *Plan) { p.Currency = "JPY" }, true},
+		{"other supported currency", func(p *Plan) { p.Currency = "USD" }, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

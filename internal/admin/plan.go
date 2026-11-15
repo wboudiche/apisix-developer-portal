@@ -34,15 +34,17 @@ func (p Plan) validate() string {
 	return ""
 }
 
-// validCurrency accepts exactly three ASCII uppercase letters (ISO 4217 shape).
+// SupportedCurrencies are the ISO 4217 codes a plan may be priced in. All use
+// two minor-unit decimals, matching price_cents storage (zero- or three-decimal
+// currencies such as JPY or TND would need a different scale). Keep in sync
+// with web/src/currencies.ts.
+var SupportedCurrencies = []string{"EUR", "USD", "GBP", "CHF", "CAD", "AUD", "SEK", "NOK", "DKK", "PLN", "MAD"}
+
 func validCurrency(c string) bool {
-	if len(c) != 3 {
-		return false
-	}
-	for _, r := range c {
-		if r < 'A' || r > 'Z' {
-			return false
+	for _, s := range SupportedCurrencies {
+		if c == s {
+			return true
 		}
 	}
-	return true
+	return false
 }
