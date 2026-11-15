@@ -15,3 +15,6 @@ node_modules/
 /*.png
 /main
 /admin-products.html
+
+# go test -coverprofile output
+/coverage.out
