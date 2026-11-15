@@ -4,6 +4,7 @@ import type { AdminProduct } from '../../api/types'
 import { adminImportProduct } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { useT } from '../../i18n/LanguageProvider'
+import { FileButton } from './FileButton'
 
 type Tab = 'file' | 'url'
 
@@ -80,8 +81,10 @@ export function ImportModal({ open, onClose, onImported }: {
           {tab === 'file' ? (
             <div className="field">
               <label htmlFor="imp-file">{t('admin.specFileLabel')}</label>
-              <input id="imp-file" type="file" accept=".json,.yaml,.yml" onChange={onFile} />
-              {fileName && <div className="help">{fileName}</div>}
+              <div className="filerow">
+                <FileButton id="imp-file" label={t('admin.specFileCta')} accept=".json,.yaml,.yml" onChange={onFile} />
+                {fileName && <span className="filehint mono">{fileName}</span>}
+              </div>
             </div>
           ) : (
             <div className="field">

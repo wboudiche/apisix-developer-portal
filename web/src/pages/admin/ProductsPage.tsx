@@ -5,6 +5,7 @@ import { adminGetMeta, adminGetProducts, adminCreateProduct, adminUpdateProduct,
 import { useAuth } from '../../auth/AuthProvider'
 import { AdminShell } from './AdminShell'
 import { Composer } from './Composer'
+import { FileButton } from './FileButton'
 import { catMeta, slugify } from './meta'
 import { Toast, useToast } from '../../components/Toast'
 import { Pagination } from '../../components/Pagination'
@@ -146,6 +147,9 @@ function PlusIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M12 5v14M5 12h14" strokeLinecap="round" /></svg>
 }
 
+/** Mirrors iconMaxUpload in internal/admin/handler.go. */
+const ICON_MAX_BYTES = 256 * 1024
+
 export function ProductsPage() {
   const { token } = useAuth()
   const t = useT()
@@ -167,6 +171,22 @@ export function ProductsPage() {
   const [iconErr, setIconErr] = useState<string>('')
   const [iconBusy, setIconBusy] = useState(false)
   const [iconPreview, setIconPreview] = useState<string>('')
+  // Create mode: a custom icon picked before the product exists. It's held
+  // locally (with an object-URL preview) and uploaded right after the create
+  // call returns the new id — the upload endpoint needs an existing product.
+  const [pending, setPending] = useState<{ file: File; url: string } | null>(null)
+  const pendingIcon = pending?.file ?? null
+  const pendingPreview = pending?.url ?? ''
+  const pendingRef = useRef(pending)
+  useEffect(() => { pendingRef.current = pending }, [pending])
+  useEffect(() => () => { if (pendingRef.current) URL.revokeObjectURL(pendingRef.current.url) }, [])
+  // Swap the pending icon, revoking the previous preview URL (event-time only).
+  const setPendingIcon = useCallback((f: File | null) => {
+    if (pendingRef.current) URL.revokeObjectURL(pendingRef.current.url)
+    const next = f ? { file: f, url: URL.createObjectURL(f) } : null
+    pendingRef.current = next
+    setPending(next)
+  }, [])
   // Optimistic default: show the sandbox field until the server says the
   // sandbox gateway isn't wired up (a failed meta fetch must not hide it).
   const [sandboxConfigured, setSandboxConfigured] = useState(true)
@@ -210,7 +230,7 @@ export function ProductsPage() {
   // mutually exclusive (the backend rejects sending both in one request).
   function setSpec(v: string) { setForm(f => ({ ...f, openapiSpec: v, removeOpenapiSpec: false })) }
 
-  function openCreate() { setEditing(null); setForm(EMPTY); setSlugTouched(false); setIconV(0); setIconErr(''); setOpen(true) }
+  function openCreate() { setEditing(null); setForm(EMPTY); setSlugTouched(false); setIconV(0); setIconErr(''); setPendingIcon(null); setOpen(true) }
 
   function onImported(draft: AdminProduct) {
     setEditing(null)
@@ -223,6 +243,7 @@ export function ProductsPage() {
       lifecycleStatus: 'active', sunsetDate: '', icon: draft.icon ?? '',
     })
     setSlugTouched(true)
+    setIconErr(''); setPendingIcon(null)
     setOpen(true)
   }
 
@@ -230,7 +251,7 @@ export function ProductsPage() {
     setEditing(p)
     setForm({ name: p.name, slug: p.slug, category: p.category, contextPath: p.contextPath, upstreamUrl: p.upstreamUrl, sandboxUpstreamUrl: p.sandboxUpstreamUrl ?? '', authType: p.authType ?? 'key-auth', version: p.version, published: p.published, openapiSpec: '', removeOpenapiSpec: false, lifecycleStatus: p.lifecycleStatus ?? 'active', sunsetDate: p.sunsetDate ?? '', icon: p.icon ?? '' })
     setSlugTouched(true)
-    setIconV(0); setIconErr('')
+    setIconV(0); setIconErr(''); setPendingIcon(null)
     setOpen(true)
   }
 
@@ -259,10 +280,19 @@ export function ProductsPage() {
         await adminUpdateProduct(token, editing.id, payload)
         notify(t('admin.productSavedNotify', { name: payload.name }))
       } else {
-        await adminCreateProduct(token, payload)
-        notify(payload.published
+        // A pending custom icon is attached after create (the endpoint flags
+        // icon='upload' itself), so the product is created with the default.
+        const created = await adminCreateProduct(token, pendingIcon ? { ...payload, icon: '' } : payload)
+        let iconFailed = ''
+        if (pendingIcon && created.id != null) {
+          try { await adminUploadProductIcon(token, created.id, pendingIcon) }
+          catch (e) { iconFailed = e instanceof Error ? e.message : String(e) }
+        }
+        if (iconFailed) notify(t('admin.icon.createUploadFailed', { name: payload.name, error: iconFailed }), 'warn')
+        else notify(payload.published
           ? t('admin.productCreatedNotify', { name: payload.name })
           : t('admin.productCreatedDraftNotify', { name: payload.name }))
+        setPendingIcon(null)
       }
       setOpen(false)
       reload()
@@ -401,13 +431,13 @@ export function ProductsPage() {
           <div className="field" style={{ gridColumn: '1 / -1' }}>
             <label>{t('admin.icon.label')}</label>
             <div className="icon-picker" data-testid="icon-picker">
-              <button type="button" className="icon-tile" data-key="" aria-pressed={form.icon === ''}
-                title={t('admin.icon.defaultOption')} onClick={() => set('icon', '')}>
+              <button type="button" className="icon-tile" data-key="" aria-pressed={!pendingIcon && form.icon === ''}
+                title={t('admin.icon.defaultOption')} onClick={() => { setPendingIcon(null); set('icon', '') }}>
                 <span className="icon-default">—</span>
               </button>
               {BUILTIN_ICON_KEYS.map(k => (
-                <button type="button" key={k} className="icon-tile" data-key={k} aria-pressed={form.icon === k}
-                  title={k} onClick={() => set('icon', k)}>
+                <button type="button" key={k} className="icon-tile" data-key={k} aria-pressed={!pendingIcon && form.icon === k}
+                  title={k} onClick={() => { setPendingIcon(null); set('icon', k) }}>
                   <ApiIcon name={k} />
                 </button>
               ))}
@@ -416,13 +446,26 @@ export function ProductsPage() {
                   <img className="ico-img" src={iconPreview} alt="" width={24} height={24} />
                 </span>
               )}
+              {pendingIcon && pendingPreview && (
+                <span className="icon-tile is-upload" aria-pressed="true" data-testid="icon-pending">
+                  <img className="ico-img" src={pendingPreview} alt="" width={24} height={24} />
+                </span>
+              )}
             </div>
-            <input
-              type="file" data-testid="icon-upload" accept="image/png,image/jpeg,image/webp"
-              disabled={!editing || iconBusy}
+            <div className="filerow">
+            <FileButton
+              label={t('admin.icon.uploadCta')}
+              data-testid="icon-upload" accept="image/png,image/jpeg,image/webp"
+              disabled={iconBusy}
               onChange={async e => {
                 const f = e.target.files?.[0]
-                if (!f || !editing || editing.id == null || !token) return
+                if (!f) return
+                setIconErr('')
+                // Same cap as the server (256 KiB), checked up front so a
+                // create doesn't succeed only for its icon to be refused.
+                if (f.size > ICON_MAX_BYTES) { setIconErr(t('admin.icon.tooLarge')); e.target.value = ''; return }
+                if (!editing || editing.id == null) { setPendingIcon(f); e.target.value = ''; return }
+                if (!token) return
                 setIconErr(''); setIconBusy(true)
                 try {
                   const { updatedAt } = await adminUploadProductIcon(token, editing.id, f)
@@ -436,14 +479,20 @@ export function ProductsPage() {
                 }
               }}
             />
-            {!editing && <p className="help" data-testid="icon-upload-hint">{t('admin.icon.uploadHint')}</p>}
-            {iconBusy && <p className="help">{t('admin.icon.uploading')}</p>}
+            <span className="filehint" data-testid="icon-upload-hint">
+              {pendingIcon ? t('admin.icon.pendingHint', { name: pendingIcon.name }) : t('admin.icon.uploadHint')}
+            </span>
+            {iconBusy && <span className="filehint">{t('admin.icon.uploading')}</span>}
+            </div>
             {iconErr && <p className="autherr" role="alert">{iconErr}</p>}
           </div>
           <div className="field" style={{ gridColumn: '1 / -1' }}>
             <label htmlFor="f-spec">{t('admin.openapiSpecLabel')} <span className="opt">{t('admin.optionalTag')}</span></label>
-            <input id="f-spec-file" type="file" accept=".json,.yaml,.yml" disabled={form.removeOpenapiSpec}
-              onChange={async e => { const f = e.target.files?.[0]; if (f) setSpec(await f.text()) }} />
+            <div className="filerow">
+              <FileButton id="f-spec-file" label={t('admin.specFileCta')} accept=".json,.yaml,.yml" disabled={form.removeOpenapiSpec}
+                onChange={async e => { const f = e.target.files?.[0]; if (f) setSpec(await f.text()) }} />
+              <span className="filehint">{t('admin.specFileHint')}</span>
+            </div>
             <textarea id="f-spec" className="ipt mono" rows={4} placeholder={t('admin.specPlaceholder')}
               disabled={form.removeOpenapiSpec}
               value={form.openapiSpec} onChange={e => setSpec(e.target.value)} />

@@ -34,6 +34,15 @@ upload**, so admins can brand any API.
 - **Custom upload is edit-mode-only** — a blob attaches to an existing product
   id. The built-in picker works at create; upload becomes available after the
   product is saved.
+  *Revised 2026-11-16:* the server contract is unchanged (the blob still
+  attaches to an existing id), but the Composer now lets the admin pick a
+  custom icon at create. The file is held client-side with an object-URL
+  preview and uploaded to `POST /api/admin/products/{id}/icon` right after the
+  create call returns the new id (the product is created with `icon=''`; the
+  upload endpoint flags `icon='upload'` itself). If that upload fails the
+  product still exists and a warning toast says to retry from edit. The
+  256 KiB cap is pre-checked client-side so a create can't succeed only for
+  its icon to be refused for size.
 
 ## Data model
 
@@ -121,9 +130,7 @@ In `ProductsPage.tsx` Composer:
 - A **grid of the 9 built-in glyphs** (rendered with the existing `ApiIcon`) plus
   a **Default** (empty) tile. Selecting one sets `form.icon` to that key / `''`.
 - An **Upload** control (`<input type="file" accept="image/png,image/jpeg,image/webp">`).
-  Enabled only in **edit mode** (product already has an id). On create, a
-  one-line hint reads: *save the API first, then upload a custom icon*. On file
-  select → `POST` to the icon endpoint; on success the picker shows the custom
+  In edit mode, on file select → `POST` to the icon endpoint; on success the picker shows the custom
   image as the selected icon and `form.icon` becomes `"upload"`.
 - **Preview** of the current selection: built-in → `<ApiIcon name={icon}>`;
   custom → `<img src="/api/products/{slug}/icon?v={updatedAt}">` (the `?v`
@@ -172,7 +179,10 @@ icon row; setting a built-in icon deletes the blob.
 **Frontend (vitest):** the picker renders the 9 glyphs + Default and setting one
 updates form state; `adminUploadProductIcon` posts multipart to the right URL;
 `ApiCard`/`ProductDetailPage` render `<img>` when `icon==='upload'` and `<ApiIcon>`
-otherwise; the Upload control is disabled in create mode with the hint shown.
+otherwise; in create mode a picked icon is previewed, the product is created with
+`icon=''` and the file is then uploaded to the returned id; a failed upload
+still leaves the product created with a warning; a file over 256 KiB is refused
+before any request.
 
 Not requiring a full-stack E2E — the feature is CRUD + byte serving fully covered
 by unit + handler + component tests.
@@ -182,7 +192,5 @@ by unit + handler + component tests.
 - SVG upload (rejected by the format decision; would need an ongoing-maintenance
   sanitizer).
 - Image cropping/resizing UI, animated icons, per-theme icons.
-- Uploading a custom icon during product **create** (edit-mode-only by decision;
-  built-in picker covers create).
 - A CDN / object-storage backend (portal stays DB-only).
 - Bulk icon import or icon reuse across products.
