@@ -9,7 +9,7 @@ import { Toast, useToast } from '../../components/Toast'
 import { Pagination } from '../../components/Pagination'
 import { ConfirmModal, type ModalSpec } from '../../components/ConfirmModal'
 import { useT, useLang } from '../../i18n/LanguageProvider'
-import { priceLabel } from '../../money'
+import { priceLabel, minorDigits } from '../../money'
 import { CURRENCIES, currencyName, parsePrice, formatPriceInput } from '../../currencies'
 import { ViewToggle } from '../../components/ViewToggle'
 import { usePersistedView } from '../../components/usePersistedView'
@@ -53,11 +53,11 @@ export function PlansPage() {
   useEffect(reload, [reload])
 
   function openCreate() { setEditing(null); setName(''); setLimit(100); setWindowS(60); setPriceText(''); setPriceErr(false); setCurrency('EUR'); setOpen(true) }
-  function openEdit(p: Plan) { setEditing(p); setName(p.name); setLimit(p.rateLimit); setWindowS(p.windowSeconds); setPriceText(p.priceCents ? formatPriceInput(p.priceCents, lang) : ''); setPriceErr(false); setCurrency(p.currency); setOpen(true) }
+  function openEdit(p: Plan) { setEditing(p); setName(p.name); setLimit(p.rateLimit); setWindowS(p.windowSeconds); setPriceText(p.priceCents ? formatPriceInput(p.priceCents, p.currency, lang) : ''); setPriceErr(false); setCurrency(p.currency); setOpen(true) }
 
   async function submit() {
     if (!token || !name.trim()) return
-    const priceCents = parsePrice(priceText)
+    const priceCents = parsePrice(priceText, currency)
     if (priceCents === null) { setPriceErr(true); return }
     const payload: Plan = { id: editing?.id ?? 0, name: name.trim(), rateLimit: limit || 100, windowSeconds: windowS || 60, priceCents, currency }
     try {
@@ -132,7 +132,7 @@ export function PlansPage() {
               aria-invalid={priceErr || undefined} aria-describedby="p-price-help"
               value={priceText} onChange={e => { setPriceText(e.target.value); setPriceErr(false) }} />
             <p id="p-price-help" className={priceErr ? 'help prose err' : 'help prose'} role={priceErr ? 'alert' : undefined}>
-              {priceErr ? t('admin.plan.priceInvalid') : t('admin.plan.priceHelp')}
+              {priceErr ? t('admin.plan.priceInvalid', { digits: minorDigits(currency) }) : t('admin.plan.priceHelp')}
             </p>
           </div>
           <div className="field">

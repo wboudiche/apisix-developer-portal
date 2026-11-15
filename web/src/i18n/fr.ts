@@ -419,7 +419,7 @@ export const fr = {
     plan: {
       priceLabel: 'Prix',
       pricePlaceholder: 'Ex. 49,90',
-      priceInvalid: 'Montant invalide : chiffres avec au plus deux décimales (ex. 49,90).',
+      priceInvalid: 'Montant invalide : chiffres avec au plus {digits} décimales (ex. 49,90).',
       priceHelp: 'Montant facturé à l’approbation de l’abonnement. Vide ou 0 = gratuit.',
       currencyLabel: 'Devise',
     },

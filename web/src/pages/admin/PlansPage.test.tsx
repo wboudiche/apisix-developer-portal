@@ -87,6 +87,19 @@ describe('PlansPage', () => {
     expect(screen.getByLabelText('Devise')).toHaveValue('EUR')
   })
 
+  it('prices a plan in Tunisian dinars with millimes', async () => {
+    const create = vi.spyOn(api, 'adminCreatePlan').mockResolvedValue(plans[1])
+    renderPage()
+    await screen.findByText('Free')
+    await userEvent.click(screen.getByRole('button', { name: /Nouveau plan/ }))
+    await userEvent.type(screen.getByLabelText('Nom du plan'), 'Gold TN')
+    await userEvent.selectOptions(screen.getByLabelText('Devise'), 'TND')
+    await userEvent.type(screen.getByLabelText(/^Prix/), '149,500')
+    await userEvent.click(screen.getByRole('button', { name: /Créer le plan/ }))
+    await waitFor(() => expect(create).toHaveBeenCalled())
+    expect(create.mock.calls[0][1]).toMatchObject({ priceCents: 149500, currency: 'TND' })
+  })
+
   it('rejects a malformed price without calling the API', async () => {
     const create = vi.spyOn(api, 'adminCreatePlan').mockResolvedValue(plans[1])
     renderPage()

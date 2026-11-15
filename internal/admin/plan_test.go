@@ -24,6 +24,7 @@ func TestPlanValidate(t *testing.T) {
 		{"unknown 3-letter code", func(p *Plan) { p.Currency = "EUX" }, true},
 		{"zero-decimal currency", func(p *Plan) { p.Currency = "JPY" }, true},
 		{"other supported currency", func(p *Plan) { p.Currency = "USD" }, false},
+		{"three-decimal TND", func(p *Plan) { p.Currency = "TND" }, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

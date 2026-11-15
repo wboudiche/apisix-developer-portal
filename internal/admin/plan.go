@@ -34,11 +34,11 @@ func (p Plan) validate() string {
 	return ""
 }
 
-// SupportedCurrencies are the ISO 4217 codes a plan may be priced in. All use
-// two minor-unit decimals, matching price_cents storage (zero- or three-decimal
-// currencies such as JPY or TND would need a different scale). Keep in sync
-// with web/src/currencies.ts.
-var SupportedCurrencies = []string{"EUR", "USD", "GBP", "CHF", "CAD", "AUD", "SEK", "NOK", "DKK", "PLN", "MAD"}
+// SupportedCurrencies are the ISO 4217 codes a plan may be priced in.
+// PriceCents holds the amount in the currency's minor unit: cents for the
+// two-decimal currencies, millimes (1/1000) for TND. The web client derives
+// the scale per currency. Keep in sync with web/src/currencies.ts.
+var SupportedCurrencies = []string{"EUR", "USD", "GBP", "CHF", "CAD", "AUD", "SEK", "NOK", "DKK", "PLN", "MAD", "TND"}
 
 func validCurrency(c string) bool {
 	for _, s := range SupportedCurrencies {
