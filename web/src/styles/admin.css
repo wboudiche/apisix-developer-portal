@@ -54,6 +54,10 @@
 .adminpage .field .ipt:hover{border-color:var(--border)}
 .adminpage .field .ipt:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);background:var(--surface)}
 .adminpage .field .help{font-size:11.5px;color:var(--faint);margin-top:6px;font-family:var(--font-mono)}
+.adminpage .field .help.prose{font-family:inherit;font-size:12px}
+.adminpage .field .help.err{color:var(--danger)}
+.adminpage .field .ipt[aria-invalid]{border-color:var(--danger)}
+.adminpage .field select.ipt{cursor:pointer}
 .adminpage .icon-picker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 .adminpage .icon-tile{
   width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex:none;

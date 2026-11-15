@@ -10,8 +10,8 @@ import { ApiError } from '../../api/client'
 import type { Invoice } from '../../api/types'
 
 const invoices: Invoice[] = [
-  { id: 21, teamId: 5, subscriptionId: 100, planName: 'Gold', priceCents: 4900, currency: 'EUR', status: 'pending', createdAt: '2026-06-06T10:00:00Z', paidAt: null },
-  { id: 22, teamId: 7, subscriptionId: 101, planName: 'Silver', priceCents: 1900, currency: 'EUR', status: 'paid', createdAt: '2026-06-01T10:00:00Z', paidAt: '2026-06-02T10:00:00Z' },
+  { id: 21, teamId: 5, teamName: 'Acme', subscriptionId: 100, planName: 'Gold', priceCents: 4900, currency: 'EUR', status: 'pending', createdAt: '2026-06-06T10:00:00Z', paidAt: null },
+  { id: 22, teamId: 7, teamName: '', subscriptionId: 101, planName: 'Silver', priceCents: 1900, currency: 'EUR', status: 'paid', createdAt: '2026-06-01T10:00:00Z', paidAt: '2026-06-02T10:00:00Z' },
 ]
 
 beforeEach(() => {
@@ -36,6 +36,13 @@ describe('InvoicesPage', () => {
     const table = screen.getByRole('table')
     expect(within(table).getByText('En attente')).toBeInTheDocument()
     expect(within(table).getByText('Payée')).toBeInTheDocument()
+  })
+
+  it('shows the team name, falling back to #id for a deleted team', async () => {
+    renderPage()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Acme')).toBeInTheDocument()
+    expect(within(table).getByText('#7')).toBeInTheDocument()
   })
 
   it('clicking a status filter re-calls adminGetInvoices with that status', async () => {

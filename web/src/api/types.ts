@@ -50,6 +50,7 @@ export interface Plan {
   name: string
   rateLimit: number
   windowSeconds: number
+  /** Amount in the currency's minor unit: cents, or millimes for TND. */
   priceCents: number
   currency: string
 }
@@ -57,8 +58,11 @@ export interface Plan {
 export interface Invoice {
   id: number
   teamId: number
+  /** Current team name; empty when the team was deleted. */
+  teamName: string
   subscriptionId: number | null
   planName: string
+  /** Amount in the currency's minor unit: cents, or millimes for TND. */
   priceCents: number
   currency: string
   status: 'pending' | 'paid' | 'void'

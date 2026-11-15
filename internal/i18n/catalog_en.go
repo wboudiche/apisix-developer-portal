@@ -146,7 +146,7 @@ var en = map[string]string{
 	"admin.plan.badRateLimit":     "rateLimit must be greater than zero",
 	"admin.plan.badWindowSeconds": "windowSeconds must be greater than zero",
 	"admin.plan.badPrice":         "price must be zero or positive",
-	"admin.plan.badCurrency":      "currency must be a 3-letter code",
+	"admin.plan.badCurrency":      "unsupported currency",
 
 	"admin.icon.tooLarge":    "image is too large (max 256 KB)",
 	"admin.icon.badType":     "unsupported image type (use PNG, JPEG, or WebP)",

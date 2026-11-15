@@ -417,7 +417,10 @@ export const fr = {
     planCreatedNotify: 'Plan {name} créé',
     loadPlansError: 'Impossible de charger les plans.',
     plan: {
-      priceLabel: 'Prix (centimes)',
+      priceLabel: 'Prix',
+      pricePlaceholder: 'Ex. 49,90',
+      priceInvalid: 'Montant invalide : chiffres avec au plus {digits} décimales (ex. 49,90).',
+      priceHelp: 'Montant facturé à l’approbation de l’abonnement. Vide ou 0 = gratuit.',
       currencyLabel: 'Devise',
     },
     icon: {

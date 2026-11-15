@@ -9,7 +9,8 @@ import { Toast, useToast } from '../../components/Toast'
 import { Pagination } from '../../components/Pagination'
 import { ConfirmModal, type ModalSpec } from '../../components/ConfirmModal'
 import { useT, useLang } from '../../i18n/LanguageProvider'
-import { priceLabel } from '../../money'
+import { priceLabel, minorDigits } from '../../money'
+import { CURRENCIES, currencyName, parsePrice, formatPriceInput } from '../../currencies'
 import { ViewToggle } from '../../components/ViewToggle'
 import { usePersistedView } from '../../components/usePersistedView'
 
@@ -33,7 +34,8 @@ export function PlansPage() {
   const [name, setName] = useState('')
   const [limit, setLimit] = useState(100)
   const [windowS, setWindowS] = useState(60)
-  const [priceCents, setPriceCents] = useState(0)
+  const [priceText, setPriceText] = useState('')
+  const [priceErr, setPriceErr] = useState(false)
   const [currency, setCurrency] = useState('EUR')
   const [modal, setModal] = useState<ModalSpec | null>(null)
   const [err, setErr] = useState('')
@@ -50,12 +52,14 @@ export function PlansPage() {
   }, [token, page])
   useEffect(reload, [reload])
 
-  function openCreate() { setEditing(null); setName(''); setLimit(100); setWindowS(60); setPriceCents(0); setCurrency('EUR'); setOpen(true) }
-  function openEdit(p: Plan) { setEditing(p); setName(p.name); setLimit(p.rateLimit); setWindowS(p.windowSeconds); setPriceCents(p.priceCents); setCurrency(p.currency); setOpen(true) }
+  function openCreate() { setEditing(null); setName(''); setLimit(100); setWindowS(60); setPriceText(''); setPriceErr(false); setCurrency('EUR'); setOpen(true) }
+  function openEdit(p: Plan) { setEditing(p); setName(p.name); setLimit(p.rateLimit); setWindowS(p.windowSeconds); setPriceText(p.priceCents ? formatPriceInput(p.priceCents, p.currency, lang) : ''); setPriceErr(false); setCurrency(p.currency); setOpen(true) }
 
   async function submit() {
     if (!token || !name.trim()) return
-    const payload: Plan = { id: editing?.id ?? 0, name: name.trim(), rateLimit: limit || 100, windowSeconds: windowS || 60, priceCents: priceCents || 0, currency: (currency || 'EUR').toUpperCase() }
+    const priceCents = parsePrice(priceText, currency)
+    if (priceCents === null) { setPriceErr(true); return }
+    const payload: Plan = { id: editing?.id ?? 0, name: name.trim(), rateLimit: limit || 100, windowSeconds: windowS || 60, priceCents, currency }
     try {
       if (editing) { await adminUpdatePlan(token, editing.id, payload); notify(t('admin.planSavedNotify', { name: payload.name })) }
       else { await adminCreatePlan(token, payload); notify(t('admin.planCreatedNotify', { name: payload.name })) }
@@ -122,14 +126,22 @@ export function PlansPage() {
               value={windowS} onChange={e => setWindowS(Number(e.target.value))} />
           </div>
           <div className="field">
-            <label htmlFor="p-price">{t('admin.plan.priceLabel')}</label>
-            <input id="p-price" className="ipt mono" type="number" min={0}
-              value={priceCents} onChange={e => setPriceCents(Number(e.target.value))} />
+            <label htmlFor="p-price">{t('admin.plan.priceLabel')} <span className="opt">{currency}</span></label>
+            <input id="p-price" className="ipt mono" inputMode="decimal" autoComplete="off"
+              placeholder={t('admin.plan.pricePlaceholder')}
+              aria-invalid={priceErr || undefined} aria-describedby="p-price-help"
+              value={priceText} onChange={e => { setPriceText(e.target.value); setPriceErr(false) }} />
+            <p id="p-price-help" className={priceErr ? 'help prose err' : 'help prose'} role={priceErr ? 'alert' : undefined}>
+              {priceErr ? t('admin.plan.priceInvalid', { digits: minorDigits(currency) }) : t('admin.plan.priceHelp')}
+            </p>
           </div>
           <div className="field">
             <label htmlFor="p-currency">{t('admin.plan.currencyLabel')}</label>
-            <input id="p-currency" className="ipt mono" maxLength={3}
-              value={currency} onChange={e => setCurrency(e.target.value.toUpperCase())} />
+            <select id="p-currency" className="ipt" value={currency} onChange={e => setCurrency(e.target.value)}>
+              {/* keep a legacy code visible if a plan predates the allowlist */}
+              {!(CURRENCIES as readonly string[]).includes(currency) && <option value={currency}>{currency}</option>}
+              {CURRENCIES.map(c => <option key={c} value={c}>{currencyName(c, lang)}</option>)}
+            </select>
           </div>
         </div>
       </Composer>

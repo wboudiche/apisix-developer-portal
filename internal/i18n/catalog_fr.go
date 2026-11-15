@@ -147,7 +147,7 @@ var fr = map[string]string{
 	"admin.plan.badRateLimit":     "rateLimit doit être supérieur à zéro",
 	"admin.plan.badWindowSeconds": "windowSeconds doit être supérieur à zéro",
 	"admin.plan.badPrice":         "le prix doit être positif ou nul",
-	"admin.plan.badCurrency":      "la devise doit être un code à 3 lettres",
+	"admin.plan.badCurrency":      "devise non prise en charge",
 
 	"admin.icon.tooLarge":    "image trop volumineuse (max 256 Ko)",
 	"admin.icon.badType":     "type d'image non pris en charge (PNG, JPEG ou WebP)",

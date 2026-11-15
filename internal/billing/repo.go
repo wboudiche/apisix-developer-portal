@@ -12,11 +12,15 @@ type Repo struct{ pool *pgxpool.Pool }
 
 func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
-const invoiceCols = `id, billing_account_id, team_id, subscription_id, plan_name, price_cents, currency, status, created_at, paid_at`
+// invoiceCols also resolves the owning team's current name. team_id has no FK
+// (invoices outlive their team), so a deleted team yields an empty name.
+const invoiceCols = `id, billing_account_id, team_id,
+	COALESCE((SELECT t.name FROM teams t WHERE t.id = invoices.team_id), ''),
+	subscription_id, plan_name, price_cents, currency, status, created_at, paid_at`
 
 func scanInvoice(row pgx.Row) (Invoice, error) {
 	var v Invoice
-	err := row.Scan(&v.ID, &v.BillingAccountID, &v.TeamID, &v.SubscriptionID,
+	err := row.Scan(&v.ID, &v.BillingAccountID, &v.TeamID, &v.TeamName, &v.SubscriptionID,
 		&v.PlanName, &v.PriceCents, &v.Currency, &v.Status, &v.CreatedAt, &v.PaidAt)
 	return v, err
 }
