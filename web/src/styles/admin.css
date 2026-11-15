@@ -58,7 +58,23 @@
 .adminpage .field .help.err{color:var(--danger)}
 .adminpage .field .ipt[aria-invalid]{border-color:var(--danger)}
 .adminpage .field select.ipt{cursor:pointer}
-.adminpage .icon-picker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.adminpage .icon-picker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+/* styled file picker (FileButton) + its inline hint. Unscoped on purpose:
+   ImportModal renders in a portal outside .adminpage. */
+.field .filerow{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin-bottom:10px}
+.field .filerow:last-child{margin-bottom:0}
+.field label.filebtn{display:inline-flex;align-items:center;gap:7px;height:34px;margin:0;padding:0 13px;
+  border:1px solid var(--border-2);border-radius:9px;background:var(--surface);color:var(--fg);
+  font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;position:relative;transition:border-color .16s,box-shadow .16s}
+.field label.filebtn:hover{border-color:var(--fg)}
+.field label.filebtn svg{width:15px;height:15px;flex:none}
+.field label.filebtn:focus-within{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.field label.filebtn.is-disabled{opacity:.5;cursor:not-allowed}
+.field label.filebtn.is-disabled:hover{border-color:var(--border-2)}
+.field .filehint{font-size:12px;color:var(--muted)}
+.field .filehint.mono{font-family:var(--font-mono);color:var(--fg);overflow-wrap:anywhere}
+.adminpage .field textarea.ipt{display:block}
+.adminpage .field textarea.ipt + .btn,.adminpage .field textarea.ipt + .specRemovePending{margin-top:10px}
 .adminpage .icon-tile{
   width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex:none;
   border:1px solid var(--border-2);border-radius:8px;background:var(--bg);color:var(--fg);cursor:pointer;transition:.15s;padding:0;

@@ -369,12 +369,62 @@ describe('ProductsPage', () => {
     expect(grid.querySelector('button.icon-tile[data-key="pizza"]')!.getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('disables custom upload in create mode with a hint', async () => {
-    renderPage()
-    await screen.findByText('CurrencyConverterAPI')
-    await userEvent.click(screen.getByRole('button', { name: /Nouveau produit/ }))
-    expect((screen.getByTestId('icon-upload') as HTMLInputElement).disabled).toBe(true)
-    expect(screen.getByTestId('icon-upload-hint')).toBeTruthy()
+  describe('custom icon picked while creating', () => {
+    beforeEach(() => {
+      // jsdom has no object URLs
+      Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:preview'), revokeObjectURL: vi.fn() })
+    })
+
+    const openCreateWithIcon = async (file: File) => {
+      renderPage()
+      await screen.findByText('CurrencyConverterAPI')
+      await userEvent.click(screen.getByRole('button', { name: /Nouveau produit/ }))
+      expect((screen.getByTestId('icon-upload') as HTMLInputElement).disabled).toBe(false)
+      await userEvent.type(screen.getByLabelText('Nom'), 'OrdersAPI')
+      await userEvent.upload(screen.getByTestId('icon-upload'), file)
+    }
+
+    it('previews the icon, creates with the default icon, then uploads to the new id', async () => {
+      const create = vi.spyOn(api, 'adminCreateProduct').mockResolvedValue({ ...products[0], id: 42 })
+      const upload = vi.spyOn(api, 'adminUploadProductIcon').mockResolvedValue({ updatedAt: '2026-11-16T00:00:00Z' })
+      const file = new File(['png'], 'logo.png', { type: 'image/png' })
+      await openCreateWithIcon(file)
+      expect(screen.getByTestId('icon-pending')).toBeInTheDocument()
+      expect(screen.getByTestId('icon-upload-hint')).toHaveTextContent('logo.png')
+      expect(upload).not.toHaveBeenCalled() // nothing to attach to yet
+      await userEvent.click(screen.getByRole('button', { name: /Créer le produit/ }))
+      await waitFor(() => expect(upload).toHaveBeenCalledWith('jwt', 42, file))
+      expect(create.mock.calls[0][1].icon).toBe('')
+    })
+
+    it('picking a built-in icon drops the pending upload', async () => {
+      const create = vi.spyOn(api, 'adminCreateProduct').mockResolvedValue({ ...products[0], id: 42 })
+      const upload = vi.spyOn(api, 'adminUploadProductIcon')
+      await openCreateWithIcon(new File(['png'], 'logo.png', { type: 'image/png' }))
+      fireEvent.click(document.querySelector('button.icon-tile[data-key="pizza"]')!)
+      expect(screen.queryByTestId('icon-pending')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: /Créer le produit/ }))
+      await waitFor(() => expect(create).toHaveBeenCalled())
+      expect(create.mock.calls[0][1].icon).toBe('pizza')
+      expect(upload).not.toHaveBeenCalled()
+    })
+
+    it('still creates the product and warns when the icon upload fails', async () => {
+      const create = vi.spyOn(api, 'adminCreateProduct').mockResolvedValue({ ...products[0], id: 42 })
+      vi.spyOn(api, 'adminUploadProductIcon').mockRejectedValue(new Error('image trop grande'))
+      await openCreateWithIcon(new File(['png'], 'logo.png', { type: 'image/png' }))
+      await userEvent.click(screen.getByRole('button', { name: /Créer le produit/ }))
+      await waitFor(() => expect(create).toHaveBeenCalled())
+      expect(await screen.findByText(/a été créé, mais l’icône n’a pas pu être importée \(image trop grande\)/)).toBeInTheDocument()
+    })
+
+    it('rejects an icon over 256 KB before anything is sent', async () => {
+      const create = vi.spyOn(api, 'adminCreateProduct')
+      await openCreateWithIcon(new File([new Uint8Array(256 * 1024 + 1)], 'big.png', { type: 'image/png' }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('256 Ko maximum')
+      expect(screen.queryByTestId('icon-pending')).not.toBeInTheDocument()
+      expect(create).not.toHaveBeenCalled()
+    })
   })
 
   it('hides the sandbox upstream field when no sandbox gateway is configured', async () => {
