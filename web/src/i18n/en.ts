@@ -75,6 +75,7 @@ export const en: Messages = {
     sortAlpha: 'Alphabetical',
     gridView: 'Grid view',
     listView: 'List view',
+    viewMode: 'View mode',
     loadError: 'Unable to load the catalog. Check that the service is running.',
     noResults: 'No API matches.',
     notYetRated: 'Not yet rated',

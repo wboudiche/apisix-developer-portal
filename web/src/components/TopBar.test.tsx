@@ -256,6 +256,28 @@ describe('TopBar', () => {
     expect(screen.getByRole('menuitem', { name: /Se déconnecter/ })).toBeInTheDocument()
   })
 
+  it('avatar menu lists the section links (for narrow screens), with Admin only for admins', () => {
+    localStorage.setItem('user', JSON.stringify({ id: 1, email: 'admin@portal.local', name: 'Admin', role: 'admin' }))
+    localStorage.setItem('token', 'abc123')
+    renderTopBar()
+    fireEvent.click(screen.getByRole('button', { name: /Menu de Admin/ }))
+    const menu = screen.getByRole('menu')
+    const links = Array.from(menu.querySelectorAll('.menunav a')).map(a => a.getAttribute('href'))
+    expect(links).toEqual(['/', '/applications', '/teams', '/billing', '/admin/products'])
+    // picking a section closes the menu
+    fireEvent.click(screen.getByRole('menuitem', { name: /Applications/ }))
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('avatar menu section links omit Admin for developers', () => {
+    localStorage.setItem('user', JSON.stringify({ id: 2, email: 'dev@portal.local', name: 'Dev User', role: 'developer' }))
+    localStorage.setItem('token', 'abc123')
+    renderTopBar()
+    fireEvent.click(screen.getByRole('button', { name: /Menu de Dev User/ }))
+    const links = Array.from(screen.getByRole('menu').querySelectorAll('.menunav a')).map(a => a.getAttribute('href'))
+    expect(links).toEqual(['/', '/applications', '/teams', '/billing'])
+  })
+
   it('clicking trigger again closes the menu', () => {
     localStorage.setItem('user', JSON.stringify({ id: 1, email: 'admin@portal.local', name: 'Admin', role: 'admin' }))
     localStorage.setItem('token', 'abc123')

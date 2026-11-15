@@ -74,6 +74,7 @@ export const fr = {
     sortAlpha: 'Alphabétique',
     gridView: 'Vue grille',
     listView: 'Vue liste',
+    viewMode: "Mode d'affichage",
     loadError: 'Impossible de charger le catalogue. Vérifiez que le service est démarré.',
     noResults: 'Aucune API ne correspond.',
     notYetRated: 'Pas encore noté',

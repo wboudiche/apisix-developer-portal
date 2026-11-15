@@ -19,10 +19,10 @@
 .brand .name{font-family:var(--font-display);font-weight:700;font-size:17px;letter-spacing:-.01em;line-height:1}
 .brand .sub{font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;line-height:1}
 
-.nav-tabs{display:flex;gap:4px;margin-left:6px}
+.nav-tabs{display:flex;gap:4px;margin-left:6px;flex:none}
 .nav-tabs a{
   padding:9px 16px;border-radius:10px;font-size:14px;font-weight:500;color:var(--muted);
-  display:flex;align-items:center;gap:7px;transition:.15s;
+  display:flex;align-items:center;gap:7px;transition:.15s;white-space:nowrap;
 }
 .nav-tabs a svg{width:16px;height:16px;opacity:.8}
 /* Hover stays neutral so it never reads as "selected" — only .active gets the
@@ -33,7 +33,7 @@
 .nav-tabs a.active:hover{color:var(--accent);background:var(--accent-soft)}
 
 .search{
-  margin-left:auto;position:relative;flex:1;max-width:420px;min-width:140px;
+  margin-left:auto;position:relative;flex:1 1 140px;max-width:420px;min-width:0;
 }
 .search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:17px;height:17px;color:var(--faint);pointer-events:none}
 .search input{
@@ -75,7 +75,7 @@
 }
 .login-cta:hover{filter:brightness(1.05);box-shadow:0 6px 18px oklch(55% 0.205 27 /.36)}
 /* ── User trigger ──────────────────────────────────────────────────────────── */
-.usermenu-wrap{position:relative}
+.usermenu-wrap{position:relative;flex:none}
 .user{
   display:flex;align-items:center;gap:9px;flex:none;padding:4px 8px;
   cursor:pointer;border:1px solid transparent;border-radius:10px;background:transparent;
@@ -111,6 +111,9 @@
 }
 .usermenu .item:hover{background:var(--accent-soft);color:var(--accent)}
 .usermenu .item svg{width:15px;height:15px}
+.usermenu .item.active{color:var(--accent);background:var(--accent-soft);font-weight:600}
+/* section links in the avatar menu: only when the nav tabs are hidden (≤900) */
+.usermenu .menunav{display:none}
 
 .hamb{display:grid}
 
@@ -174,51 +177,49 @@
 /* ===================== GRID + CARDS ===================== */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:20px}
 
+/* Card — "C2 Quiet": white surface, crimson-ink only as accents (icon tile,
+   path chip, primary action) so it harmonises with the crimson-ink rail. */
 .card{
-  background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
-  overflow:hidden;display:flex;flex-direction:column;transition:transform .22s cubic-bezier(.2,.7,.3,1),box-shadow .22s,border-color .22s;
-  opacity:0;transform:translateY(14px);
+  --card-line:color-mix(in oklab,var(--ink) 9%,var(--border));
+  background:var(--surface);border:1px solid var(--card-line);border-radius:var(--r);
+  display:flex;flex-direction:column;
+  transition:border-color .2s cubic-bezier(.22,1,.36,1),box-shadow .2s cubic-bezier(.22,1,.36,1);
 }
-.card.in{opacity:1;transform:none}
-.card:hover{transform:translateY(-4px);box-shadow:var(--shadow-h);border-color:var(--border-2)}
+.card:hover{border-color:color-mix(in oklab,var(--ink) 38%,var(--border));box-shadow:0 10px 26px -18px color-mix(in oklab,var(--ink) 60%,transparent)}
 
-.thumb{
-  height:74px;position:relative;overflow:visible;display:grid;place-items:center;
-  border-bottom:1px solid var(--border);
-}
-.thumb::before{
-  content:"";position:absolute;inset:0;opacity:.5;
-  background-image:linear-gradient(var(--tint-line,var(--border)) 1px,transparent 1px),linear-gradient(90deg,var(--tint-line,var(--border)) 1px,transparent 1px);
-  background-size:22px 22px;mask-image:radial-gradient(120% 120% at 80% 0%,#000,transparent 75%);
-}
+.cbody{padding:20px;display:flex;flex-direction:column;flex:1;gap:14px}
+.ctop{display:flex;align-items:flex-start;gap:12px}
+.thumb{flex:none;display:block}
 .thumb .ico{
-  width:54px;height:54px;border-radius:14px;display:grid;place-items:center;color:#fff;
-  position:absolute;bottom:7px;left:14px;z-index:2;box-shadow:0 10px 24px var(--tint-sh,oklch(55% 0.205 27 /.35));
-  background:linear-gradient(150deg,var(--tint,var(--accent)),var(--tint-d,var(--accent-d)));
-  font-weight:700;font-size:15px;font-family:var(--font-display);
-  transition:transform .22s cubic-bezier(.2,.7,.3,1);
+  width:40px;height:40px;border-radius:11px;display:grid;place-items:center;
+  background:var(--accent-soft);color:var(--ink-soft);
 }
-.card:hover .thumb .ico{transform:translateY(-3px) scale(1.04)}
-.thumb .ico svg{width:27px;height:27px}
-.thumb .catbadge{
-  position:absolute;top:12px;right:12px;z-index:1;font-size:11px;font-weight:600;letter-spacing:.03em;
-  padding:4px 9px;border-radius:20px;background:color-mix(in oklab,var(--surface) 78%,transparent);
-  backdrop-filter:blur(6px);color:var(--tint-d,var(--accent-d));border:1px solid var(--border);
-}
+:root[data-theme="dark"] .thumb .ico{color:oklch(86% 0.07 27)}
+.thumb .ico svg{width:20px;height:20px}
+.thumb .ico .ico-img{width:20px;height:20px;object-fit:contain}
+.cident{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+/* overflow-wrap breaks unbroken slugs/IDs instead of overflowing the card */
+.cname{font-family:var(--font-display);font-size:18px;font-weight:600;letter-spacing:-.01em;line-height:1.2;min-width:0;overflow-wrap:anywhere}
+.cname:hover{color:var(--accent-d)}
+.ccat{font-size:12.5px;color:var(--muted)}
+.ctop .pill.lifecycle{flex:none;font-family:var(--font-body);font-size:11.5px}
 
-.cbody{padding:8px 17px 17px;display:flex;flex-direction:column;flex:1;gap:9px}
-.crow1{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
-.stars{display:flex;gap:1.5px;flex:none;margin-top:3px}
+.cmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card .pill{font-family:var(--font-mono);font-size:13px;border-radius:7px;padding:4px 9px}
+.card .pill.ctx{color:var(--ink-soft);background:var(--accent-soft);border-color:transparent}
+:root[data-theme="dark"] .card .pill.ctx{color:oklch(86% 0.07 27)}
+.card .pill.oauth{font-family:var(--font-body);font-size:12px;font-weight:600;color:var(--ink-soft);background:transparent;border:1px solid color-mix(in oklab,var(--ink) 30%,var(--border))}
+:root[data-theme="dark"] .card .pill.oauth{color:oklch(86% 0.07 27);border-color:var(--border-2)}
+
+.cdesc{font-size:14px;color:var(--muted);line-height:1.5;text-wrap:pretty;flex:1;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+.stars{display:flex;gap:1.5px;flex:none}
 .stars svg{width:14px;height:14px}
 .ratewrap{display:inline-flex;align-items:center;gap:5px;flex:none}
-.ratecount{font-size:12px;color:var(--muted)}
-.ratecount.norate{font-style:italic;flex:none;white-space:nowrap;margin-top:3px}
+.ratecount{font-size:12.5px;color:var(--muted)}
+.ratecount.norate{font-style:normal;white-space:nowrap}
 .star-f{color:var(--warn)} .star-e{color:var(--border-2)}
-/* flex:1 + min-width:0 lets the title shrink below its intrinsic width so the
-   rating keeps its footprint; overflow-wrap breaks unbroken slugs/IDs. */
-.cname{font-family:var(--font-display);font-size:15.5px;font-weight:600;letter-spacing:-.01em;line-height:1.2;flex:1;min-width:0;overflow-wrap:anywhere}
-.cdesc{font-size:13.5px;color:var(--muted);line-height:1.5;text-wrap:pretty;flex:1}
-.cmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--font-mono);font-size:12px}
 .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:7px;background:var(--surface);border:1px solid var(--border);color:var(--muted)}
 .pill b{color:var(--fg);font-weight:600}
 .pill.ctx{color:var(--accent-d);background:var(--accent-soft);border-color:transparent}
@@ -254,10 +255,11 @@
 .changelog .ctag.fixed{background:var(--danger-soft);color:var(--danger)}
 .changelog .ctag.added{background:var(--accent-soft);color:var(--accent-d)}
 
-.cfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px;padding-top:13px;border-top:1px solid var(--border)}
 .ctags{display:flex;gap:6px;flex-wrap:wrap}
-.ctag{font-size:11.5px;color:var(--faint)}
-.ctag::before{content:"#";opacity:.5}
+.ctag{font-size:12.5px;font-weight:500;color:var(--fg);background:var(--raise);border:1px solid var(--card-line,var(--border));border-radius:7px;padding:3px 9px}
+.ctag::before{content:"#";color:var(--muted)}
+.cfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;padding-top:14px;border-top:1px solid var(--card-line,var(--border))}
+.crow1{display:flex;align-items:center;min-width:0}
 .subbtn{
   flex:none;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;
   border:1px solid var(--accent);color:var(--accent);background:transparent;padding:7px 13px;border-radius:9px;transition:.15s;
@@ -266,21 +268,33 @@
 .subbtn:hover{background:var(--accent);color:#fff}
 .subbtn.on{background:var(--c-finance);border-color:var(--c-finance);color:#fff}
 .subbtn.on:hover{filter:brightness(.95)}
+/* card action: the one filled crimson element on the card */
+.card .subbtn{font-size:14px;border-color:transparent;color:#fff;background:var(--accent);padding:9px 15px}
+.card .subbtn:hover{background:color-mix(in oklab,var(--accent) 86%,#000)}
+/* dark --accent is lightened for text; white-on-button needs the deeper crimson to keep 4.5:1 */
+:root[data-theme="dark"] .card .subbtn:not(:disabled){background:oklch(53% 0.19 27)}
+:root[data-theme="dark"] .card .subbtn:not(:disabled):hover{background:oklch(48% 0.18 27)}
+.card .subbtn:disabled{background:var(--raise);color:var(--muted);border-color:var(--border);cursor:not-allowed}
 
-/* list view */
-.grid.list{grid-template-columns:1fr;gap:12px}
-.grid.list .card{flex-direction:row;align-items:stretch}
-.grid.list .thumb{height:auto;width:130px;flex:none;border-bottom:0;border-right:1px solid var(--border)}
-.grid.list .thumb .ico{position:static;left:auto;top:auto;border:0;width:48px;height:48px;border-radius:12px}
-.grid.list .thumb .ico svg{width:24px;height:24px}
-.grid.list .thumb .catbadge{display:none}
-.grid.list .cbody{flex-direction:row;align-items:center;gap:18px;flex-wrap:wrap;padding:14px 18px}
-.grid.list .crow1{flex-direction:column;gap:5px;min-width:180px;flex:1}
-.grid.list .cdesc{flex:2;min-width:200px}
-.grid.list .cmeta{flex:none}
-.grid.list .cfoot{border-top:0;padding-top:0;margin:0;flex:none}
+/* list view: same card, laid out on one row */
+.grid.list{grid-template-columns:1fr;gap:12px;container-type:inline-size}
+.grid.list .cbody{display:grid;grid-template-columns:minmax(290px,1.3fr) minmax(130px,auto) minmax(200px,2fr) auto;align-items:center;gap:8px 22px;padding:16px 20px}
 .grid.list .ctags{display:none}
-
+.grid.list .cname{overflow-wrap:break-word}
+.grid.list .cfoot{border-top:0;padding-top:0;margin:0;gap:18px}
+/* Too narrow for the 4-column row (sidebar open, tablets): identity + action on
+   the first line, path and description below — never wider than the list. */
+@container (max-width:1000px){
+  .grid.list .cbody{grid-template-columns:minmax(0,1fr) auto;gap:12px 18px}
+  .grid.list .ctop{grid-column:1;grid-row:1}
+  .grid.list .cfoot{grid-column:2;grid-row:1}
+  .grid.list .cmeta{grid-column:1 / -1;grid-row:2}
+  .grid.list .cdesc{grid-column:1 / -1;grid-row:3}
+}
+@container (max-width:520px){
+  .grid.list .cbody{display:flex;flex-direction:column;align-items:stretch}
+  .grid.list .cfoot{padding-top:14px;border-top:1px solid var(--card-line,var(--border))}
+}
 /* empty */
 .empty{text-align:center;padding:80px 20px;color:var(--muted);display:none}
 .empty.show{display:block}
@@ -292,6 +306,22 @@
 .rail-scrim{display:none}
 
 /* ===================== RESPONSIVE ===================== */
+/* Top bar compaction — each step frees room before anything can overflow:
+   ≤1400 drop the user name, ≤1200 tighten spacing, ≤1080 nav tabs become
+   icon-only (label kept for screen readers + tooltip), ≤900 nav hides
+   (existing), ≤560 brand text hides. */
+@media (max-width:1400px){
+  .user .who{display:none}
+}
+@media (max-width:1200px){
+  .topbar{gap:14px}
+  .brand .sub{display:none}
+  .nav-tabs a{padding:9px 11px}
+  .search kbd{display:none}
+}
+@media (max-width:1080px){
+  .nav-tabs a .lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+}
 @media (max-width:1080px){.content{padding:26px 24px 50px}}
 @media (max-width:900px){
   :root{--rail-w:0px}
@@ -308,19 +338,20 @@
   .brand .sub{display:none}
   .user .who{display:none}
   .nav-tabs{display:none}
+  .usermenu .menunav{display:block}
 }
 @media (max-width:560px){
-  .topbar{gap:12px;padding:0 14px}
+  .topbar{gap:10px;padding:0 12px}
   .search kbd{display:none}
+  .brand-text{display:none}
+  .user{padding:4px}
+  .user .chev{display:none}
   .content{padding:22px 16px 44px}
   .chead h1{font-size:25px}
   .grid{grid-template-columns:1fr;gap:14px}
-  .grid.list .card{flex-direction:column}
-  .grid.list .thumb{width:100%;height:96px;border-right:0;border-bottom:1px solid var(--border)}
-  .grid.list .cbody{flex-direction:column;align-items:stretch}
   .controls .sortwrap label{display:none}
 }
 @media (prefers-reduced-motion:reduce){
-  .card{opacity:1;transform:none;transition:none}
+  .card{transition:none}
   *{scroll-behavior:auto}
 }

@@ -8,6 +8,8 @@ import {
 import type { Team, TeamMember } from '../../api/types'
 import { useT } from '../../i18n/LanguageProvider'
 import '../../styles/teams.css'
+import { ViewToggle } from '../../components/ViewToggle'
+import { usePersistedView } from '../../components/usePersistedView'
 
 export default function TeamsPage() {
   const t = useT()
@@ -16,6 +18,7 @@ export default function TeamsPage() {
   const [selected, setSelected] = useState<Team | null>(null)
   const [name, setName] = useState('')
   const [err, setErr] = useState('')
+  const [view, pickView] = usePersistedView('teamsView', 'list')
 
   const reload = () => {
     if (!token) return
@@ -40,13 +43,16 @@ export default function TeamsPage() {
     <>
     <TopBar search="" onSearch={() => {}} />
     <div className="teams-page">
-      <h1>{t('nav.teams')}</h1>
+      <div className="teams-head">
+        <h1>{t('nav.teams')}</h1>
+        <ViewToggle value={view} onChange={pickView} />
+      </div>
       {err && <p className="err">{err}</p>}
       <form onSubmit={onCreate} className="team-create">
         <input placeholder={t('teams.createNamePlaceholder')} value={name} onChange={e => setName(e.target.value)} />
         <button className="btn primary" type="submit">{t('app.create')}</button>
       </form>
-      <ul className="team-list">
+      <ul className={`team-list${view === 'cards' ? ' cards' : ''}`}>
         {teams?.map(team => (
           <li key={team.id}>
             <button className="team-row" onClick={() => setSelected(team)}>

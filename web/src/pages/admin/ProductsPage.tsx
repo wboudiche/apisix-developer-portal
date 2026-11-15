@@ -12,6 +12,8 @@ import { ConfirmModal, type ModalSpec } from '../../components/ConfirmModal'
 import { ImportModal } from './ImportModal'
 import { useT } from '../../i18n/LanguageProvider'
 import { BUILTIN_ICON_KEYS, ApiIcon } from '../../components/apiIcons'
+import { ViewToggle } from '../../components/ViewToggle'
+import { usePersistedView } from '../../components/usePersistedView'
 
 interface FormState {
   name: string; slug: string; category: string; contextPath: string
@@ -152,6 +154,7 @@ export function ProductsPage() {
   const [total, setTotal] = useState(0)
   const pageSize = 20
   const [filter, setFilter] = useState('')
+  const [view, pickView] = usePersistedView('adminProductsView', 'list')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<AdminProduct | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY)
@@ -471,9 +474,10 @@ export function ProductsPage() {
           <input type="search" placeholder={t('admin.filterProductsPlaceholder')} aria-label={t('admin.filterAriaLabel')}
             value={filter} onChange={e => setFilter(e.target.value)} />
         </div>
+        <ViewToggle value={view} onChange={pickView} />
       </div>
 
-      <div className="rows">
+      <div className={`rows${view === 'cards' ? ' cards' : ''}`}>
         {shown.length === 0 && (
           <div className="aempty"><h4>{t('admin.noResultsHeading')}</h4><p>{t('admin.noProductsMatchFilter')}</p></div>
         )}

@@ -7,6 +7,8 @@ import { adminGetInvoices, adminPayInvoice, adminVoidInvoice, ApiError } from '.
 import type { Invoice } from '../../api/types'
 import { AdminShell } from './AdminShell'
 import '../../styles/billing.css'
+import { ViewToggle } from '../../components/ViewToggle'
+import { usePersistedView } from '../../components/usePersistedView'
 
 const STATUSES = ['', 'pending', 'paid', 'void'] as const
 
@@ -17,6 +19,7 @@ export function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [status, setStatus] = useState<string>('')
   const [error, setError] = useState('')
+  const [view, pickView] = usePersistedView('adminInvoicesView', 'list')
 
   async function reload(s: string) {
     if (!token) return
@@ -43,8 +46,31 @@ export function InvoicesPage() {
               {s ? label(s) : t('billing.filterAll')}
             </button>
           ))}
+          <ViewToggle value={view} onChange={pickView} />
         </div>
-        {invoices.length === 0 ? <p className="empty">{t('billing.admin.none')}</p> : (
+        {invoices.length === 0 ? <p className="empty">{t('billing.admin.none')}</p> : view === 'cards' ? (
+          <div className="inv-cards">
+            {invoices.map(inv => (
+              <article className="inv-card" key={inv.id}>
+                <div className="ic-top">
+                  <b className="ic-plan">{inv.planName}</b>
+                  <span className={`pill ${inv.status}`}>{label(inv.status)}</span>
+                </div>
+                <div className="ic-amt">{money(inv.priceCents, inv.currency)}</div>
+                <dl className="ic-facts">
+                  <div><dt>{t('billing.col.team')}</dt><dd className="mono">{inv.teamId}</dd></div>
+                  <div><dt>{t('billing.col.created')}</dt><dd>{formatDate(inv.createdAt, lang)}</dd></div>
+                </dl>
+                {inv.status === 'pending' && (
+                  <div className="ic-acts">
+                    <button className="btn btn-ghost btn-sm" onClick={() => act(adminVoidInvoice, inv.id)}>{t('billing.admin.void')}</button>
+                    <button className="btn btn-primary btn-sm" onClick={() => act(adminPayInvoice, inv.id)}>{t('billing.admin.pay')}</button>
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        ) : (
           <div className="invoices-wrap">
             <table className="invoices">
               <thead><tr>

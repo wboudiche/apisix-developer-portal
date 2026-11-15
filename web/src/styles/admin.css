@@ -112,6 +112,48 @@
 .adminpage .iact:hover{color:var(--fg);border-color:var(--fg)}
 .adminpage .iact.del:hover{color:var(--danger);border-color:var(--danger);background:var(--danger-soft)}
 
+
+/* card mode — same markup as the rows, laid out like the catalog's "C2 Quiet"
+   cards: white surface, crimson-ink accents, neutral icon tile. */
+.adminpage .rows.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px;background:none;border:0;box-shadow:none;overflow:visible}
+.adminpage .rows.cards .aempty{grid-column:1 / -1}
+.adminpage .rows.cards .row{--line:color-mix(in oklab,var(--ink) 9%,var(--border));
+  display:grid;grid-template-columns:40px minmax(0,1fr) auto;grid-template-areas:"sw nm ver" "meta meta meta" "act act act";
+  align-items:center;gap:14px 12px;padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  transition:box-shadow .2s cubic-bezier(.22,1,.36,1)}
+.adminpage .rows.cards .row:last-child{border-bottom:1px solid var(--line)}
+.adminpage .rows.cards .row:hover{background:var(--surface);border-color:color-mix(in oklab,var(--ink) 38%,var(--border));box-shadow:0 10px 26px -18px color-mix(in oklab,var(--ink) 60%,transparent)}
+.adminpage .rows.cards .swatch{grid-area:sw;align-self:start;width:40px;height:40px;border-radius:11px;background:var(--accent-soft) !important;color:var(--ink-soft)}
+:root[data-theme="dark"] .adminpage .rows.cards .swatch{color:oklch(86% 0.07 27)}
+.adminpage .rows.cards .main{display:contents}
+.adminpage .rows.cards .main .nm{grid-area:nm;flex-direction:column;align-items:flex-start;gap:6px}
+.adminpage .rows.cards .main .nm b{font-size:17px;overflow-wrap:anywhere}
+.adminpage .rows.cards .main .nm .actx{color:var(--ink-soft);font-size:13px;padding:3px 9px;border-radius:7px}
+:root[data-theme="dark"] .adminpage .rows.cards .main .nm .actx{color:oklch(86% 0.07 27)}
+.adminpage .rows.cards .main .meta{grid-area:meta;margin-top:0}
+.adminpage .rows.cards .main .meta .acat{color:var(--muted) !important}
+.adminpage .rows.cards .ver-col{grid-area:ver;align-self:start;width:auto;font-size:12px;border:1px solid var(--border-2);border-radius:6px;padding:4px 6px}
+.adminpage .rows.cards .actions{grid-area:act;justify-content:flex-end;opacity:1;padding-top:14px;border-top:1px solid var(--line)}
+@media (max-width:880px){.adminpage .rows.cards .ver-col{display:block}}
+/* subscription request cards */
+.adminpage .rows.cards .sub-card{--line:color-mix(in oklab,var(--ink) 9%,var(--border));
+  display:grid;grid-template-columns:40px minmax(0,1fr);grid-template-areas:"av ttl" "meta meta" "act act";
+  align-items:center;gap:14px 12px;padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  transition:box-shadow .2s cubic-bezier(.22,1,.36,1)}
+.adminpage .rows.cards .sub-card:hover{border-color:color-mix(in oklab,var(--ink) 38%,var(--border));box-shadow:0 10px 26px -18px color-mix(in oklab,var(--ink) 60%,transparent)}
+.adminpage .rows.cards .sub-card .app-av{grid-area:av;align-self:start;background:var(--accent-soft);color:var(--ink-soft)}
+:root[data-theme="dark"] .adminpage .rows.cards .sub-card .app-av{color:oklch(86% 0.07 27)}
+.adminpage .rows.cards .sub-card .sub-main{display:contents}
+.adminpage .rows.cards .sub-card .sub-main .ttl{grid-area:ttl;font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+.adminpage .rows.cards .sub-card .sub-main .ttl b{font-family:var(--font-display);font-size:17px;display:block}
+.adminpage .rows.cards .sub-card .sub-main .ttl .arr{margin:0 6px 0 0}
+.adminpage .rows.cards .sub-card .sub-main .sub-meta{grid-area:meta;margin-top:0}
+.adminpage .rows.cards .sub-card .sub-acts{grid-area:act;justify-content:flex-end;padding-top:14px;border-top:1px solid var(--line)}
+
+/* plan cards: limit + price read as the plan's facts */
+.adminpage .rows.cards .main .nm .limit{font-size:12.5px}
+.adminpage .rows.cards .main .nm .price{font-family:var(--font-display);font-size:15px;font-weight:600;color:var(--fg)}
+
 /* plan rows */
 .adminpage .row.plan .swatch{background:linear-gradient(150deg,var(--accent),var(--accent-d))}
 .adminpage .row .limit{font-family:var(--font-mono);font-size:13px;color:var(--fg);background:color-mix(in oklab, var(--fg) 5%, transparent);border:1px solid var(--border);padding:3px 10px;border-radius:8px}
