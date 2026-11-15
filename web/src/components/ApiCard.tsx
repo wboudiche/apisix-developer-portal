@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { Product } from '../api/types'
-import { ApiIcon, categoryTint, iconSrc } from './apiIcons'
+import { ApiIcon, iconSrc } from './apiIcons'
 import { LifecycleBadge } from './LifecycleBadge'
 import { useT } from '../i18n/LanguageProvider'
 
@@ -36,31 +36,36 @@ export function ApiCard({ p, onSubscribe }: { p: Product; onSubscribe: (p: Produ
   // new subscriptions (the backend 409s), so keep the catalog card consistent.
   const blocked = p.lifecycleStatus === 'deprecated' || p.lifecycleStatus === 'sunset'
   return (
-    <article className="card in" data-testid="api-card" style={categoryTint(p.category)}>
-      <div className="thumb">
-        <span className="catbadge">{p.category}</span>
-        <span className="ico">
-          {p.icon === 'upload'
-            ? <img className="ico-img" src={iconSrc(p.slug)} alt="" width={24} height={24} />
-            : <ApiIcon name={p.icon} />}
-        </span>
-      </div>
+    <article className="card" data-testid="api-card">
       <div className="cbody">
-        <div className="crow1">
-          <Link className="cname" to={`/catalog/${p.slug}`}>{p.name}</Link>
-          {p.ratingCount > 0
-            ? <span className="ratewrap"><Stars rating={p.rating} /> <span className="ratecount">({p.ratingCount})</span></span>
-            : <span className="ratecount norate">{t('catalog.notYetRated')}</span>}
-        </div>
-        <p className="cdesc">{p.description}</p>
-        <div className="cmeta">
-          <span className="pill">v<b>{p.version}</b></span>
-          <span className="pill ctx">{p.contextPath}</span>
-          {p.authType === 'oauth2' && <span className="pill oauth">OAuth2</span>}
+        <div className="ctop">
+          <span className="thumb">
+            <span className="ico">
+              {p.icon === 'upload'
+                ? <img className="ico-img" src={iconSrc(p.slug)} alt="" width={20} height={20} />
+                : <ApiIcon name={p.icon} />}
+            </span>
+          </span>
+          <div className="cident">
+            <Link className="cname" to={`/catalog/${p.slug}`}>{p.name}</Link>
+            <span className="ccat">{p.category} · v{p.version}</span>
+          </div>
           <LifecycleBadge status={p.lifecycleStatus} />
         </div>
-        <div className="cfoot">
+        <div className="cmeta">
+          <span className="pill ctx">{p.contextPath}</span>
+          {p.authType === 'oauth2' && <span className="pill oauth">OAuth2</span>}
+        </div>
+        <p className="cdesc">{p.description}</p>
+        {p.tags.length > 0 && (
           <div className="ctags">{p.tags.slice(0, 2).map(tag => <span key={tag} className="ctag">{tag}</span>)}</div>
+        )}
+        <div className="cfoot">
+          <div className="crow1">
+            {p.ratingCount > 0
+              ? <span className="ratewrap"><Stars rating={p.rating} /> <span className="ratecount">({p.ratingCount})</span></span>
+              : <span className="ratecount norate">{t('catalog.notYetRated')}</span>}
+          </div>
           <button className="subbtn" onClick={() => onSubscribe(p)} disabled={blocked}
             title={blocked ? t('catalog.subscribeBlockedTitle') : undefined}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>

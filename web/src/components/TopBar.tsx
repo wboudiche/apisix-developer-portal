@@ -19,11 +19,32 @@ function IconGrid() {
   )
 }
 
-function IconDoc() {
+// Distinct glyphs per tab: on narrow screens the tabs collapse to icon-only,
+// so each destination must be recognisable without its label.
+function IconApp() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-      <path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2z"/>
-      <path d="M8 9h8M8 13h5" strokeLinecap="round"/>
+      <rect x="3" y="4" width="18" height="16" rx="2.5"/>
+      <path d="M3 9h18" />
+      <circle cx="6.5" cy="6.5" r=".6" fill="currentColor"/><circle cx="9" cy="6.5" r=".6" fill="currentColor"/>
+    </svg>
+  )
+}
+
+function IconTeam() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round">
+      <circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/>
+      <path d="M15.5 5.6a3 3 0 010 5.8M17.5 14.4c1.6.7 2.6 2.2 3 4.6"/>
+    </svg>
+  )
+}
+
+function IconReceipt() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinejoin="round">
+      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/>
+      <path d="M9 8h6M9 12h6" strokeLinecap="round"/>
     </svg>
   )
 }
@@ -201,11 +222,11 @@ export function TopBar({
       </Link>
 
       <nav className="nav-tabs">
-        <Link className={tab(pathname === '/')} to="/"><IconGrid />{t('nav.apis')}</Link>
-        {user && <Link className={tab(pathname.startsWith('/applications'))} to="/applications"><IconDoc />{t('nav.applications')}</Link>}
-        {user && <Link className={tab(pathname.startsWith('/teams'))} to="/teams"><IconDoc />{t('nav.teams')}</Link>}
-        {user && <Link className={tab(pathname.startsWith('/billing'))} to="/billing"><IconDoc />{t('nav.billing')}</Link>}
-        {user?.role === 'admin' && <Link className={tab(inAdminSection)} to="/admin/products"><IconShield />{t('nav.admin')}</Link>}
+        <Link className={tab(pathname === '/')} to="/" title={t('nav.apis')}><IconGrid /><span className="lbl">{t('nav.apis')}</span></Link>
+        {user && <Link className={tab(pathname.startsWith('/applications'))} to="/applications" title={t('nav.applications')}><IconApp /><span className="lbl">{t('nav.applications')}</span></Link>}
+        {user && <Link className={tab(pathname.startsWith('/teams'))} to="/teams" title={t('nav.teams')}><IconTeam /><span className="lbl">{t('nav.teams')}</span></Link>}
+        {user && <Link className={tab(pathname.startsWith('/billing'))} to="/billing" title={t('nav.billing')}><IconReceipt /><span className="lbl">{t('nav.billing')}</span></Link>}
+        {user?.role === 'admin' && <Link className={tab(inAdminSection)} to="/admin/products" title={t('nav.admin')}><IconShield /><span className="lbl">{t('nav.admin')}</span></Link>}
       </nav>
 
       <div className="search">
@@ -261,6 +282,25 @@ export function TopBar({
                   />
                   {user.role === 'admin' ? t('nav.roleAdmin') : t('nav.roleDeveloper')}
                 </span>
+              </div>
+              {/* Section links — only shown (via CSS) when the nav tabs are
+                  hidden on narrow screens, so phones can still reach them. */}
+              <div className="menunav">
+                <div className="sep" />
+                {[
+                  { to: '/', label: t('nav.apis'), icon: <IconGrid />, active: pathname === '/' },
+                  { to: '/applications', label: t('nav.applications'), icon: <IconApp />, active: pathname.startsWith('/applications') },
+                  { to: '/teams', label: t('nav.teams'), icon: <IconTeam />, active: pathname.startsWith('/teams') },
+                  { to: '/billing', label: t('nav.billing'), icon: <IconReceipt />, active: pathname.startsWith('/billing') },
+                  ...(user.role === 'admin'
+                    ? [{ to: '/admin/products', label: t('nav.admin'), icon: <IconShield />, active: inAdminSection }]
+                    : []),
+                ].map(l => (
+                  <Link key={l.to} to={l.to} className={`item${l.active ? ' active' : ''}`} role="menuitem"
+                    aria-current={l.active ? 'page' : undefined} onClick={() => setMenuOpen(false)}>
+                    {l.icon}{l.label}
+                  </Link>
+                ))}
               </div>
               <div className="sep" />
               <button

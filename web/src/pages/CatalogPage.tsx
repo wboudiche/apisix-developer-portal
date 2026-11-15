@@ -10,6 +10,8 @@ import { Pagination } from '../components/Pagination'
 import { useAuth } from '../auth/AuthProvider'
 import { useT } from '../i18n/LanguageProvider'
 import '../styles/catalog.css'
+import { ViewToggle } from '../components/ViewToggle'
+import { usePersistedView } from '../components/usePersistedView'
 
 export function CatalogPage() {
   const { user } = useAuth()
@@ -21,7 +23,7 @@ export function CatalogPage() {
   const [category, setCategory] = useState<string | null>(null)
   const [tag, setTag] = useState<string | null>(null)
   const [sort, setSort] = useState<'rating' | 'alpha'>('rating')
-  const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [view, pickView] = usePersistedView('catalogView', 'cards')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const pageSize = 20
@@ -85,20 +87,7 @@ export function CatalogPage() {
                 <option value="rating">{t('catalog.sortRating')}</option>
                 <option value="alpha">{t('catalog.sortAlpha')}</option>
               </select>
-              <button
-                aria-label={t('catalog.gridView')}
-                onClick={() => setView('grid')}
-                style={{ width: '32px', height: '32px', borderRadius: '8px', border: '1px solid var(--border-2)', background: view === 'grid' ? 'var(--accent-soft)' : 'var(--surface)', color: view === 'grid' ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
-              >
-                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor"/><rect x="9" y="1" width="5" height="5" rx="1" fill="currentColor"/><rect x="1" y="9" width="5" height="5" rx="1" fill="currentColor"/><rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor"/></svg>
-              </button>
-              <button
-                aria-label={t('catalog.listView')}
-                onClick={() => setView('list')}
-                style={{ width: '32px', height: '32px', borderRadius: '8px', border: '1px solid var(--border-2)', background: view === 'list' ? 'var(--accent-soft)' : 'var(--surface)', color: view === 'list' ? 'var(--accent)' : 'var(--muted)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
-              >
-                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="2" width="13" height="2" rx="1" fill="currentColor"/><rect x="1" y="6.5" width="13" height="2" rx="1" fill="currentColor"/><rect x="1" y="11" width="13" height="2" rx="1" fill="currentColor"/></svg>
-              </button>
+              <ViewToggle value={view} onChange={pickView} />
             </div>
           </div>
           {error && <p className="autherr" role="alert">{error}</p>}

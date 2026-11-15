@@ -25,3 +25,14 @@ a{color:inherit;text-decoration:none}
 .subbtn.ghost{background:transparent;color:var(--fg);border:1px solid var(--border-2)}
 .keybox{display:flex;flex-direction:column;gap:10px}
 .apikey{font-family:var(--font-mono);font-size:14px;background:var(--bg);border:1px solid var(--border-2);border-radius:8px;padding:12px;word-break:break-all;color:var(--accent-d)}
+
+/* List / cards segmented toggle (components/ViewToggle.tsx) — one global
+   definition shared by the catalog, applications, teams and admin pages. */
+.viewtoggle{display:inline-flex;flex:none;border:1px solid var(--border-2);border-radius:9px;overflow:hidden;background:var(--surface)}
+.viewtoggle button{width:36px;height:34px;display:grid;place-items:center;border:0;background:none;color:var(--muted);cursor:pointer;transition:color .15s,background .15s}
+.viewtoggle button+button{border-left:1px solid var(--border-2)}
+.viewtoggle button svg{width:15px;height:15px}
+.viewtoggle button:hover{color:var(--fg)}
+.viewtoggle button[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink-soft)}
+:root[data-theme="dark"] .viewtoggle button[aria-pressed="true"]{color:oklch(86% 0.07 27)}
+.viewtoggle button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}

@@ -6,6 +6,8 @@ import { AdminShell } from './AdminShell'
 import { Toast, useToast } from '../../components/Toast'
 import { Pagination } from '../../components/Pagination'
 import { useT } from '../../i18n/LanguageProvider'
+import { ViewToggle } from '../../components/ViewToggle'
+import { usePersistedView } from '../../components/usePersistedView'
 
 // Blueprint avatar initials: capitals of the app name, else first two letters.
 const subInitials = (name: string) =>
@@ -22,6 +24,7 @@ export function ApprovalsPage() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const pageSize = 20
+  const [view, pickView] = usePersistedView('adminSubsView', 'list')
   const { toast, notify } = useToast()
 
   // Monotonic guard: only the latest list request may write state.
@@ -71,7 +74,11 @@ export function ApprovalsPage() {
           <p>{t('admin.emptyQueueBody')}</p>
         </div>
       ) : (
-        <div className="rows">
+        <>
+        <div className="list-head">
+          <div style={{ marginLeft: 'auto' }}><ViewToggle value={view} onChange={pickView} /></div>
+        </div>
+        <div className={`rows${view === 'cards' ? ' cards' : ''}`}>
           {subs.map(s => (
             <div className="sub-card" key={s.id}>
               <div className="app-av">{subInitials(s.applicationName)}</div>
@@ -91,6 +98,7 @@ export function ApprovalsPage() {
             </div>
           ))}
         </div>
+        </>
       )}
 
       <Pagination page={page} pageSize={pageSize} total={total} onPage={setPage} />

@@ -35,17 +35,37 @@
 .billing .invoices td.acts .btn + .btn{margin-left:8px}
 
 /* status pills — same dot vocabulary as the admin .apill states */
-.billing .invoices .pill{
+.billing .invoices .pill,.billing .inv-card .pill{
   display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;
   padding:3px 10px;border-radius:20px;letter-spacing:.01em;border:0;background:none;
 }
-.billing .invoices .pill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
-.billing .invoices .pill.paid{color:var(--success);background:var(--success-soft)}
-.billing .invoices .pill.pending{color:var(--warn);background:var(--warn-soft)}
-.billing .invoices .pill.void{color:var(--muted);background:color-mix(in oklab, var(--fg) 6%, transparent)}
+.billing .invoices .pill::before,.billing .inv-card .pill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.billing .invoices .pill.paid,.billing .inv-card .pill.paid{color:var(--success);background:var(--success-soft)}
+.billing .invoices .pill.pending,.billing .inv-card .pill.pending{color:var(--warn);background:var(--warn-soft)}
+.billing .invoices .pill.void,.billing .inv-card .pill.void{color:var(--muted);background:color-mix(in oklab, var(--fg) 6%, transparent)}
 
 .billing .empty{
   display:block; /* catalog.css hides bare .empty globally (display:none until .show) */
   padding:44px 20px;text-align:center;font-size:14px;color:var(--muted);
   background:var(--surface);border:1px dashed var(--border-2);border-radius:var(--r);
 }
+
+/* view toggle sits at the end of the filter row */
+.billing .filters{align-items:center}
+.billing .filters .viewtoggle{margin-left:auto}
+
+/* invoice cards (admin card mode) — same "C2 Quiet" card as the catalog */
+.billing .inv-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
+.billing .inv-card{--line:color-mix(in oklab,var(--ink) 9%,var(--border));
+  display:flex;flex-direction:column;gap:14px;padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  transition:box-shadow .2s cubic-bezier(.22,1,.36,1)}
+.billing .inv-card:hover{border-color:color-mix(in oklab,var(--ink) 38%,var(--border));box-shadow:0 10px 26px -18px color-mix(in oklab,var(--ink) 60%,transparent)}
+.billing .inv-card .ic-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.billing .inv-card .ic-plan{font-family:var(--font-display);font-size:17px;font-weight:600;letter-spacing:-.01em;overflow-wrap:anywhere}
+.billing .inv-card .ic-amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:24px;font-weight:600;letter-spacing:-.01em}
+.billing .inv-card .ic-facts{display:grid;grid-template-columns:auto 1fr;gap:10px 28px;margin:0;padding-top:14px;border-top:1px solid var(--line)}
+.billing .inv-card .ic-facts dt{font-size:12px;color:var(--muted)}
+.billing .inv-card .ic-facts dd{margin:2px 0 0;font-size:13.5px;color:var(--fg)}
+.billing .inv-card .ic-facts dd.mono{font-family:var(--font-mono)}
+.billing .inv-card .ic-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:auto;padding-top:14px;border-top:1px solid var(--line)}
+@media (prefers-reduced-motion:reduce){.billing .inv-card{transition:none}}

@@ -36,13 +36,6 @@ describe('ApiCard', () => {
     expect(container.querySelector('.thumb .ico')?.textContent).toBe('')
   })
 
-  it('sets the --tint CSS custom property on the card element', () => {
-    const { container } = render(<MemoryRouter><LanguageProvider><ApiCard p={product} onSubscribe={vi.fn()} /></LanguageProvider></MemoryRouter>)
-    const card = container.querySelector('.card')
-    const style = card?.getAttribute('style') ?? ''
-    expect(style).toContain('--tint')
-  })
-
   it('renders .crow1 .stars with exactly 5 star SVGs (excluding hidden defs svg)', () => {
     const { container } = render(<MemoryRouter><LanguageProvider><ApiCard p={product} onSubscribe={vi.fn()} /></LanguageProvider></MemoryRouter>)
     const stars = container.querySelector('.crow1 .stars')

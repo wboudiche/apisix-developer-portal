@@ -10,6 +10,8 @@ import { Pagination } from '../../components/Pagination'
 import { ConfirmModal, type ModalSpec } from '../../components/ConfirmModal'
 import { useT, useLang } from '../../i18n/LanguageProvider'
 import { priceLabel } from '../../money'
+import { ViewToggle } from '../../components/ViewToggle'
+import { usePersistedView } from '../../components/usePersistedView'
 
 const TIERS = ['Free', 'Silver', 'Gold']
 
@@ -25,6 +27,7 @@ export function PlansPage() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const pageSize = 20
+  const [view, pickView] = usePersistedView('adminPlansView', 'list')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Plan | null>(null)
   const [name, setName] = useState('')
@@ -131,8 +134,11 @@ export function PlansPage() {
         </div>
       </Composer>
 
-      <div className="list-head"><h3>{t('admin.availablePlansHeading')}</h3></div>
-      <div className="rows">
+      <div className="list-head">
+        <h3>{t('admin.availablePlansHeading')}</h3>
+        <div style={{ marginLeft: 'auto' }}><ViewToggle value={view} onChange={pickView} /></div>
+      </div>
+      <div className={`rows${view === 'cards' ? ' cards' : ''}`}>
         {plans.length === 0 && (
           <div className="aempty"><h4>{t('admin.noPlansHeading')}</h4><p>{t('admin.createFirstPlanHint')}</p></div>
         )}

@@ -237,22 +237,63 @@
 .appdetail .qm-fill.danger{background:var(--danger,#c0341d)}
 .appdetail .qm-sub{font-size:12px;color:var(--faint)}
 
-/* Applications index (list view) */
-.appdetail .applist-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
-.appdetail .applist-title{font-family:var(--font-display);font-size:26px;font-weight:800;letter-spacing:-.02em}
-.appdetail .applist-sub{font-size:14px;color:var(--muted);margin-top:4px;max-width:560px}
-.appdetail .applist-create{display:flex;gap:10px;margin-bottom:18px}
-.appdetail .applist-create input{flex:1;height:40px;padding:0 12px;border:1px solid var(--border-2);border-radius:10px;background:var(--bg);color:var(--fg)}
-.appdetail .applist{display:flex;flex-direction:column;gap:12px}
-.appdetail .app-card{display:flex;align-items:center;gap:16px;padding:16px 18px;border:1px solid var(--border-2);border-radius:14px;background:var(--surface);text-decoration:none;color:inherit;transition:border-color .15s,box-shadow .15s,transform .05s}
-.appdetail .app-card:hover{border-color:var(--accent);box-shadow:0 1px 0 var(--accent-soft),0 8px 24px -16px rgba(0,0,0,.4)}
-.appdetail .app-card .mg{width:46px;height:46px;border-radius:11px;flex:none;display:grid;place-items:center;color:#fff;font-family:var(--font-display);font-weight:700;font-size:17px}
-.appdetail .app-card .ac-main{min-width:0;flex:1}
-.appdetail .app-card .ac-top{display:flex;align-items:baseline;gap:10px}
-.appdetail .app-card .ac-top b{font-size:16px;font-weight:700}
-.appdetail .app-card .ac-ref{font-size:12px;color:var(--faint)}
-.appdetail .app-card .ac-desc{font-size:13px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:560px}
-.appdetail .app-card .ac-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:7px}
+/* Applications index — styled like the catalog's "C2 Quiet" cards: white
+   surface, crimson-ink accents only (initials tile, primary action). Two
+   layouts share one markup: .applist.cards (grid) and .applist.list (rows). */
+.appdetail .applist-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+.appdetail .applist-title{font-family:var(--font-display);font-size:30px;font-weight:700;letter-spacing:-.02em;text-wrap:balance}
+.appdetail .applist-sub{font-size:14px;color:var(--muted);margin-top:5px;max-width:560px}
+.appdetail .applist-actions{display:flex;align-items:center;gap:10px}
+.appdetail .applist .btn.primary,.appdetail .applist-head .btn.primary,.appdetail .applist-create .btn.primary{background:var(--accent);box-shadow:none}
+.appdetail .applist-head .btn.primary:hover,.appdetail .applist-create .btn.primary:hover{background:color-mix(in oklab,var(--accent) 86%,#000);transform:none;box-shadow:none}
+:root[data-theme="dark"] .appdetail .applist-head .btn.primary,:root[data-theme="dark"] .appdetail .applist-create .btn.primary{background:oklch(53% 0.19 27)}
+
+
+/* create panel */
+.appdetail .applist-create{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:20px;padding:16px;border:1px solid color-mix(in oklab,var(--ink) 9%,var(--border));border-radius:14px;background:var(--surface)}
+.appdetail .applist-create .ac-input{flex:1 1 260px;min-width:0;height:42px;padding:0 14px;border:1px solid var(--border-2);border-radius:10px;background:var(--bg);color:var(--fg);font:inherit;font-size:14px}
+.appdetail .applist-create .ac-team{display:flex;flex-direction:column;gap:5px;flex:0 1 300px;min-width:0}
+.appdetail .applist-create label{font-size:12.5px;font-weight:600;color:var(--muted)}
+.appdetail .applist-create select{height:42px;padding:0 34px 0 12px;border:1px solid var(--border-2);border-radius:10px;background:var(--bg);color:var(--fg);font:inherit;font-size:14px;width:100%;
+  appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:16px}
+.appdetail .applist-create .ac-input:focus,.appdetail .applist-create select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.appdetail .applist-create .btn{height:42px}
+.dcard .applist-create{border:0;padding:0;background:none;margin:0}
+
+/* shared item */
+.appdetail .app-card{--line:color-mix(in oklab,var(--ink) 9%,var(--border));
+  position:relative;display:flex;gap:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);text-decoration:none;color:inherit;
+  transition:border-color .2s cubic-bezier(.22,1,.36,1),box-shadow .2s cubic-bezier(.22,1,.36,1)}
+.appdetail .app-card:hover{border-color:color-mix(in oklab,var(--ink) 38%,var(--border));box-shadow:0 10px 26px -18px color-mix(in oklab,var(--ink) 60%,transparent)}
+.appdetail .app-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.appdetail .app-card .mg{width:42px;height:42px;border-radius:11px;flex:none;display:grid;place-items:center;background:var(--accent-soft);color:var(--ink-soft);font-family:var(--font-display);font-weight:700;font-size:16px}
+:root[data-theme="dark"] .appdetail .app-card .mg{color:oklch(86% 0.07 27)}
+.appdetail .app-card .ac-main{min-width:0;flex:1;display:flex;flex-direction:column;gap:6px}
+.appdetail .app-card .ac-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.appdetail .app-card .ac-top b{font-family:var(--font-display);font-size:18px;font-weight:600;letter-spacing:-.01em;overflow-wrap:anywhere}
+.appdetail .app-card .ac-ref{font-size:12.5px;color:var(--muted)}
+.appdetail .app-card .ac-desc{font-size:14px;color:var(--muted);line-height:1.5}
+.appdetail .app-card .ac-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.appdetail .app-card .ac-meta .mono{color:var(--fg)}
 .appdetail .app-card .ac-sep{color:var(--faint)}
-.appdetail .app-card .ac-go{flex:none;font-size:13px;font-weight:600;color:var(--accent);opacity:0;transition:opacity .15s}
-.appdetail .app-card:hover .ac-go{opacity:1}
+.appdetail .app-card .pill.team{font-size:12.5px;font-weight:500;color:var(--fg);background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:3px 9px}
+.appdetail .app-card .ac-go{flex:none;font-size:13.5px;font-weight:600;color:var(--accent-d)}
+:root[data-theme="dark"] .appdetail .app-card .ac-go{color:oklch(78% 0.12 27)}
+.appdetail .app-card:hover .ac-go{text-decoration:underline;text-underline-offset:3px}
+
+/* list layout: one row per app */
+.appdetail .applist.list{display:flex;flex-direction:column;gap:10px}
+.appdetail .applist.list .app-card{align-items:center;padding:16px 20px}
+.appdetail .applist.list .ac-desc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:620px}
+
+/* card layout: grid of cards, footer pinned to the bottom */
+.appdetail .applist.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
+/* tile + name share the first row; description and meta span the card */
+.appdetail .applist.cards .app-card{display:grid;grid-template-columns:42px minmax(0,1fr) auto;grid-auto-rows:auto;align-items:center;column-gap:12px;row-gap:12px;padding:20px}
+.appdetail .applist.cards .ac-main{display:contents}
+.appdetail .applist.cards .mg{grid-column:1;grid-row:1}
+.appdetail .applist.cards .ac-top{grid-column:2;grid-row:1;flex-direction:column;align-items:flex-start;gap:2px}
+.appdetail .applist.cards .ac-go{grid-column:3;grid-row:1;align-self:start}
+.appdetail .applist.cards .ac-desc{grid-column:1 / -1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.appdetail .applist.cards .ac-meta{grid-column:1 / -1;align-self:end;padding-top:14px;border-top:1px solid var(--line)}
+@media (prefers-reduced-motion:reduce){.appdetail .app-card{transition:none}}

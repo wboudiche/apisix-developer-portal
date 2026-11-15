@@ -4,9 +4,11 @@ import { getApplications, createApplication, getTeams } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider'
 import { TopBar } from '../../components/TopBar'
 import type { Application, Team } from '../../api/types'
-import { appRef, initials, useFormatDate, glyphGradient, subsCountKey } from './helpers'
+import { appRef, initials, useFormatDate, subsCountKey } from './helpers'
 import { useT } from '../../i18n/LanguageProvider'
 import '../../styles/appdetail.css'
+import { ViewToggle } from '../../components/ViewToggle'
+import { usePersistedView } from '../../components/usePersistedView'
 
 export function ApplicationsIndex() {
   const { token } = useAuth()
@@ -19,6 +21,7 @@ export function ApplicationsIndex() {
   const [err, setErr] = useState('')
   const [teams, setTeams] = useState<Team[]>([])
   const [teamId, setTeamId] = useState<number | ''>('')
+  const [view, pickView] = usePersistedView('appsView', 'cards')
 
   useEffect(() => {
     if (!token) return
@@ -46,13 +49,16 @@ export function ApplicationsIndex() {
   const createForm = (
     <form onSubmit={onCreate} className="applist-create">
       <input
+        className="ac-input"
         aria-label={t('app.newAppNameLabel')} placeholder={t('app.newAppNameLabel')}
         value={name} onChange={e => setName(e.target.value)} autoFocus
       />
-      <label htmlFor="app-team">{t('app.teamLabel')}</label>
-      <select id="app-team" value={teamId} onChange={e => setTeamId(Number(e.target.value))}>
-        {teams.map(tm => <option key={tm.id} value={tm.id}>{tm.name}{tm.personal ? t('app.personalSuffix') : ''}</option>)}
-      </select>
+      <div className="ac-team">
+        <label htmlFor="app-team">{t('app.teamLabel')}</label>
+        <select id="app-team" value={teamId} onChange={e => setTeamId(Number(e.target.value))}>
+          {teams.map(tm => <option key={tm.id} value={tm.id}>{tm.name}{tm.personal ? t('app.personalSuffix') : ''}</option>)}
+        </select>
+      </div>
       <button className="btn primary" type="submit">{t('app.create')}</button>
     </form>
   )
@@ -67,7 +73,10 @@ export function ApplicationsIndex() {
             <p className="applist-sub">{t('app.listSubtitle')}</p>
           </div>
           {apps && apps.length > 0 && (
-            <button className="btn primary" onClick={() => setCreating(c => !c)}>{t('subscribeModal.newApplication')}</button>
+            <div className="applist-actions">
+              <ViewToggle value={view} onChange={pickView} />
+              <button className="btn primary" aria-expanded={creating} onClick={() => setCreating(c => !c)}>{t('subscribeModal.newApplication')}</button>
+            </div>
           )}
         </div>
 
@@ -86,12 +95,12 @@ export function ApplicationsIndex() {
         )}
 
         {apps && apps.length > 0 && (
-          <div className="applist">
+          <div className={`applist ${view}`}>
             {apps.map(a => {
               const subs = a.subscriptionCount ?? 0
               return (
                 <Link key={a.id} to={`/applications/${a.id}`} className="app-card">
-                  <span className="mg" style={{ background: glyphGradient(a.id) }}>{initials(a.name)}</span>
+                  <span className="mg" aria-hidden="true">{initials(a.name)}</span>
                   <div className="ac-main">
                     <div className="ac-top">
                       <b>{a.name}</b>

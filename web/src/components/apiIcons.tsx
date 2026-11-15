@@ -1,4 +1,3 @@
-import type React from 'react'
 
 // Inner SVG markup for each icon key. These are trusted static design constants
 // (not user input), so dangerouslySetInnerHTML is acceptable here.
@@ -35,48 +34,6 @@ export function ApiIcon({ name }: { name: string }) {
       dangerouslySetInnerHTML={{ __html: ICONS[name] ?? ICONS_FALLBACK }}
     />
   )
-}
-
-interface TintVars {
-  '--tint': string
-  '--tint-d': string
-  '--tint-sh'?: string
-  '--tint-line'?: string
-}
-
-const CATS: Record<string, TintVars> = {
-  Administration: {
-    '--tint':      'var(--c-admin)',
-    '--tint-d':    'oklch(44% 0.035 262)',
-    '--tint-sh':   'oklch(56% 0.035 262 /.35)',
-    '--tint-line': 'oklch(56% 0.035 262 /.14)',
-  },
-  Finance: {
-    '--tint':      'var(--c-finance)',
-    '--tint-d':    'oklch(42% 0.09 158)',
-    '--tint-sh':   'oklch(54% 0.09 158 /.35)',
-    '--tint-line': 'oklch(54% 0.09 158 /.14)',
-  },
-  Marketing: {
-    '--tint':      'var(--c-marketing)',
-    '--tint-d':    'oklch(46% 0.13 30)',
-    '--tint-sh':   'oklch(58% 0.13 30 /.35)',
-    '--tint-line': 'oklch(58% 0.13 30 /.14)',
-  },
-  Engineering: {
-    '--tint':      'var(--c-eng)',
-    '--tint-d':    'oklch(43% 0.11 288)',
-    '--tint-sh':   'oklch(55% 0.11 288 /.35)',
-    '--tint-line': 'oklch(55% 0.11 288 /.14)',
-  },
-}
-
-export function categoryTint(category: string): React.CSSProperties {
-  const vars: TintVars = CATS[category] ?? {
-    '--tint':   'var(--accent)',
-    '--tint-d': 'var(--accent-d)',
-  }
-  return vars as React.CSSProperties
 }
 
 const CAT_DOT_COLORS: Record<string, string> = {
