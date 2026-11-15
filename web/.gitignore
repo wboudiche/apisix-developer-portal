@@ -29,3 +29,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# test coverage (pnpm test:coverage, go test -coverprofile)
+coverage/
