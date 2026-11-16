@@ -14,7 +14,9 @@ import (
 func TestSeedEnMigration(t *testing.T) {
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
-		url = "postgres://portal:portal@localhost:5432/portal?sslmode=disable"
+		// Never fall back to the dev database: tests insert users, teams
+		// and apps they don't clean up. CI sets DATABASE_URL.
+		t.Skip("DATABASE_URL not set; skipping DB-backed test")
 	}
 	ctx := context.Background()
 	pool, err := Connect(ctx, url)
@@ -67,7 +69,9 @@ func TestSeedEnMigration(t *testing.T) {
 func TestSeedEnMigrationDoesNotClobberCustomizedContent(t *testing.T) {
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
-		url = "postgres://portal:portal@localhost:5432/portal?sslmode=disable"
+		// Never fall back to the dev database: tests insert users, teams
+		// and apps they don't clean up. CI sets DATABASE_URL.
+		t.Skip("DATABASE_URL not set; skipping DB-backed test")
 	}
 	ctx := context.Background()
 	pool, err := Connect(ctx, url)

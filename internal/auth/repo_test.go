@@ -24,7 +24,9 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
-		url = "postgres://portal:portal@localhost:5432/portal?sslmode=disable"
+		// Never fall back to the dev database: tests insert users, teams
+		// and apps they don't clean up. CI sets DATABASE_URL.
+		t.Skip("DATABASE_URL not set; skipping DB-backed test")
 	}
 	ctx := context.Background()
 	pool, err := db.Connect(ctx, url)
@@ -77,7 +79,9 @@ func TestCreateDuplicateEmailFails(t *testing.T) {
 func TestCreateAlsoCreatesPersonalTeam(t *testing.T) {
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
-		url = "postgres://portal:portal@localhost:5432/portal?sslmode=disable"
+		// Never fall back to the dev database: tests insert users, teams
+		// and apps they don't clean up. CI sets DATABASE_URL.
+		t.Skip("DATABASE_URL not set; skipping DB-backed test")
 	}
 	ctx := context.Background()
 	pool, err := db.Connect(ctx, url)
