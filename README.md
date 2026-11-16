@@ -74,7 +74,10 @@ explicit `Host:` header — so no `/etc/hosts` change is required.
 > to port **80** while LemonLDAP is published on **8081** — the `Host:`-header
 > commands below are the supported path.
 
-Tear down (removes volumes):
+Postgres, etcd and Prometheus keep their data in named volumes
+(`apisix-portal_pgdata`, `apisix-portal_etcd_data`, `apisix-portal_prometheus_data`),
+so `make down` / `docker compose down` followed by `up` keeps your users,
+products and gateway config. Tear down **and wipe** them:
 
 ```bash
 make full-down     # ... down -v
